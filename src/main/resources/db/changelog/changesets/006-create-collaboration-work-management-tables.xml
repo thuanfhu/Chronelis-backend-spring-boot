@@ -1,0 +1,374 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="006-create-collaboration-work-management-tables" author="copilot">
+        <createTable tableName="workspaces">
+            <column name="id" type="BIGINT UNSIGNED" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(150)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="owner_id" type="VARCHAR(36)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="DATETIME(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="DATETIME(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="workspaces" baseColumnNames="owner_id" referencedTableName="users" referencedColumnNames="user_id" constraintName="fk_workspaces_owner" onDelete="RESTRICT"/>
+
+        <createTable tableName="workspace_members">
+            <column name="id" type="BIGINT UNSIGNED" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="workspace_id" type="BIGINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="user_id" type="VARCHAR(36)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="role" type="VARCHAR(30)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="joined_at" type="DATETIME(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint tableName="workspace_members" columnNames="workspace_id,user_id" constraintName="uk_workspace_members_workspace_user"/>
+
+        <addForeignKeyConstraint baseTableName="workspace_members" baseColumnNames="workspace_id" referencedTableName="workspaces" referencedColumnNames="id" constraintName="fk_workspace_members_workspace" onDelete="CASCADE"/>
+
+        <addForeignKeyConstraint baseTableName="workspace_members" baseColumnNames="user_id" referencedTableName="users" referencedColumnNames="user_id" constraintName="fk_workspace_members_user" onDelete="CASCADE"/>
+
+        <createTable tableName="projects">
+            <column name="id" type="BIGINT UNSIGNED" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="workspace_id" type="BIGINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(150)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(30)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by" type="VARCHAR(36)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="DATETIME(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="DATETIME(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="projects" baseColumnNames="workspace_id" referencedTableName="workspaces" referencedColumnNames="id" constraintName="fk_projects_workspace" onDelete="CASCADE"/>
+
+        <addForeignKeyConstraint baseTableName="projects" baseColumnNames="created_by" referencedTableName="users" referencedColumnNames="user_id" constraintName="fk_projects_created_by" onDelete="RESTRICT"/>
+
+        <createTable tableName="goals">
+            <column name="id" type="BIGINT UNSIGNED" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="project_id" type="BIGINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="title" type="VARCHAR(200)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="goal_type" type="VARCHAR(30)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(30)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="progress_percent" type="DECIMAL(5,2)" defaultValueNumeric="0.00">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by" type="VARCHAR(36)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="DATETIME(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="DATETIME(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addCheckConstraint tableName="goals" constraintName="chk_goals_progress_percent" checkConstraint="progress_percent >= 0 AND progress_percent <= 100"/>
+
+        <addForeignKeyConstraint baseTableName="goals" baseColumnNames="project_id" referencedTableName="projects" referencedColumnNames="id" constraintName="fk_goals_project" onDelete="CASCADE"/>
+
+        <addForeignKeyConstraint baseTableName="goals" baseColumnNames="created_by" referencedTableName="users" referencedColumnNames="user_id" constraintName="fk_goals_created_by" onDelete="RESTRICT"/>
+
+        <createTable tableName="task_statuses">
+            <column name="id" type="BIGINT UNSIGNED" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="project_id" type="BIGINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="code" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="position" type="INT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_closed" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="DATETIME(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint tableName="task_statuses" columnNames="project_id,code" constraintName="uk_task_statuses_project_code"/>
+
+        <addForeignKeyConstraint baseTableName="task_statuses" baseColumnNames="project_id" referencedTableName="projects" referencedColumnNames="id" constraintName="fk_task_statuses_project" onDelete="CASCADE"/>
+
+        <createTable tableName="tasks">
+            <column name="id" type="BIGINT UNSIGNED" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="project_id" type="BIGINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="goal_id" type="BIGINT UNSIGNED"/>
+            <column name="status_id" type="BIGINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="title" type="VARCHAR(200)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="priority" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="assignee_id" type="VARCHAR(36)"/>
+            <column name="created_by" type="VARCHAR(36)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="due_date" type="DATETIME(6)"/>
+            <column name="estimated_minutes" type="INT UNSIGNED" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="board_position" type="INT UNSIGNED" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_completed" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="completed_at" type="DATETIME(6)"/>
+            <column name="created_at" type="DATETIME(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="DATETIME(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="tasks" baseColumnNames="project_id" referencedTableName="projects" referencedColumnNames="id" constraintName="fk_tasks_project" onDelete="CASCADE"/>
+
+        <addForeignKeyConstraint baseTableName="tasks" baseColumnNames="goal_id" referencedTableName="goals" referencedColumnNames="id" constraintName="fk_tasks_goal" onDelete="SET NULL"/>
+
+        <addForeignKeyConstraint baseTableName="tasks" baseColumnNames="status_id" referencedTableName="task_statuses" referencedColumnNames="id" constraintName="fk_tasks_status" onDelete="RESTRICT"/>
+
+        <addForeignKeyConstraint baseTableName="tasks" baseColumnNames="assignee_id" referencedTableName="users" referencedColumnNames="user_id" constraintName="fk_tasks_assignee" onDelete="SET NULL"/>
+
+        <addForeignKeyConstraint baseTableName="tasks" baseColumnNames="created_by" referencedTableName="users" referencedColumnNames="user_id" constraintName="fk_tasks_created_by" onDelete="RESTRICT"/>
+
+        <createTable tableName="task_schedules">
+            <column name="id" type="BIGINT UNSIGNED" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="task_id" type="BIGINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="scheduled_start" type="DATETIME(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="scheduled_end" type="DATETIME(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="scheduled_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by" type="VARCHAR(36)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="DATETIME(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="DATETIME(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addCheckConstraint tableName="task_schedules" constraintName="chk_task_schedules_time_range" checkConstraint="scheduled_end > scheduled_start"/>
+
+        <addForeignKeyConstraint baseTableName="task_schedules" baseColumnNames="task_id" referencedTableName="tasks" referencedColumnNames="id" constraintName="fk_task_schedules_task" onDelete="CASCADE"/>
+
+        <addForeignKeyConstraint baseTableName="task_schedules" baseColumnNames="created_by" referencedTableName="users" referencedColumnNames="user_id" constraintName="fk_task_schedules_created_by" onDelete="RESTRICT"/>
+
+        <createTable tableName="task_comments">
+            <column name="id" type="BIGINT UNSIGNED" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="task_id" type="BIGINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="user_id" type="VARCHAR(36)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="content" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="DATETIME(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="DATETIME(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="task_comments" baseColumnNames="task_id" referencedTableName="tasks" referencedColumnNames="id" constraintName="fk_task_comments_task" onDelete="CASCADE"/>
+
+        <addForeignKeyConstraint baseTableName="task_comments" baseColumnNames="user_id" referencedTableName="users" referencedColumnNames="user_id" constraintName="fk_task_comments_user" onDelete="RESTRICT"/>
+
+        <createTable tableName="notifications">
+            <column name="id" type="BIGINT UNSIGNED" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="VARCHAR(36)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="type" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="title" type="VARCHAR(200)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="message" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reference_type" type="VARCHAR(30)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reference_id" type="BIGINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_read" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="DATETIME(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="notifications" baseColumnNames="user_id" referencedTableName="users" referencedColumnNames="user_id" constraintName="fk_notifications_user" onDelete="CASCADE"/>
+
+        <createTable tableName="activity_logs">
+            <column name="id" type="BIGINT UNSIGNED" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="workspace_id" type="BIGINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="actor_id" type="VARCHAR(36)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="action_type" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="target_type" type="VARCHAR(30)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="target_id" type="BIGINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="DATETIME(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="activity_logs" baseColumnNames="workspace_id" referencedTableName="workspaces" referencedColumnNames="id" constraintName="fk_activity_logs_workspace" onDelete="CASCADE"/>
+
+        <addForeignKeyConstraint baseTableName="activity_logs" baseColumnNames="actor_id" referencedTableName="users" referencedColumnNames="user_id" constraintName="fk_activity_logs_actor" onDelete="RESTRICT"/>
+
+        <createIndex tableName="projects" indexName="idx_projects_workspace_id">
+            <column name="workspace_id"/>
+        </createIndex>
+
+        <createIndex tableName="goals" indexName="idx_goals_project_id">
+            <column name="project_id"/>
+        </createIndex>
+
+        <createIndex tableName="task_statuses" indexName="idx_task_statuses_project_position">
+            <column name="project_id"/>
+            <column name="position"/>
+        </createIndex>
+
+        <createIndex tableName="tasks" indexName="idx_tasks_project_id">
+            <column name="project_id"/>
+        </createIndex>
+
+        <createIndex tableName="tasks" indexName="idx_tasks_status_board_position">
+            <column name="status_id"/>
+            <column name="board_position"/>
+        </createIndex>
+
+        <createIndex tableName="tasks" indexName="idx_tasks_goal_id">
+            <column name="goal_id"/>
+        </createIndex>
+
+        <createIndex tableName="tasks" indexName="idx_tasks_assignee_id">
+            <column name="assignee_id"/>
+        </createIndex>
+
+        <createIndex tableName="task_schedules" indexName="idx_task_schedules_task_id">
+            <column name="task_id"/>
+        </createIndex>
+
+        <createIndex tableName="task_schedules" indexName="idx_task_schedules_scheduled_date">
+            <column name="scheduled_date"/>
+        </createIndex>
+
+        <createIndex tableName="task_schedules" indexName="idx_task_schedules_start_end">
+            <column name="scheduled_start"/>
+            <column name="scheduled_end"/>
+        </createIndex>
+
+        <createIndex tableName="task_comments" indexName="idx_task_comments_task_created_at">
+            <column name="task_id"/>
+            <column name="created_at"/>
+        </createIndex>
+
+        <createIndex tableName="notifications" indexName="idx_notifications_user_read_created_at">
+            <column name="user_id"/>
+            <column name="is_read"/>
+            <column name="created_at"/>
+        </createIndex>
+
+        <createIndex tableName="activity_logs" indexName="idx_activity_logs_workspace_created_at">
+            <column name="workspace_id"/>
+            <column name="created_at"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

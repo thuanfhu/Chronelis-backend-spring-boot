@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="004-create-role-users-table" author="swiftera2">
+        <createTable tableName="role_users">
+            <column name="user_id" type="VARCHAR(36)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="role_id" type="VARCHAR(36)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addPrimaryKey tableName="role_users" columnNames="user_id, role_id" constraintName="pk_role_users"/>
+        <addForeignKeyConstraint baseTableName="role_users" baseColumnNames="user_id" referencedTableName="users" referencedColumnNames="user_id" constraintName="fk_role_users_user" onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="role_users" baseColumnNames="role_id" referencedTableName="roles" referencedColumnNames="role_id" constraintName="fk_role_users_role" onDelete="CASCADE"/>
+    </changeSet>
+
+</databaseChangeLog>

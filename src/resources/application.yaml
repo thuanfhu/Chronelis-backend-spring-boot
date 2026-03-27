@@ -1,0 +1,92 @@
+server:
+    port: ${SERVER_PORT:8080}
+    compression:
+        enabled: true
+
+spring:
+    application:
+        name: chronelis
+    servlet:
+        encoding:
+            charset: UTF-8
+        multipart:
+            max-file-size: 5MB
+            max-request-size: 25MB
+    main:
+        lazy-initialization: true
+    jpa:
+        hibernate:
+            ddl-auto: validate # Liquibase manages schema, Hibernate only validates
+        properties:
+            hibernate:
+                dialect: org.hibernate.dialect.MySQLDialect
+        show-sql: false
+
+    datasource:
+        driverClassName: com.mysql.cj.jdbc.Driver
+        url: ${DB_URL}
+        username: ${DB_USERNAME}
+        password: ${DB_PASSWORD}
+        hikari:
+            connectionInitSql: "SET SESSION sql_require_primary_key = 0"
+
+    liquibase:
+        enabled: true
+        change-log: classpath:db/changelog/db.changelog-master.xml
+        drop-first: false # CRITICAL: Never set to true in production!
+
+    data:
+        web:
+            pageable:
+                one-indexed-parameters: true        
+
+    mail:
+        host: ${MAIL_HOST:smtp.gmail.com}
+        port: ${MAIL_PORT:587}
+        username: ${MAIL_USERNAME}
+        password: ${MAIL_PASSWORD}
+        properties:
+            mail:
+                smtp:
+                    auth: true
+                    starttls:
+                        enable: true
+
+chronelis:
+    frontend:
+        base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
+    account:
+        base-password: ${ACCOUNT_BASE_PASSWORD:base_pass}
+    allowed-init: ${ALLOWED_INIT:true}
+
+jwt:
+    access-signer-key: ${JWT_ACCESS_SIGNER_KEY}
+    refresh-signer-key: ${JWT_REFRESH_SIGNER_KEY}
+    access-token-duration-in-seconds: ${JWT_ACCESS_TOKEN_DURATION:3600} # 1h
+    refresh-token-duration-in-seconds: ${JWT_REFRESH_TOKEN_DURATION:604800} # 7 days
+
+aws:
+    credentials:
+        accessKey: ${AWS_ACCESS_KEY}
+        secretKey: ${AWS_SECRET_KEY}
+    s3:
+        bucketName: ${AWS_BUCKET_NAME}
+        region: ${AWS_REGION}
+
+file:
+    allowedTypes: ${FILE_ALLOWED_TYPES:image/jpeg,image/png,image/jpg,audio/mpeg}
+    maxSize: ${FILE_MAX_SIZE:5242880} # 5 MB
+    minSize: ${FILE_MIN_SIZE:1024} # 1 KB
+
+redis:
+    host: ${REDIS_HOST:redis-11236.c295.ap-southeast-1-1.ec2.cloud.redislabs.com}
+    port: ${REDIS_PORT:11236}
+    username: ${REDIS_USERNAME:default}
+    password: ${REDIS_PASSWORD}
+    timeout: ${REDIS_TIMEOUT:2000}
+    jedis:
+        pool:
+            max-active: ${REDIS_POOL_MAX_ACTIVE:8}
+            max-idle: ${REDIS_POOL_MAX_IDLE:8}
+            min-idle: ${REDIS_POOL_MIN_IDLE:0}
+            max-wait: ${REDIS_POOL_MAX_WAIT:-1}

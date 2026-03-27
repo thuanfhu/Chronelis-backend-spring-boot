@@ -1,0 +1,31 @@
+package com.devloopsx.chronelis.dto.response.user;
+
+import com.devloopsx.chronelis.dto.response.common.AuditResponse;
+import com.devloopsx.chronelis.dto.response.role.RoleSecureResponse;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.*;
+import lombok.experimental.FieldDefaults;
+import lombok.experimental.SuperBuilder;
+
+import java.util.List;
+
+@Data
+@EqualsAndHashCode(callSuper = true)
+@NoArgsConstructor
+@AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
+@SuperBuilder
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class UserSecureResponse extends AuditResponse {
+	String userId;
+	String email;
+	String firstName;
+	String lastName;
+	String nickname;
+	String phoneNumber;
+	String biography;
+	String avatarUrl;
+	String city;
+	String nationality;
+	List<RoleSecureResponse> rolesSecured;
+}

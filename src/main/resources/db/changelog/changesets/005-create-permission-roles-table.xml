@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="005-create-permission-roles-table" author="swiftera2">
+        <createTable tableName="permission_roles">
+            <column name="role_id" type="VARCHAR(36)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="permission_id" type="VARCHAR(36)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addPrimaryKey tableName="permission_roles" columnNames="role_id, permission_id" constraintName="pk_permission_roles"/>
+        <addForeignKeyConstraint baseTableName="permission_roles" baseColumnNames="role_id" referencedTableName="roles" referencedColumnNames="role_id" constraintName="fk_permission_roles_role" onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="permission_roles" baseColumnNames="permission_id" referencedTableName="permissions" referencedColumnNames="permission_id" constraintName="fk_permission_roles_permission" onDelete="CASCADE"/>
+    </changeSet>
+
+</databaseChangeLog>

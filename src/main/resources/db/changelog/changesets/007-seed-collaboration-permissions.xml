@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="007-seed-collaboration-permissions" author="copilot" dbms="mysql">
+        <sql>
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Workspace create', '/api/v1/workspaces', 'POST', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/workspaces' AND http_method = 'POST');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Workspace update', '/api/v1/workspaces/{workspaceId}', 'PATCH', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/workspaces/{workspaceId}' AND http_method = 'PATCH');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Workspace detail', '/api/v1/workspaces/{workspaceId}', 'GET', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/workspaces/{workspaceId}' AND http_method = 'GET');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Workspace list', '/api/v1/workspaces', 'GET', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/workspaces' AND http_method = 'GET');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Workspace member add', '/api/v1/workspaces/{workspaceId}/members', 'POST', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/workspaces/{workspaceId}/members' AND http_method = 'POST');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Workspace member list', '/api/v1/workspaces/{workspaceId}/members', 'GET', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/workspaces/{workspaceId}/members' AND http_method = 'GET');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Workspace member role update', '/api/v1/workspaces/{workspaceId}/members/{userId}/role', 'PATCH', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/workspaces/{workspaceId}/members/{userId}/role' AND http_method = 'PATCH');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Workspace member remove', '/api/v1/workspaces/{workspaceId}/members/{userId}', 'DELETE', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/workspaces/{workspaceId}/members/{userId}' AND http_method = 'DELETE');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Project create', '/api/v1/projects', 'POST', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/projects' AND http_method = 'POST');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Project update', '/api/v1/projects/{projectId}', 'PATCH', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/projects/{projectId}' AND http_method = 'PATCH');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Project status update', '/api/v1/projects/{projectId}/status', 'PATCH', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/projects/{projectId}/status' AND http_method = 'PATCH');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Project detail', '/api/v1/projects/{projectId}', 'GET', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/projects/{projectId}' AND http_method = 'GET');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Project list by workspace', '/api/v1/projects/workspace/{workspaceId}', 'GET', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/projects/workspace/{workspaceId}' AND http_method = 'GET');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Goal create', '/api/v1/goals', 'POST', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/goals' AND http_method = 'POST');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Goal update', '/api/v1/goals/{goalId}', 'PATCH', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/goals/{goalId}' AND http_method = 'PATCH');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Goal detail', '/api/v1/goals/{goalId}', 'GET', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/goals/{goalId}' AND http_method = 'GET');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Goal list by project', '/api/v1/goals/project/{projectId}', 'GET', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/goals/project/{projectId}' AND http_method = 'GET');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Goal delete', '/api/v1/goals/{goalId}', 'DELETE', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/goals/{goalId}' AND http_method = 'DELETE');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Task status create', '/api/v1/task-statuses', 'POST', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/task-statuses' AND http_method = 'POST');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Task status list by project', '/api/v1/task-statuses/project/{projectId}', 'GET', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/task-statuses/project/{projectId}' AND http_method = 'GET');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Task status update', '/api/v1/task-statuses/{statusId}', 'PATCH', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/task-statuses/{statusId}' AND http_method = 'PATCH');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Task status reorder', '/api/v1/task-statuses/project/{projectId}/reorder', 'PATCH', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/task-statuses/project/{projectId}/reorder' AND http_method = 'PATCH');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Task status delete', '/api/v1/task-statuses/{statusId}', 'DELETE', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/task-statuses/{statusId}' AND http_method = 'DELETE');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Task create', '/api/v1/tasks', 'POST', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/tasks' AND http_method = 'POST');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Task update', '/api/v1/tasks/{taskId}', 'PATCH', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/tasks/{taskId}' AND http_method = 'PATCH');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Task detail', '/api/v1/tasks/{taskId}', 'GET', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/tasks/{taskId}' AND http_method = 'GET');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Task list by project', '/api/v1/tasks/project/{projectId}', 'GET', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/tasks/project/{projectId}' AND http_method = 'GET');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Task list by goal', '/api/v1/tasks/goal/{goalId}', 'GET', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/tasks/goal/{goalId}' AND http_method = 'GET');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Task move', '/api/v1/tasks/{taskId}/move', 'PATCH', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/tasks/{taskId}/move' AND http_method = 'PATCH');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Task reorder', '/api/v1/tasks/{taskId}/reorder', 'PATCH', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/tasks/{taskId}/reorder' AND http_method = 'PATCH');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Task assignee update', '/api/v1/tasks/{taskId}/assignee', 'PATCH', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/tasks/{taskId}/assignee' AND http_method = 'PATCH');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Task completion update', '/api/v1/tasks/{taskId}/completion', 'PATCH', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/tasks/{taskId}/completion' AND http_method = 'PATCH');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Task delete', '/api/v1/tasks/{taskId}', 'DELETE', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/tasks/{taskId}' AND http_method = 'DELETE');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Task schedule create', '/api/v1/task-schedules', 'POST', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/task-schedules' AND http_method = 'POST');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Task schedule update', '/api/v1/task-schedules/{scheduleId}', 'PATCH', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/task-schedules/{scheduleId}' AND http_method = 'PATCH');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Task schedule delete', '/api/v1/task-schedules/{scheduleId}', 'DELETE', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/task-schedules/{scheduleId}' AND http_method = 'DELETE');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Task schedule list by task', '/api/v1/task-schedules/task/{taskId}', 'GET', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/task-schedules/task/{taskId}' AND http_method = 'GET');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Task schedule project calendar', '/api/v1/task-schedules/calendar/project/{projectId}', 'GET', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/task-schedules/calendar/project/{projectId}' AND http_method = 'GET');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Task schedule workspace calendar', '/api/v1/task-schedules/calendar/workspace/{workspaceId}', 'GET', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/task-schedules/calendar/workspace/{workspaceId}' AND http_method = 'GET');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Task comment add', '/api/v1/task-comments', 'POST', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/task-comments' AND http_method = 'POST');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Task comment update', '/api/v1/task-comments/{commentId}', 'PATCH', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/task-comments/{commentId}' AND http_method = 'PATCH');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Task comment delete', '/api/v1/task-comments/{commentId}', 'DELETE', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/task-comments/{commentId}' AND http_method = 'DELETE');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Task comment list by task', '/api/v1/task-comments/task/{taskId}', 'GET', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/task-comments/task/{taskId}' AND http_method = 'GET');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Notification list', '/api/v1/notifications', 'GET', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/notifications' AND http_method = 'GET');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Notification unread count', '/api/v1/notifications/unread-count', 'GET', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/notifications/unread-count' AND http_method = 'GET');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Notification mark one', '/api/v1/notifications/{notificationId}/read', 'PATCH', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/notifications/{notificationId}/read' AND http_method = 'PATCH');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Notification mark all', '/api/v1/notifications/read-all', 'PATCH', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/notifications/read-all' AND http_method = 'PATCH');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Activity log list by workspace', '/api/v1/activity-logs/workspace/{workspaceId}', 'GET', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/activity-logs/workspace/{workspaceId}' AND http_method = 'GET');
+
+            INSERT INTO permission_roles (role_id, permission_id)
+            SELECT r.role_id, p.permission_id
+            FROM roles r
+            JOIN permissions p ON p.module = 'COLLAB'
+            WHERE r.name = 'ADMIN'
+              AND NOT EXISTS (
+                  SELECT 1 FROM permission_roles pr
+                  WHERE pr.role_id = r.role_id AND pr.permission_id = p.permission_id
+              );
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

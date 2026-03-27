@@ -1,0 +1,13 @@
+package com.devloopsx.chronelis.dto.request.task;
+
+import lombok.*;
+import lombok.experimental.FieldDefaults;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@FieldDefaults(level = AccessLevel.PRIVATE)
+public class AssignTaskRequest {
+    String assigneeId;
+}

@@ -1,0 +1,44 @@
+name: Java CI with Maven
+
+on:
+    push:
+        branches: ["main"]
+
+jobs:
+    build:
+        runs-on: self-hosted
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Set up JDK 25
+              uses: actions/setup-java@v4
+              with:
+                  java-version: "25"
+                  distribution: "temurin"
+                  cache: maven
+
+            - name: Create .env file from secret
+              run: echo "${{ secrets.PROD_ENV_FILE }}" > .env
+
+            - name: Build with Maven (skip tests to save time)
+              run: mvn -B clean package -DskipTests -T 1C --no-transfer-progress --file pom.xml
+
+            - name: Stop and clean previous PM2 process
+              run: |
+                  if pm2 list | grep -q chronelis; then
+                    echo "Stopping and deleting old process..."
+                    pm2 stop chronelis || true
+                    pm2 delete chronelis || true
+                  else
+                    echo "No existing process found, skipping cleanup"
+                  fi
+
+            - name: Start application with PM2
+              run: |
+                  pm2 start --name chronelis "java -jar ./target/chronelis-backend-spring-boot-0.0.1-SNAPSHOT.jar"
+
+            - name: Verify running process
+              run: |
+                  pm2 list
