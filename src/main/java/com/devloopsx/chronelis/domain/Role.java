@@ -23,7 +23,7 @@ public class Role extends BaseEntity {
 
 	@ManyToMany(fetch = FetchType.LAZY)
 	@JoinTable(name = "permission_roles", joinColumns = @JoinColumn(name = "role_id"), inverseJoinColumns = @JoinColumn(name = "permission_id"))
-	@JsonIgnoreProperties(value = {"roles"})
+	@JsonIgnoreProperties(value = { "roles" })
 	List<Permission> permissions;
 
 	@ManyToMany(fetch = FetchType.LAZY, mappedBy = "roles")

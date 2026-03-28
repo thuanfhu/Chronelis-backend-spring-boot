@@ -14,5 +14,8 @@ public class UpdateProjectRequest {
     @Size(max = 150, message = "INVALID_REQUEST_DATA")
     String name;
 
+    @Size(max = 2000, message = "INVALID_REQUEST_DATA")
+    String description;
+
     ProjectStatusType status;
 }

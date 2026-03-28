@@ -29,6 +29,9 @@ public class Project {
     @Column(nullable = false, length = 150)
     String name;
 
+    @Column(columnDefinition = "TEXT")
+    String description;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     ProjectStatusType status;

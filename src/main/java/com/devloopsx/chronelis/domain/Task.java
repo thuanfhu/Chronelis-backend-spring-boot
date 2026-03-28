@@ -37,6 +37,9 @@ public class Task {
     @Column(nullable = false, length = 200)
     String title;
 
+    @Column(columnDefinition = "TEXT")
+    String description;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     TaskPriorityType priority;

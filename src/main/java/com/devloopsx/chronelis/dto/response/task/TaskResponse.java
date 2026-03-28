@@ -19,6 +19,7 @@ public class TaskResponse {
     Long goalId;
     TaskStatusResponse status;
     String title;
+    String description;
     TaskPriorityType priority;
     UserSummaryResponse assignee;
     UserSummaryResponse createdBy;

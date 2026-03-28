@@ -18,4 +18,7 @@ public class CreateProjectRequest {
     @NotBlank(message = "INVALID_REQUEST_DATA")
     @Size(max = 150, message = "INVALID_REQUEST_DATA")
     String name;
+
+    @Size(max = 2000, message = "INVALID_REQUEST_DATA")
+    String description;
 }

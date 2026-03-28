@@ -16,6 +16,7 @@ public class ProjectResponse {
     Long id;
     Long workspaceId;
     String name;
+    String description;
     ProjectStatusType status;
     UserSummaryResponse createdBy;
     LocalDateTime createdAt;

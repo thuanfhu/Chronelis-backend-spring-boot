@@ -17,6 +17,9 @@ public class UpdateTaskRequest {
     @Size(max = 200, message = "INVALID_REQUEST_DATA")
     String title;
 
+    @Size(max = 5000, message = "INVALID_REQUEST_DATA")
+    String description;
+
     Long goalId;
 
     TaskPriorityType priority;
