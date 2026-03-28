@@ -11,12 +11,24 @@ import io.github.cdimascio.dotenv.Dotenv;
 public class ChronelisApplication {
 
 	public static void main(String[] args) {
-		Dotenv dotenv = Dotenv.configure().ignoreIfMalformed().ignoreIfMissing().load();
-		dotenv.entries().forEach(entry -> {
-			System.setProperty(entry.getKey(), entry.getValue());
-		});
+		loadDotenvFrom(".");
+		loadDotenvFrom("src/main/resources");
 
 		SpringApplication.run(ChronelisApplication.class, args);
+	}
+
+	private static void loadDotenvFrom(String directory) {
+		Dotenv dotenv = Dotenv.configure()
+				.directory(directory)
+				.ignoreIfMalformed()
+				.ignoreIfMissing()
+				.load();
+
+		dotenv.entries().forEach(entry -> {
+			if (System.getProperty(entry.getKey()) == null) {
+				System.setProperty(entry.getKey(), entry.getValue());
+			}
+		});
 	}
 
 }

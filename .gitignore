@@ -7,7 +7,6 @@ target/
 
 # Ignore application configuration files
 **/.env
-src/resources/.env
 .env
 
 ### STS ###

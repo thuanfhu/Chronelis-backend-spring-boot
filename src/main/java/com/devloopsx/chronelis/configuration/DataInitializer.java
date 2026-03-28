@@ -530,12 +530,7 @@ public class DataInitializer implements ApplicationRunner {
 
 	private List<User> getDefaultUsers() {
 		return List.of(createUser("chronelis.admin@gmail.com", "Admin", "Chronelis", RoleType.ADMIN_ROLE),
-				createUser("chronelis.customer@gmail.com", "Customer", "Chronelis", RoleType.CUSTOMER_ROLE),
-				createUser("chronelis.staff@gmail.com", "Staff", "Chronelis", RoleType.STAFF_ROLE),
 				createUser("thuanmobile1111@gmail.com", "Quách Phú", "Thuận", RoleType.ADMIN_ROLE),
-				createUser("tdmg1809@gmail.com", "Lê Phạm Thanh", "Duy", RoleType.ADMIN_ROLE),
-				createUser("dokimdai109@gmail.com", "Đỗ Kim", "Đại", RoleType.ADMIN_ROLE),
-				createUser("anna.huntr20@gmail.com", "Lê Thị Mỹ", "Hậu", RoleType.ADMIN_ROLE));
 	}
 
 	private User createUser(String email, String firstName, String lastName, RoleType roleType) {

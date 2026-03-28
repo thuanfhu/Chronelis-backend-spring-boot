@@ -20,6 +20,8 @@ spring:
         properties:
             hibernate:
                 dialect: org.hibernate.dialect.MySQLDialect
+                type:
+                    preferred_boolean_jdbc_type: TINYINT
         show-sql: false
 
     datasource:
@@ -32,10 +34,13 @@ spring:
 
     liquibase:
         enabled: true
-        change-log: classpath:db/changelog/db.changelog-master.xml
+        change-log: db/changelog/db.changelog-master.xml
         drop-first: false # CRITICAL: Never set to true in production!
 
     data:
+        redis:
+            repositories:
+                enabled: false
         web:
             pageable:
                 one-indexed-parameters: true        

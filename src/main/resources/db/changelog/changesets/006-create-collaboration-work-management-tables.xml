@@ -106,7 +106,7 @@
             </column>
         </createTable>
 
-        <addCheckConstraint tableName="goals" constraintName="chk_goals_progress_percent" checkConstraint="progress_percent >= 0 AND progress_percent <= 100"/>
+        <sql>ALTER TABLE goals ADD CONSTRAINT chk_goals_progress_percent CHECK (progress_percent >= 0 AND progress_percent &lt;= 100)</sql>
 
         <addForeignKeyConstraint baseTableName="goals" baseColumnNames="project_id" referencedTableName="projects" referencedColumnNames="id" constraintName="fk_goals_project" onDelete="CASCADE"/>
 
@@ -217,7 +217,7 @@
             </column>
         </createTable>
 
-        <addCheckConstraint tableName="task_schedules" constraintName="chk_task_schedules_time_range" checkConstraint="scheduled_end > scheduled_start"/>
+        <sql>ALTER TABLE task_schedules ADD CONSTRAINT chk_task_schedules_time_range CHECK (scheduled_end > scheduled_start)</sql>
 
         <addForeignKeyConstraint baseTableName="task_schedules" baseColumnNames="task_id" referencedTableName="tasks" referencedColumnNames="id" constraintName="fk_task_schedules_task" onDelete="CASCADE"/>
 
