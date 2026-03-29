@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="010-create-task-types-table" author="chronelis">
+        <createTable tableName="task_types">
+            <column name="id" type="BIGINT UNSIGNED" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="workspace_id" type="BIGINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="project_id" type="BIGINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="goal_id" type="BIGINT UNSIGNED">
+                <constraints nullable="true"/>
+            </column>
+            <column name="name" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="TEXT">
+                <constraints nullable="true"/>
+            </column>
+            <column name="color" type="VARCHAR(20)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="icon" type="VARCHAR(50)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="created_at" type="DATETIME(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="DATETIME(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint tableName="task_types" columnNames="project_id, name" constraintName="uq_task_types_project_name"/>
+
+        <addForeignKeyConstraint baseTableName="task_types" baseColumnNames="workspace_id" referencedTableName="workspaces" referencedColumnNames="id" constraintName="fk_task_types_workspace" onDelete="CASCADE"/>
+
+        <addForeignKeyConstraint baseTableName="task_types" baseColumnNames="project_id" referencedTableName="projects" referencedColumnNames="id" constraintName="fk_task_types_project" onDelete="CASCADE"/>
+
+        <addForeignKeyConstraint baseTableName="task_types" baseColumnNames="goal_id" referencedTableName="goals" referencedColumnNames="id" constraintName="fk_task_types_goal" onDelete="SET NULL"/>
+
+        <createIndex tableName="task_types" indexName="idx_task_types_project_id">
+            <column name="project_id"/>
+        </createIndex>
+
+        <createIndex tableName="task_types" indexName="idx_task_types_workspace_id">
+            <column name="workspace_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

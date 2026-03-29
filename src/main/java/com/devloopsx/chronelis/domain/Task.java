@@ -1,6 +1,9 @@
 package com.devloopsx.chronelis.domain;
 
+import com.devloopsx.chronelis.constant.ImportanceLevel;
+import com.devloopsx.chronelis.constant.SourceViewType;
 import com.devloopsx.chronelis.constant.TaskPriorityType;
+import com.devloopsx.chronelis.constant.UrgencyLevel;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -45,6 +48,10 @@ public class Task {
     TaskPriorityType priority;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "task_type_id")
+    TaskType taskType;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assignee_id")
     User assignee;
 
@@ -57,6 +64,19 @@ public class Task {
 
     @Column(name = "estimated_minutes", nullable = false)
     Integer estimatedMinutes;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "importance_level", length = 10)
+    ImportanceLevel importanceLevel;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "urgency_level", length = 10)
+    UrgencyLevel urgencyLevel;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source_view", nullable = false, length = 20)
+    @Builder.Default
+    SourceViewType sourceView = SourceViewType.KANBAN;
 
     @Column(name = "board_position", nullable = false)
     Integer boardPosition;
@@ -80,4 +100,8 @@ public class Task {
     @Builder.Default
     @OneToMany(mappedBy = "task", fetch = FetchType.LAZY)
     List<TaskComment> comments = new ArrayList<>();
+
+    @Builder.Default
+    @OneToMany(mappedBy = "task", fetch = FetchType.LAZY)
+    List<TaskCheckItem> checkItems = new ArrayList<>();
 }

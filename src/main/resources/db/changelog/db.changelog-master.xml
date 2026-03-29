@@ -13,5 +13,10 @@
     <include file="db/changelog/changesets/007-seed-collaboration-permissions.xml"/>
     <include file="db/changelog/changesets/008-create-activity-logs-table-if-missing.xml"/>
     <include file="db/changelog/changesets/009-add-description-to-projects-and-tasks.xml"/>
+    <include file="db/changelog/changesets/010-create-task-types-table.xml"/>
+    <include file="db/changelog/changesets/011-add-task-new-fields.xml"/>
+    <include file="db/changelog/changesets/012-create-workspace-teams-tables.xml"/>
+    <include file="db/changelog/changesets/013-create-workspace-invites-table.xml"/>
+    <include file="db/changelog/changesets/014-create-task-check-items-table.xml"/>
 
 </databaseChangeLog>

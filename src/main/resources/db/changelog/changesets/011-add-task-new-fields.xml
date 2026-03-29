@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="011-add-task-new-fields" author="chronelis">
+        <addColumn tableName="tasks">
+            <column name="task_type_id" type="BIGINT UNSIGNED">
+                <constraints nullable="true"/>
+            </column>
+            <column name="importance_level" type="VARCHAR(10)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="urgency_level" type="VARCHAR(10)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="source_view" type="VARCHAR(20)" defaultValue="KANBAN">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <addForeignKeyConstraint baseTableName="tasks" baseColumnNames="task_type_id" referencedTableName="task_types" referencedColumnNames="id" constraintName="fk_tasks_task_type" onDelete="SET NULL"/>
+
+        <createIndex tableName="tasks" indexName="idx_tasks_task_type_id">
+            <column name="task_type_id"/>
+        </createIndex>
+
+        <createIndex tableName="tasks" indexName="idx_tasks_importance_urgency">
+            <column name="importance_level"/>
+            <column name="urgency_level"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

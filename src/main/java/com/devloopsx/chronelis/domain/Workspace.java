@@ -45,4 +45,12 @@ public class Workspace {
     @Builder.Default
     @OneToMany(mappedBy = "workspace", fetch = FetchType.LAZY)
     List<ActivityLog> activityLogs = new ArrayList<>();
+
+    @Builder.Default
+    @OneToMany(mappedBy = "workspace", fetch = FetchType.LAZY)
+    List<WorkspaceTeam> teams = new ArrayList<>();
+
+    @Builder.Default
+    @OneToMany(mappedBy = "workspace", fetch = FetchType.LAZY)
+    List<WorkspaceInvite> invites = new ArrayList<>();
 }

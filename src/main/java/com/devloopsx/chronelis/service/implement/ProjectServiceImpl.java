@@ -150,16 +150,14 @@ public class ProjectServiceImpl implements ProjectService {
 
         private void createDefaultTaskStatuses(Project project, LocalDateTime now) {
                 List<TaskStatus> defaults = List.of(
-                                TaskStatus.builder().project(project).name("Inbox").code("INBOX").position(1)
+                                TaskStatus.builder().project(project).name("To do").code("TODO").position(1)
                                                 .isClosed(false)
                                                 .createdAt(now).build(),
-                                TaskStatus.builder().project(project).name("Planned").code("PLANNED").position(2)
+                                TaskStatus.builder().project(project).name("In Progress").code("IN_PROGRESS")
+                                                .position(2)
                                                 .isClosed(false)
                                                 .createdAt(now).build(),
-                                TaskStatus.builder().project(project).name("Doing").code("DOING").position(3)
-                                                .isClosed(false)
-                                                .createdAt(now).build(),
-                                TaskStatus.builder().project(project).name("Done").code("DONE").position(4)
+                                TaskStatus.builder().project(project).name("Done").code("DONE").position(3)
                                                 .isClosed(true)
                                                 .createdAt(now).build());
 

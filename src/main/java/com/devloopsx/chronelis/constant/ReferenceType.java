@@ -6,5 +6,9 @@ public enum ReferenceType {
     PROJECT,
     WORKSPACE,
     COMMENT,
-    SCHEDULE
+    SCHEDULE,
+    TASK_TYPE,
+    TEAM,
+    INVITE,
+    CHECK_ITEM
 }

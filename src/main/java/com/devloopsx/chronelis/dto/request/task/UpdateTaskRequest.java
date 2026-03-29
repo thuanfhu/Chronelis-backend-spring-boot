@@ -1,6 +1,8 @@
 package com.devloopsx.chronelis.dto.request.task;
 
+import com.devloopsx.chronelis.constant.ImportanceLevel;
 import com.devloopsx.chronelis.constant.TaskPriorityType;
+import com.devloopsx.chronelis.constant.UrgencyLevel;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import lombok.*;
@@ -28,4 +30,10 @@ public class UpdateTaskRequest {
 
     @Min(value = 0, message = "INVALID_REQUEST_DATA")
     Integer estimatedMinutes;
+
+    Long taskTypeId;
+
+    ImportanceLevel importanceLevel;
+
+    UrgencyLevel urgencyLevel;
 }

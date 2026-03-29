@@ -1,0 +1,35 @@
+package com.devloopsx.chronelis.dto.request.tasktype;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.*;
+import lombok.experimental.FieldDefaults;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@FieldDefaults(level = AccessLevel.PRIVATE)
+public class CreateTaskTypeRequest {
+    @NotNull(message = "INVALID_REQUEST_DATA")
+    Long workspaceId;
+
+    @NotNull(message = "INVALID_REQUEST_DATA")
+    Long projectId;
+
+    Long goalId;
+
+    @NotBlank(message = "INVALID_REQUEST_DATA")
+    @Size(max = 100, message = "INVALID_REQUEST_DATA")
+    String name;
+
+    @Size(max = 2000, message = "INVALID_REQUEST_DATA")
+    String description;
+
+    @Size(max = 20, message = "INVALID_REQUEST_DATA")
+    String color;
+
+    @Size(max = 50, message = "INVALID_REQUEST_DATA")
+    String icon;
+}

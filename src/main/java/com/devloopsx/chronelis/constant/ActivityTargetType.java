@@ -8,5 +8,9 @@ public enum ActivityTargetType {
     COMMENT,
     SCHEDULE,
     MEMBER,
-    STATUS
+    STATUS,
+    TASK_TYPE,
+    TEAM,
+    INVITE,
+    CHECK_ITEM
 }

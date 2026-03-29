@@ -10,6 +10,7 @@ import com.devloopsx.chronelis.exception.ApplicationException;
 import com.devloopsx.chronelis.exception.ErrorCode;
 import com.devloopsx.chronelis.mapper.TaskMapper;
 import com.devloopsx.chronelis.repository.TaskRepository;
+import com.devloopsx.chronelis.repository.TaskTypeRepository;
 import com.devloopsx.chronelis.repository.UserRepository;
 import com.devloopsx.chronelis.service.*;
 import com.devloopsx.chronelis.utils.SecurityUtils;
@@ -29,6 +30,7 @@ import java.util.*;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class TaskServiceImpl implements TaskService {
     TaskRepository taskRepository;
+    TaskTypeRepository taskTypeRepository;
     UserRepository userRepository;
     TaskMapper taskMapper;
     CollaborationAccessService collaborationAccessService;
@@ -75,6 +77,17 @@ public class TaskServiceImpl implements TaskService {
         task.setAssignee(assignee);
         task.setCreatedBy(currentUser);
         task.setEstimatedMinutes(request.getEstimatedMinutes() == null ? 0 : request.getEstimatedMinutes());
+
+        if (request.getTaskTypeId() != null) {
+            TaskType taskType = taskTypeRepository.findById(request.getTaskTypeId())
+                    .orElseThrow(
+                            () -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND, "Task type không tồn tại"));
+            if (!taskType.getProject().getId().equals(project.getId())) {
+                throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
+                        "Task type không thuộc project được chọn");
+            }
+            task.setTaskType(taskType);
+        }
 
         if (task.getEstimatedMinutes() < 0) {
             throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA, "estimated_minutes không được âm");
@@ -124,7 +137,9 @@ public class TaskServiceImpl implements TaskService {
         collaborationAccessService.ensureCurrentUserCanAccessProject(task.getProject().getId());
 
         if (request.getTitle() == null && request.getGoalId() == null && request.getPriority() == null
-                && request.getDueDate() == null && request.getEstimatedMinutes() == null) {
+                && request.getDueDate() == null && request.getEstimatedMinutes() == null
+                && request.getTaskTypeId() == null && request.getImportanceLevel() == null
+                && request.getUrgencyLevel() == null) {
             throw new ApplicationException(ErrorCode.NO_UPDATE_PROVIDED);
         }
 
@@ -142,6 +157,17 @@ public class TaskServiceImpl implements TaskService {
                         "Goal không thuộc project của task");
             }
             task.setGoal(goal);
+        }
+
+        if (request.getTaskTypeId() != null) {
+            TaskType taskType = taskTypeRepository.findById(request.getTaskTypeId())
+                    .orElseThrow(
+                            () -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND, "Task type không tồn tại"));
+            if (!taskType.getProject().getId().equals(task.getProject().getId())) {
+                throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
+                        "Task type không thuộc project của task");
+            }
+            task.setTaskType(taskType);
         }
 
         task.setUpdatedAt(LocalDateTime.now());
