@@ -22,6 +22,7 @@ public interface TaskMapper {
     @Mapping(target = "comments", ignore = true)
     @Mapping(target = "taskType", ignore = true)
     @Mapping(target = "checkItems", ignore = true)
+    @Mapping(target = "sourceView", ignore = true)
     Task toEntity(CreateTaskRequest request);
 
     @Mapping(target = "projectId", source = "project.id")

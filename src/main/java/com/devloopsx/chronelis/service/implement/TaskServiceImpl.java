@@ -77,6 +77,7 @@ public class TaskServiceImpl implements TaskService {
         task.setAssignee(assignee);
         task.setCreatedBy(currentUser);
         task.setEstimatedMinutes(request.getEstimatedMinutes() == null ? 0 : request.getEstimatedMinutes());
+        task.setSourceView(request.getSourceView() != null ? request.getSourceView() : SourceViewType.KANBAN);
 
         if (request.getTaskTypeId() != null) {
             TaskType taskType = taskTypeRepository.findById(request.getTaskTypeId())
