@@ -178,54 +178,28 @@ public class DatabaseSeeder implements ApplicationRunner {
         }
 
         log.info(">>> START SEEDING DEMO DATA");
+        // Each step runs in its own short transaction to avoid long-running write-locks
+        // that block concurrent login requests during seeding.
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
-        tx.executeWithoutResult(status -> seedAll());
-        log.info(">>> END SEEDING DEMO DATA");
-    }
-
-    // ─── Seed orchestrator ───
-
-    private void seedAll() {
         Faker faker = new Faker(Locale.of("vi"));
         Random random = new Random(42);
         LocalDateTime now = LocalDateTime.now();
 
-        // 1. Users
-        List<User> users = seedUsers(faker, random);
+        List<User> users = tx.execute(s -> seedUsers(faker, random));
+        List<Workspace> workspaces = tx.execute(s -> seedWorkspaces(random, users, now));
+        Map<Long, List<User>> wsMembersMap = tx.execute(s -> seedWorkspaceMembers(random, workspaces, users));
+        List<Project> projects = tx.execute(s -> seedProjects(random, workspaces, wsMembersMap, now));
+        Map<Long, List<TaskStatus>> statusesMap = tx.execute(s -> seedTaskStatuses(projects));
+        Map<Long, List<TaskType>> taskTypesMap = tx.execute(s -> seedTaskTypes(projects, workspaces, random));
+        Map<Long, List<Goal>> goalsMap = tx.execute(s -> seedGoals(random, projects, workspaces, wsMembersMap, now));
+        List<Task> tasks = tx.execute(s -> seedTasks(faker, random, projects, goalsMap, statusesMap, taskTypesMap,
+                workspaces, wsMembersMap, now));
+        tx.executeWithoutResult(s -> seedTaskSchedules(random, tasks, projects, workspaces, wsMembersMap, now));
+        tx.executeWithoutResult(s -> seedTaskComments(random, tasks, projects, workspaces, wsMembersMap));
+        tx.executeWithoutResult(s -> seedTaskCheckItems(random, tasks));
+        tx.executeWithoutResult(s -> seedWorkspaceTeams(random, workspaces, wsMembersMap));
 
-        // 2. Workspaces
-        List<Workspace> workspaces = seedWorkspaces(random, users, now);
-
-        // 3. Workspace members
-        Map<Long, List<User>> wsMembersMap = seedWorkspaceMembers(random, workspaces, users);
-
-        // 4. Projects
-        List<Project> projects = seedProjects(random, workspaces, wsMembersMap, now);
-
-        // 5. Task statuses
-        Map<Long, List<TaskStatus>> statusesMap = seedTaskStatuses(projects);
-
-        // 6. Task types
-        Map<Long, List<TaskType>> taskTypesMap = seedTaskTypes(projects, workspaces, random);
-
-        // 7. Goals
-        Map<Long, List<Goal>> goalsMap = seedGoals(random, projects, workspaces, wsMembersMap, now);
-
-        // 8. Tasks
-        List<Task> tasks = seedTasks(faker, random, projects, goalsMap, statusesMap, taskTypesMap,
-                workspaces, wsMembersMap, now);
-
-        // 9. Task schedules
-        seedTaskSchedules(random, tasks, projects, workspaces, wsMembersMap, now);
-
-        // 10. Task comments
-        seedTaskComments(random, tasks, projects, workspaces, wsMembersMap);
-
-        // 11. Task check items
-        seedTaskCheckItems(random, tasks);
-
-        // 12. Workspace teams
-        seedWorkspaceTeams(random, workspaces, wsMembersMap);
+        log.info(">>> END SEEDING DEMO DATA");
     }
 
     // ─── Seed methods ───

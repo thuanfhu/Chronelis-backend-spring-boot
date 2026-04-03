@@ -171,10 +171,24 @@ public class SecurityUtils {
 	}
 
 	public void updateUserRefreshToken(String refreshToken, String email) {
-		User currentUser = userRepository.findByEmail(email)
+		String userId = userRepository.findUserIdByEmail(email)
 				.orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
-		currentUser.setRefreshToken(refreshToken);
-		userRepository.save(currentUser);
+		for (int attempt = 1; attempt <= 3; attempt++) {
+			try {
+				int affected = userRepository.updateRefreshTokenByUserId(userId, refreshToken);
+				if (affected == 0)
+					throw new ApplicationException(ErrorCode.USER_NOT_FOUND);
+				return;
+			} catch (org.springframework.dao.PessimisticLockingFailureException ex) {
+				if (attempt == 3) {
+					log.warn("Could not update refresh token for user {} after 3 attempts, continuing login anyway",
+							email);
+					return; // graceful degradation — login still succeeds
+				}
+				log.warn("Lock contention on refresh token update for user {}, retrying (attempt {}/3)...", email,
+						attempt);
+			}
+		}
 	}
 
 	public static String getCurrentUserEmailFromJwt() {
