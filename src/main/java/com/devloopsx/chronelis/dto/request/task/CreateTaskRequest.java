@@ -1,9 +1,7 @@
 package com.devloopsx.chronelis.dto.request.task;
 
-import com.devloopsx.chronelis.constant.ImportanceLevel;
 import com.devloopsx.chronelis.constant.SourceViewType;
 import com.devloopsx.chronelis.constant.TaskPriorityType;
-import com.devloopsx.chronelis.constant.UrgencyLevel;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -47,10 +45,6 @@ public class CreateTaskRequest {
     Integer boardPosition;
 
     Long taskTypeId;
-
-    ImportanceLevel importanceLevel;
-
-    UrgencyLevel urgencyLevel;
 
     SourceViewType sourceView;
 }

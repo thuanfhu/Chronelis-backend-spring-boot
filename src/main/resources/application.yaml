@@ -43,7 +43,7 @@ spring:
                 enabled: false
         web:
             pageable:
-                one-indexed-parameters: true        
+                one-indexed-parameters: true
 
     mail:
         host: ${MAIL_HOST:smtp.gmail.com}

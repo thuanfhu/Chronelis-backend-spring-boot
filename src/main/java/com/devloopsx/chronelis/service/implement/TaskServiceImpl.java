@@ -38,6 +38,7 @@ public class TaskServiceImpl implements TaskService {
     NotificationService notificationService;
     ActivityLogService activityLogService;
     RealtimeEventPublisherService realtimeEventPublisherService;
+    GoalService goalService;
 
     @Override
     @Transactional
@@ -128,6 +129,11 @@ public class TaskServiceImpl implements TaskService {
         realtimeEventPublisherService.publishTaskEvent(project.getWorkspace().getId(), project.getId(),
                 savedTask.getId(),
                 "task.created", response);
+
+        if (savedTask.getGoal() != null) {
+            goalService.recalculateGoalProgress(savedTask.getGoal().getId());
+        }
+
         return response;
     }
 
@@ -139,8 +145,7 @@ public class TaskServiceImpl implements TaskService {
 
         if (request.getTitle() == null && request.getGoalId() == null && request.getPriority() == null
                 && request.getDueDate() == null && request.getEstimatedMinutes() == null
-                && request.getTaskTypeId() == null && request.getImportanceLevel() == null
-                && request.getUrgencyLevel() == null) {
+                && request.getTaskTypeId() == null) {
             throw new ApplicationException(ErrorCode.NO_UPDATE_PROVIDED);
         }
 
@@ -285,6 +290,11 @@ public class TaskServiceImpl implements TaskService {
             TaskResponse response = taskMapper.toResponse(updatedTask);
             realtimeEventPublisherService.publishTaskEvent(task.getProject().getWorkspace().getId(),
                     task.getProject().getId(), task.getId(), "task.moved", response);
+
+            if (task.getGoal() != null) {
+                goalService.recalculateGoalProgress(task.getGoal().getId());
+            }
+
             return response;
         }
 
@@ -397,6 +407,11 @@ public class TaskServiceImpl implements TaskService {
         TaskResponse response = taskMapper.toResponse(updatedTask);
         realtimeEventPublisherService.publishTaskEvent(task.getProject().getWorkspace().getId(),
                 task.getProject().getId(), task.getId(), "task.completion-updated", response);
+
+        if (task.getGoal() != null) {
+            goalService.recalculateGoalProgress(task.getGoal().getId());
+        }
+
         return response;
     }
 
@@ -411,6 +426,7 @@ public class TaskServiceImpl implements TaskService {
         Long statusId = task.getStatus().getId();
         int boardPosition = task.getBoardPosition();
         String title = task.getTitle();
+        Long goalId = task.getGoal() != null ? task.getGoal().getId() : null;
 
         taskRepository.delete(task);
         shiftLeftAfterRemoval(statusId, boardPosition);
@@ -422,6 +438,10 @@ public class TaskServiceImpl implements TaskService {
                 "Xóa task " + title);
 
         realtimeEventPublisherService.publishTaskEvent(workspaceId, projectId, taskId, "task.deleted", taskId);
+
+        if (goalId != null) {
+            goalService.recalculateGoalProgress(goalId);
+        }
     }
 
     private int getEndPosition(Long statusId) {

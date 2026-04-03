@@ -1,9 +1,7 @@
 package com.devloopsx.chronelis.dto.response.task;
 
-import com.devloopsx.chronelis.constant.ImportanceLevel;
 import com.devloopsx.chronelis.constant.SourceViewType;
 import com.devloopsx.chronelis.constant.TaskPriorityType;
-import com.devloopsx.chronelis.constant.UrgencyLevel;
 import com.devloopsx.chronelis.dto.response.common.UserSummaryResponse;
 import com.devloopsx.chronelis.dto.response.taskstatus.TaskStatusResponse;
 import com.devloopsx.chronelis.dto.response.tasktype.TaskTypeResponse;
@@ -26,8 +24,6 @@ public class TaskResponse {
     String description;
     TaskPriorityType priority;
     TaskTypeResponse taskType;
-    ImportanceLevel importanceLevel;
-    UrgencyLevel urgencyLevel;
     SourceViewType sourceView;
     UserSummaryResponse assignee;
     UserSummaryResponse createdBy;

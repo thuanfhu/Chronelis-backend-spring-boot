@@ -152,6 +152,30 @@ public class GoalServiceImpl implements GoalService {
         realtimeEventPublisherService.publishProjectEvent(workspaceId, projectId, "goal.deleted", goalId);
     }
 
+    @Override
+    @Transactional
+    public void recalculateGoalProgress(Long goalId) {
+        Goal goal = collaborationAccessService.requireGoal(goalId);
+        long total = taskRepository.countByGoalId(goalId);
+        if (total == 0) {
+            goal.setProgressPercent(BigDecimal.ZERO);
+        } else {
+            long completed = taskRepository.countByGoalIdAndIsCompletedTrue(goalId);
+            BigDecimal percent = BigDecimal.valueOf(completed)
+                    .multiply(BigDecimal.valueOf(100))
+                    .divide(BigDecimal.valueOf(total), 2, java.math.RoundingMode.HALF_UP);
+            goal.setProgressPercent(percent);
+        }
+        goal.setUpdatedAt(LocalDateTime.now());
+        Goal saved = goalRepository.save(goal);
+
+        GoalResponse response = goalMapper.toResponse(saved);
+        realtimeEventPublisherService.publishProjectEvent(
+                goal.getProject().getWorkspace().getId(),
+                goal.getProject().getId(),
+                "goal.updated", response);
+    }
+
     private void validateProgress(BigDecimal progress) {
         if (progress == null) {
             return;

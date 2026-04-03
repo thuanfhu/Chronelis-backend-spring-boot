@@ -16,4 +16,6 @@ public interface GoalService {
     PaginationResponse listGoalsByProject(Long projectId, Pageable pageable);
 
     void deleteGoal(Long goalId);
+
+    void recalculateGoalProgress(Long goalId);
 }

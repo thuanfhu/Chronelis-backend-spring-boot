@@ -58,9 +58,9 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 		user.setPassword(this.passwordEncoder.encode(registerUserRequest.getPassword()));
 		user.setPhoneNumber(formattedPhoneNumber);
 
-		// Set default CUSTOMER role
+		// Set default USER role
 		List<Role> roles = new ArrayList<>();
-		roles.add(this.roleRepository.findByName(RoleType.CUSTOMER_ROLE.getName())
+		roles.add(this.roleRepository.findByName(RoleType.USER_ROLE.getName())
 				.orElseThrow(() -> new ApplicationException(ErrorCode.ROLE_NAME_NOT_FOUND)));
 		user.setRoles(roles);
 

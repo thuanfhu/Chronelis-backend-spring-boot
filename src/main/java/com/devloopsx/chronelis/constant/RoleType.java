@@ -13,9 +13,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public enum RoleType {
-	CUSTOMER_ROLE("CUSTOMER", "Khách hàng - Có thể duyệt, tìm kiếm và thuê sản phẩm"), STAFF_ROLE("STAFF",
-			"Nhân viên - Có thể quản lý kho, giao nhận và hỗ trợ khách hàng"), ADMIN_ROLE("ADMIN",
-					"Quản trị viên toàn quyền sử dụng hệ thống"),
+	USER_ROLE("USER", "Người dùng - Sử dụng đầy đủ chức năng cộng tác và quản lý dự án"),
+	ADMIN_ROLE("ADMIN", "Quản trị viên - Quản lý toàn bộ hệ thống bao gồm người dùng, vai trò và quyền"),
 
 	;
 

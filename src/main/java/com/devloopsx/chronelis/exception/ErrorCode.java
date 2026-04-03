@@ -206,7 +206,7 @@ public enum ErrorCode {
 			"Yêu cầu ID người dùng"),
 	USER_ALREADY_HAS_STAFF_ROLE(
 			1211, HttpStatus.BAD_REQUEST,
-			"Người dùng đã có vai trò STAFF rồi"),
+			"Người dùng đã có vai trò USER rồi"),
 	USER_CANNOT_BE_DELETED_HAS_ORDERS(
 			1212,
 			HttpStatus.BAD_REQUEST,

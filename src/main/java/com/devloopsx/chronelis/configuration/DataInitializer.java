@@ -472,8 +472,7 @@ public class DataInitializer implements ApplicationRunner {
 		List<Permission> adminRolePermissions = permissionRepository.findAll();
 
 		return Map.of(
-				RoleType.CUSTOMER_ROLE, customerRolePermissions,
-				RoleType.STAFF_ROLE, staffRolePermissions,
+				RoleType.USER_ROLE, staffRolePermissions,
 				RoleType.ADMIN_ROLE, adminRolePermissions);
 	}
 
@@ -493,8 +492,9 @@ public class DataInitializer implements ApplicationRunner {
 	private List<User> getDefaultUsers() {
 		return List.of(
 				createUser("chronelis.admin@gmail.com", "Admin", "Chronelis", RoleType.ADMIN_ROLE),
-				createUser("chronelis.staff@gmail.com", "Staff", "Chronelis", RoleType.STAFF_ROLE),
-				createUser("chronelis.customer@gmail.com", "Customer", "Chronelis", RoleType.CUSTOMER_ROLE),
+				createUser("chronelis.user@gmail.com", "User", "Chronelis", RoleType.USER_ROLE),
+				createUser("chronelis.staff@gmail.com", "Staff", "Chronelis", RoleType.USER_ROLE),
+				createUser("chronelis.customer@gmail.com", "Customer", "Chronelis", RoleType.USER_ROLE),
 				createUser("thuanmobile1111@gmail.com", "Quách Phú", "Thuận", RoleType.ADMIN_ROLE),
 				createUser("tdmg1809@gmail.com", "Lê Phạm Thanh", "Duy", RoleType.ADMIN_ROLE),
 				createUser("dokimdai109@gmail.com", "Đỗ Kim", "Đại", RoleType.ADMIN_ROLE),

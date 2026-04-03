@@ -119,7 +119,9 @@ public class UserServiceImpl implements UserService {
 		Page<User> userPage = userRepository.findAll(spec, pageable);
 		User userAuthenticated = this.securityUtils.getAuthenticatedUser();
 
-		return PaginationResponse.builder().meta(PaginationMeta.builder().currentPage(pageable.getPageNumber() + 1) // base-index																							// 0
+		return PaginationResponse.builder().meta(PaginationMeta.builder().currentPage(pageable.getPageNumber() + 1) // base-index
+																													// //
+																													// 0
 				.pageSize(pageable.getPageSize()).totalPages(userPage.getTotalPages())
 				.totalElements(userPage.getTotalElements()).hasNext(userPage.hasNext())
 				.hasPrevious(userPage.hasPrevious()).build())
@@ -219,14 +221,14 @@ public class UserServiceImpl implements UserService {
 	public UserSecureResponse becomeStaff() {
 		User currentUser = securityUtils.getAuthenticatedUser();
 
-		boolean hasStaffRole = currentUser.getRoles().stream()
-				.anyMatch(role -> RoleType.STAFF_ROLE.getName().equals(role.getName()));
+		boolean hasUserRole = currentUser.getRoles().stream()
+				.anyMatch(role -> RoleType.USER_ROLE.getName().equals(role.getName()));
 
-		if (hasStaffRole) {
+		if (hasUserRole) {
 			throw new ApplicationException(ErrorCode.USER_ALREADY_HAS_STAFF_ROLE);
 		}
 
-		Role staffRole = roleRepository.findByName(RoleType.STAFF_ROLE.getName())
+		Role staffRole = roleRepository.findByName(RoleType.USER_ROLE.getName())
 				.orElseThrow(() -> new ApplicationException(ErrorCode.ROLE_NAME_NOT_FOUND));
 
 		currentUser.getRoles().add(staffRole);
