@@ -142,6 +142,7 @@ public class TaskServiceImpl implements TaskService {
     public TaskResponse updateTask(Long taskId, UpdateTaskRequest request) {
         Task task = collaborationAccessService.requireTask(taskId);
         collaborationAccessService.ensureCurrentUserCanAccessProject(task.getProject().getId());
+        User currentUser = ensureCurrentUserIsTaskCreator(task);
 
         if (request.getTitle() == null && request.getGoalId() == null && request.getPriority() == null
                 && request.getDueDate() == null && request.getEstimatedMinutes() == null
@@ -178,7 +179,6 @@ public class TaskServiceImpl implements TaskService {
 
         task.setUpdatedAt(LocalDateTime.now());
         Task updatedTask = taskRepository.save(task);
-        User currentUser = securityUtils.getAuthenticatedUser();
 
         activityLogService.createLog(task.getProject().getWorkspace().getId(), currentUser.getUserId(),
                 ActivityActionType.TASK_UPDATED, ActivityTargetType.TASK, updatedTask.getId(),
@@ -420,6 +420,7 @@ public class TaskServiceImpl implements TaskService {
     public void deleteTask(Long taskId) {
         Task task = collaborationAccessService.requireTask(taskId);
         collaborationAccessService.ensureCurrentUserCanAccessProject(task.getProject().getId());
+        User currentUser = ensureCurrentUserIsTaskCreator(task);
 
         Long workspaceId = task.getProject().getWorkspace().getId();
         Long projectId = task.getProject().getId();
@@ -432,7 +433,6 @@ public class TaskServiceImpl implements TaskService {
         shiftLeftAfterRemoval(statusId, boardPosition);
         normalizeBoardPositions(statusId);
 
-        User currentUser = securityUtils.getAuthenticatedUser();
         activityLogService.createLog(workspaceId, currentUser.getUserId(), ActivityActionType.TASK_DELETED,
                 ActivityTargetType.TASK, taskId,
                 "Xóa task " + title);
@@ -442,6 +442,15 @@ public class TaskServiceImpl implements TaskService {
         if (goalId != null) {
             goalService.recalculateGoalProgress(goalId);
         }
+    }
+
+    private User ensureCurrentUserIsTaskCreator(Task task) {
+        User currentUser = securityUtils.getAuthenticatedUser();
+        if (!Objects.equals(task.getCreatedBy().getUserId(), currentUser.getUserId())) {
+            throw new ApplicationException(ErrorCode.UNAUTHORIZED_ACCESS,
+                    "Chỉ người tạo task mới có quyền chỉnh sửa hoặc xóa task này");
+        }
+        return currentUser;
     }
 
     private int getEndPosition(Long statusId) {
