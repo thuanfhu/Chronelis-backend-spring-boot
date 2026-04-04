@@ -5,6 +5,7 @@ import com.devloopsx.chronelis.domain.Project;
 import com.devloopsx.chronelis.domain.TaskStatus;
 import com.devloopsx.chronelis.domain.User;
 import com.devloopsx.chronelis.domain.Workspace;
+import com.devloopsx.chronelis.domain.WorkspaceTeam;
 import com.devloopsx.chronelis.dto.request.project.CreateProjectRequest;
 import com.devloopsx.chronelis.dto.request.project.UpdateProjectRequest;
 import com.devloopsx.chronelis.dto.request.project.UpdateProjectStatusRequest;
@@ -17,6 +18,8 @@ import com.devloopsx.chronelis.mapper.ProjectMapper;
 import com.devloopsx.chronelis.mapper.TaskStatusMapper;
 import com.devloopsx.chronelis.repository.ProjectRepository;
 import com.devloopsx.chronelis.repository.TaskStatusRepository;
+import com.devloopsx.chronelis.repository.UserRepository;
+import com.devloopsx.chronelis.repository.WorkspaceTeamRepository;
 import com.devloopsx.chronelis.service.*;
 import com.devloopsx.chronelis.utils.SecurityUtils;
 import lombok.AccessLevel;
@@ -36,6 +39,8 @@ import java.util.List;
 public class ProjectServiceImpl implements ProjectService {
         ProjectRepository projectRepository;
         TaskStatusRepository taskStatusRepository;
+        UserRepository userRepository;
+        WorkspaceTeamRepository workspaceTeamRepository;
         ProjectMapper projectMapper;
         CollaborationAccessService collaborationAccessService;
         SecurityUtils securityUtils;
@@ -45,8 +50,12 @@ public class ProjectServiceImpl implements ProjectService {
         @Override
         @Transactional
         public ProjectResponse createProject(CreateProjectRequest request) {
-                collaborationAccessService.requireCurrentWorkspaceMember(request.getWorkspaceId());
+                collaborationAccessService.ensureCurrentUserIsWorkspaceManager(request.getWorkspaceId());
                 Workspace workspace = collaborationAccessService.requireWorkspace(request.getWorkspaceId());
+
+                if (request.getManagerUserId() != null || request.getManagerTeamId() != null) {
+                        collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(request.getWorkspaceId());
+                }
 
                 User currentUser = securityUtils.getAuthenticatedUser();
                 LocalDateTime now = LocalDateTime.now();
@@ -57,6 +66,9 @@ public class ProjectServiceImpl implements ProjectService {
                 project.setStatus(ProjectStatusType.ACTIVE);
                 project.setCreatedAt(now);
                 project.setUpdatedAt(now);
+
+                applyProjectManagerAssignments(project, workspace.getId(), request.getManagerUserId(),
+                                request.getManagerTeamId());
 
                 Project savedProject = projectRepository.save(project);
                 createDefaultTaskStatuses(savedProject, now);
@@ -76,14 +88,28 @@ public class ProjectServiceImpl implements ProjectService {
         @Override
         @Transactional
         public ProjectResponse updateProject(Long projectId, UpdateProjectRequest request) {
-                collaborationAccessService.ensureCurrentUserCanAccessProject(projectId);
+                collaborationAccessService.ensureCurrentUserCanManageProject(projectId);
                 Project project = collaborationAccessService.requireProject(projectId);
 
-                if ((request.getName() == null || request.getName().isBlank()) && request.getStatus() == null) {
+                boolean managerUpdateRequested = request.getManagerUserId() != null
+                                || request.getManagerTeamId() != null;
+                if (managerUpdateRequested) {
+                        collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(project.getWorkspace().getId());
+                }
+
+                if ((request.getName() == null || request.getName().isBlank())
+                                && request.getStatus() == null
+                                && !managerUpdateRequested) {
                         throw new ApplicationException(ErrorCode.NO_UPDATE_PROVIDED);
                 }
 
                 projectMapper.updateEntity(project, request);
+
+                if (request.getManagerUserId() != null || request.getManagerTeamId() != null) {
+                        applyProjectManagerAssignments(project, project.getWorkspace().getId(),
+                                        request.getManagerUserId(), request.getManagerTeamId());
+                }
+
                 project.setUpdatedAt(LocalDateTime.now());
 
                 Project updatedProject = projectRepository.save(project);
@@ -103,7 +129,7 @@ public class ProjectServiceImpl implements ProjectService {
         @Override
         @Transactional
         public ProjectResponse updateProjectStatus(Long projectId, UpdateProjectStatusRequest request) {
-                collaborationAccessService.ensureCurrentUserCanAccessProject(projectId);
+                collaborationAccessService.ensureCurrentUserCanManageProject(projectId);
                 Project project = collaborationAccessService.requireProject(projectId);
 
                 project.setStatus(request.getStatus());
@@ -167,6 +193,39 @@ public class ProjectServiceImpl implements ProjectService {
                                 "Xóa project " + projectName);
 
                 realtimeEventPublisherService.publishWorkspaceEvent(workspaceId, "project.deleted", projectId);
+        }
+
+        private void applyProjectManagerAssignments(Project project, Long workspaceId, String managerUserId,
+                        Long managerTeamId) {
+                if (managerUserId != null) {
+                        if (managerUserId.isBlank()) {
+                                project.setManagerUser(null);
+                        } else {
+                                collaborationAccessService.ensureAssigneeBelongsWorkspace(managerUserId, workspaceId);
+
+                                User managerUser = userRepository.findById(managerUserId)
+                                                .orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
+                                project.setManagerUser(managerUser);
+                        }
+                }
+
+                if (managerTeamId != null) {
+                        if (managerTeamId <= 0) {
+                                project.setManagerTeam(null);
+                        } else {
+                                WorkspaceTeam managerTeam = workspaceTeamRepository.findById(managerTeamId)
+                                                .orElseThrow(() -> new ApplicationException(
+                                                                ErrorCode.RESOURCE_NOT_FOUND,
+                                                                "Team manager không tồn tại"));
+
+                                if (!managerTeam.getWorkspace().getId().equals(workspaceId)) {
+                                        throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
+                                                        "Manager team phải thuộc cùng workspace");
+                                }
+
+                                project.setManagerTeam(managerTeam);
+                        }
+                }
         }
 
         private void createDefaultTaskStatuses(Project project, LocalDateTime now) {

@@ -19,6 +19,9 @@ public class ProjectResponse {
     String description;
     ProjectStatusType status;
     UserSummaryResponse createdBy;
+    UserSummaryResponse managerUser;
+    Long managerTeamId;
+    String managerTeamName;
     LocalDateTime createdAt;
     LocalDateTime updatedAt;
 }

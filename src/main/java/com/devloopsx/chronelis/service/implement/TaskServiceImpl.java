@@ -47,7 +47,7 @@ public class TaskServiceImpl implements TaskService {
     @Override
     @Transactional
     public TaskResponse createTask(CreateTaskRequest request) {
-        collaborationAccessService.ensureCurrentUserCanAccessProject(request.getProjectId());
+        collaborationAccessService.ensureCurrentUserCanManageProject(request.getProjectId());
 
         Project project = collaborationAccessService.requireProject(request.getProjectId());
         TaskStatus status = collaborationAccessService.requireTaskStatus(request.getStatusId());
@@ -145,12 +145,12 @@ public class TaskServiceImpl implements TaskService {
     @Transactional
     public TaskResponse updateTask(Long taskId, UpdateTaskRequest request) {
         Task task = collaborationAccessService.requireTask(taskId);
-        collaborationAccessService.ensureCurrentUserCanAccessProject(task.getProject().getId());
-        User currentUser = ensureCurrentUserIsTaskCreator(task);
+        collaborationAccessService.ensureCurrentUserCanManageTask(taskId);
+        User currentUser = securityUtils.getAuthenticatedUser();
 
         if (request.getTitle() == null && request.getGoalId() == null && request.getPriority() == null
                 && request.getDueDate() == null && request.getEstimatedMinutes() == null
-                && request.getTaskTypeId() == null) {
+                && request.getTaskTypeId() == null && request.getNotesHtml() == null) {
             throw new ApplicationException(ErrorCode.NO_UPDATE_PROVIDED);
         }
 
@@ -243,7 +243,7 @@ public class TaskServiceImpl implements TaskService {
     @Transactional
     public TaskResponse moveTask(Long taskId, MoveTaskRequest request) {
         Task task = collaborationAccessService.requireTask(taskId);
-        collaborationAccessService.ensureCurrentUserCanAccessProject(task.getProject().getId());
+        collaborationAccessService.ensureCurrentUserCanManageTask(taskId);
 
         TaskStatus targetStatus = collaborationAccessService.requireTaskStatus(request.getStatusId());
         if (!targetStatus.getProject().getId().equals(task.getProject().getId())) {
@@ -309,7 +309,7 @@ public class TaskServiceImpl implements TaskService {
     @Transactional
     public TaskResponse reorderTask(Long taskId, ReorderTaskRequest request) {
         Task task = collaborationAccessService.requireTask(taskId);
-        collaborationAccessService.ensureCurrentUserCanAccessProject(task.getProject().getId());
+        collaborationAccessService.ensureCurrentUserCanManageTask(taskId);
 
         Long statusId = task.getStatus().getId();
         List<Task> tasks = new ArrayList<>(taskRepository.findByStatusIdOrderByBoardPositionAscIdAsc(statusId));
@@ -345,7 +345,7 @@ public class TaskServiceImpl implements TaskService {
     @Transactional
     public TaskResponse assignTask(Long taskId, AssignTaskRequest request) {
         Task task = collaborationAccessService.requireTask(taskId);
-        collaborationAccessService.ensureCurrentUserCanAccessProject(task.getProject().getId());
+        collaborationAccessService.ensureCurrentUserCanManageTask(taskId);
 
         String oldAssigneeId = task.getAssignee() != null ? task.getAssignee().getUserId() : null;
         User currentUser = securityUtils.getAuthenticatedUser();
@@ -395,7 +395,7 @@ public class TaskServiceImpl implements TaskService {
     @Transactional
     public TaskResponse updateTaskCompletion(Long taskId, UpdateTaskCompletionRequest request) {
         Task task = collaborationAccessService.requireTask(taskId);
-        collaborationAccessService.ensureCurrentUserCanAccessProject(task.getProject().getId());
+        collaborationAccessService.ensureCurrentUserCanManageTask(taskId);
 
         task.setIsCompleted(request.getIsCompleted());
         task.setCompletedAt(Boolean.TRUE.equals(request.getIsCompleted()) ? LocalDateTime.now() : null);
@@ -423,8 +423,8 @@ public class TaskServiceImpl implements TaskService {
     @Transactional
     public void deleteTask(Long taskId) {
         Task task = collaborationAccessService.requireTask(taskId);
-        collaborationAccessService.ensureCurrentUserCanAccessProject(task.getProject().getId());
-        User currentUser = ensureCurrentUserIsTaskCreator(task);
+        collaborationAccessService.ensureCurrentUserCanManageTask(taskId);
+        User currentUser = securityUtils.getAuthenticatedUser();
 
         Long workspaceId = task.getProject().getWorkspace().getId();
         Long projectId = task.getProject().getId();
@@ -450,15 +450,6 @@ public class TaskServiceImpl implements TaskService {
         if (goalId != null) {
             goalService.recalculateGoalProgress(goalId);
         }
-    }
-
-    private User ensureCurrentUserIsTaskCreator(Task task) {
-        User currentUser = securityUtils.getAuthenticatedUser();
-        if (!Objects.equals(task.getCreatedBy().getUserId(), currentUser.getUserId())) {
-            throw new ApplicationException(ErrorCode.UNAUTHORIZED_ACCESS,
-                    "Chỉ người tạo task mới có quyền chỉnh sửa hoặc xóa task này");
-        }
-        return currentUser;
     }
 
     private int getEndPosition(Long statusId) {

@@ -32,131 +32,134 @@ import java.util.List;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class TaskTypeServiceImpl implements TaskTypeService {
-    TaskRepository taskRepository;
-    TaskTypeRepository taskTypeRepository;
-    TaskTypeMapper taskTypeMapper;
-    CollaborationAccessService collaborationAccessService;
-    SecurityUtils securityUtils;
-    ActivityLogService activityLogService;
-    RealtimeEventPublisherService realtimeEventPublisherService;
+        TaskRepository taskRepository;
+        TaskTypeRepository taskTypeRepository;
+        TaskTypeMapper taskTypeMapper;
+        CollaborationAccessService collaborationAccessService;
+        SecurityUtils securityUtils;
+        ActivityLogService activityLogService;
+        RealtimeEventPublisherService realtimeEventPublisherService;
 
-    @Override
-    @Transactional
-    public TaskTypeResponse createTaskType(CreateTaskTypeRequest request) {
-        collaborationAccessService.ensureCurrentUserCanAccessProject(request.getProjectId());
+        @Override
+        @Transactional
+        public TaskTypeResponse createTaskType(CreateTaskTypeRequest request) {
+                collaborationAccessService.ensureCurrentUserCanManageProject(request.getProjectId());
 
-        Project project = collaborationAccessService.requireProject(request.getProjectId());
-        Workspace workspace = project.getWorkspace();
+                Project project = collaborationAccessService.requireProject(request.getProjectId());
+                Workspace workspace = project.getWorkspace();
 
-        if (taskTypeRepository.existsByProjectIdAndNameIgnoreCase(request.getProjectId(), request.getName())) {
-            throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
-                    "Task type với tên này đã tồn tại trong project");
+                if (taskTypeRepository.existsByProjectIdAndNameIgnoreCase(request.getProjectId(), request.getName())) {
+                        throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
+                                        "Task type với tên này đã tồn tại trong project");
+                }
+
+                Goal goal = null;
+                if (request.getGoalId() != null) {
+                        goal = collaborationAccessService.requireGoal(request.getGoalId());
+                        if (!goal.getProject().getId().equals(project.getId())) {
+                                throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
+                                                "Goal không thuộc project được chọn");
+                        }
+                }
+
+                TaskType taskType = taskTypeMapper.toEntity(request);
+                LocalDateTime now = LocalDateTime.now();
+                taskType.setWorkspace(workspace);
+                taskType.setProject(project);
+                taskType.setGoal(goal);
+                taskType.setCreatedAt(now);
+                taskType.setUpdatedAt(now);
+
+                TaskType saved = taskTypeRepository.save(taskType);
+
+                String userId = securityUtils.getAuthenticatedUser().getUserId();
+                activityLogService.createLog(workspace.getId(), userId,
+                                ActivityActionType.TASK_TYPE_CREATED, ActivityTargetType.TASK_TYPE,
+                                saved.getId(), "Tạo task type " + saved.getName());
+
+                TaskTypeResponse response = taskTypeMapper.toResponse(saved);
+                realtimeEventPublisherService.publishProjectEvent(workspace.getId(), project.getId(),
+                                "taskType.created", response);
+                return response;
         }
 
-        Goal goal = null;
-        if (request.getGoalId() != null) {
-            goal = collaborationAccessService.requireGoal(request.getGoalId());
-            if (!goal.getProject().getId().equals(project.getId())) {
-                throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
-                        "Goal không thuộc project được chọn");
-            }
+        @Override
+        @Transactional
+        public TaskTypeResponse updateTaskType(Long taskTypeId, UpdateTaskTypeRequest request) {
+                TaskType taskType = taskTypeRepository.findById(taskTypeId)
+                                .orElseThrow(() -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND,
+                                                "Task type không tồn tại"));
+                collaborationAccessService.ensureCurrentUserCanManageProject(taskType.getProject().getId());
+
+                if (request.getName() != null && taskTypeRepository.existsByProjectIdAndNameIgnoreCaseAndIdNot(
+                                taskType.getProject().getId(), request.getName(), taskTypeId)) {
+                        throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
+                                        "Task type với tên này đã tồn tại trong project");
+                }
+
+                if (request.getGoalId() != null) {
+                        Goal goal = collaborationAccessService.requireGoal(request.getGoalId());
+                        if (!goal.getProject().getId().equals(taskType.getProject().getId())) {
+                                throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
+                                                "Goal không thuộc project của task type");
+                        }
+                        taskType.setGoal(goal);
+                }
+
+                taskTypeMapper.updateEntity(taskType, request);
+                taskType.setUpdatedAt(LocalDateTime.now());
+                TaskType updated = taskTypeRepository.save(taskType);
+
+                String userId = securityUtils.getAuthenticatedUser().getUserId();
+                activityLogService.createLog(taskType.getWorkspace().getId(), userId,
+                                ActivityActionType.TASK_TYPE_UPDATED, ActivityTargetType.TASK_TYPE,
+                                updated.getId(), "Cập nhật task type " + updated.getName());
+
+                TaskTypeResponse response = taskTypeMapper.toResponse(updated);
+                realtimeEventPublisherService.publishProjectEvent(taskType.getWorkspace().getId(),
+                                taskType.getProject().getId(), "taskType.updated", response);
+                return response;
         }
 
-        TaskType taskType = taskTypeMapper.toEntity(request);
-        LocalDateTime now = LocalDateTime.now();
-        taskType.setWorkspace(workspace);
-        taskType.setProject(project);
-        taskType.setGoal(goal);
-        taskType.setCreatedAt(now);
-        taskType.setUpdatedAt(now);
-
-        TaskType saved = taskTypeRepository.save(taskType);
-
-        String userId = securityUtils.getAuthenticatedUser().getUserId();
-        activityLogService.createLog(workspace.getId(), userId,
-                ActivityActionType.TASK_TYPE_CREATED, ActivityTargetType.TASK_TYPE,
-                saved.getId(), "Tạo task type " + saved.getName());
-
-        TaskTypeResponse response = taskTypeMapper.toResponse(saved);
-        realtimeEventPublisherService.publishProjectEvent(workspace.getId(), project.getId(),
-                "taskType.created", response);
-        return response;
-    }
-
-    @Override
-    @Transactional
-    public TaskTypeResponse updateTaskType(Long taskTypeId, UpdateTaskTypeRequest request) {
-        TaskType taskType = taskTypeRepository.findById(taskTypeId)
-                .orElseThrow(() -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND, "Task type không tồn tại"));
-        collaborationAccessService.ensureCurrentUserCanAccessProject(taskType.getProject().getId());
-
-        if (request.getName() != null && taskTypeRepository.existsByProjectIdAndNameIgnoreCaseAndIdNot(
-                taskType.getProject().getId(), request.getName(), taskTypeId)) {
-            throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
-                    "Task type với tên này đã tồn tại trong project");
+        @Override
+        public TaskTypeResponse getTaskType(Long taskTypeId) {
+                TaskType taskType = taskTypeRepository.findById(taskTypeId)
+                                .orElseThrow(() -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND,
+                                                "Task type không tồn tại"));
+                collaborationAccessService.ensureCurrentUserCanAccessProject(taskType.getProject().getId());
+                return taskTypeMapper.toResponse(taskType);
         }
 
-        if (request.getGoalId() != null) {
-            Goal goal = collaborationAccessService.requireGoal(request.getGoalId());
-            if (!goal.getProject().getId().equals(taskType.getProject().getId())) {
-                throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
-                        "Goal không thuộc project của task type");
-            }
-            taskType.setGoal(goal);
+        @Override
+        public List<TaskTypeResponse> listByProject(Long projectId) {
+                collaborationAccessService.ensureCurrentUserCanAccessProject(projectId);
+                return taskTypeRepository.findByProjectIdOrderByNameAsc(projectId).stream()
+                                .map(taskTypeMapper::toResponse).toList();
         }
 
-        taskTypeMapper.updateEntity(taskType, request);
-        taskType.setUpdatedAt(LocalDateTime.now());
-        TaskType updated = taskTypeRepository.save(taskType);
+        @Override
+        @Transactional
+        public void deleteTaskType(Long taskTypeId) {
+                TaskType taskType = taskTypeRepository.findById(taskTypeId)
+                                .orElseThrow(() -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND,
+                                                "Task type không tồn tại"));
+                collaborationAccessService.ensureCurrentUserCanManageProject(taskType.getProject().getId());
 
-        String userId = securityUtils.getAuthenticatedUser().getUserId();
-        activityLogService.createLog(taskType.getWorkspace().getId(), userId,
-                ActivityActionType.TASK_TYPE_UPDATED, ActivityTargetType.TASK_TYPE,
-                updated.getId(), "Cập nhật task type " + updated.getName());
+                Long workspaceId = taskType.getWorkspace().getId();
+                Long projectId = taskType.getProject().getId();
+                String name = taskType.getName();
 
-        TaskTypeResponse response = taskTypeMapper.toResponse(updated);
-        realtimeEventPublisherService.publishProjectEvent(taskType.getWorkspace().getId(),
-                taskType.getProject().getId(), "taskType.updated", response);
-        return response;
-    }
+                // Defensive cleanup in case DB foreign keys are not configured with SET NULL.
+                taskRepository.clearTaskTypeReferences(taskTypeId);
 
-    @Override
-    public TaskTypeResponse getTaskType(Long taskTypeId) {
-        TaskType taskType = taskTypeRepository.findById(taskTypeId)
-                .orElseThrow(() -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND, "Task type không tồn tại"));
-        collaborationAccessService.ensureCurrentUserCanAccessProject(taskType.getProject().getId());
-        return taskTypeMapper.toResponse(taskType);
-    }
+                taskTypeRepository.delete(taskType);
 
-    @Override
-    public List<TaskTypeResponse> listByProject(Long projectId) {
-        collaborationAccessService.ensureCurrentUserCanAccessProject(projectId);
-        return taskTypeRepository.findByProjectIdOrderByNameAsc(projectId).stream()
-                .map(taskTypeMapper::toResponse).toList();
-    }
+                String userId = securityUtils.getAuthenticatedUser().getUserId();
+                activityLogService.createLog(workspaceId, userId,
+                                ActivityActionType.TASK_TYPE_DELETED, ActivityTargetType.TASK_TYPE,
+                                taskTypeId, "Xóa task type " + name);
 
-    @Override
-    @Transactional
-    public void deleteTaskType(Long taskTypeId) {
-        TaskType taskType = taskTypeRepository.findById(taskTypeId)
-                .orElseThrow(() -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND, "Task type không tồn tại"));
-        collaborationAccessService.ensureCurrentUserCanAccessProject(taskType.getProject().getId());
-
-        Long workspaceId = taskType.getWorkspace().getId();
-        Long projectId = taskType.getProject().getId();
-        String name = taskType.getName();
-
-        // Defensive cleanup in case DB foreign keys are not configured with SET NULL.
-        taskRepository.clearTaskTypeReferences(taskTypeId);
-
-        taskTypeRepository.delete(taskType);
-
-        String userId = securityUtils.getAuthenticatedUser().getUserId();
-        activityLogService.createLog(workspaceId, userId,
-                ActivityActionType.TASK_TYPE_DELETED, ActivityTargetType.TASK_TYPE,
-                taskTypeId, "Xóa task type " + name);
-
-        realtimeEventPublisherService.publishProjectEvent(workspaceId, projectId,
-                "taskType.deleted", taskTypeId);
-    }
+                realtimeEventPublisherService.publishProjectEvent(workspaceId, projectId,
+                                "taskType.deleted", taskTypeId);
+        }
 }

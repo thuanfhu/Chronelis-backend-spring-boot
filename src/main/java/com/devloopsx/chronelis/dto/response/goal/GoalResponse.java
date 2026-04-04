@@ -22,6 +22,9 @@ public class GoalResponse {
     GoalStatusType status;
     BigDecimal progressPercent;
     UserSummaryResponse createdBy;
+    UserSummaryResponse managerUser;
+    Long managerTeamId;
+    String managerTeamName;
     LocalDateTime createdAt;
     LocalDateTime updatedAt;
 }

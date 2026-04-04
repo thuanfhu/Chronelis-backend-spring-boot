@@ -43,7 +43,7 @@ public class TaskCommentServiceImpl implements TaskCommentService {
         @Transactional
         public TaskCommentResponse addComment(CreateTaskCommentRequest request) {
                 Task task = collaborationAccessService.requireTask(request.getTaskId());
-                collaborationAccessService.ensureCurrentUserCanAccessProject(task.getProject().getId());
+                collaborationAccessService.ensureCurrentUserCanManageTask(task.getId());
 
                 User currentUser = securityUtils.getAuthenticatedUser();
                 LocalDateTime now = LocalDateTime.now();
@@ -96,7 +96,7 @@ public class TaskCommentServiceImpl implements TaskCommentService {
                                                 "Comment không tồn tại"));
 
                 Task task = comment.getTask();
-                collaborationAccessService.ensureCurrentUserCanAccessProject(task.getProject().getId());
+                collaborationAccessService.ensureCurrentUserCanManageTask(task.getId());
 
                 User currentUser = securityUtils.getAuthenticatedUser();
                 if (!canModifyComment(comment, currentUser)) {
@@ -131,7 +131,7 @@ public class TaskCommentServiceImpl implements TaskCommentService {
                 }
 
                 Task task = comment.getTask();
-                collaborationAccessService.ensureCurrentUserCanAccessProject(task.getProject().getId());
+                collaborationAccessService.ensureCurrentUserCanManageTask(task.getId());
 
                 User currentUser = securityUtils.getAuthenticatedUser();
                 if (!canModifyComment(comment, currentUser)) {

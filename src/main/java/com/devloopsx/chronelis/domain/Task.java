@@ -43,6 +43,9 @@ public class Task {
     @Column(columnDefinition = "TEXT")
     String description;
 
+    @Column(name = "notes_html", columnDefinition = "MEDIUMTEXT")
+    String notesHtml;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     TaskPriorityType priority;

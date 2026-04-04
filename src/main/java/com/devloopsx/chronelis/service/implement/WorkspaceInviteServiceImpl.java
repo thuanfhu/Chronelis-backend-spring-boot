@@ -41,7 +41,7 @@ public class WorkspaceInviteServiceImpl implements WorkspaceInviteService {
     @Override
     @Transactional
     public WorkspaceInviteResponse createInvite(CreateWorkspaceInviteRequest request) {
-        collaborationAccessService.ensureCurrentUserIsWorkspaceManager(request.getWorkspaceId());
+        collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(request.getWorkspaceId());
         Workspace workspace = collaborationAccessService.requireWorkspace(request.getWorkspaceId());
 
         User currentUser = securityUtils.getAuthenticatedUser();
@@ -85,7 +85,7 @@ public class WorkspaceInviteServiceImpl implements WorkspaceInviteService {
     public void revokeInvite(Long inviteId) {
         WorkspaceInvite invite = workspaceInviteRepository.findById(inviteId)
                 .orElseThrow(() -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND, "Lời mời không tồn tại"));
-        collaborationAccessService.ensureCurrentUserIsWorkspaceManager(invite.getWorkspace().getId());
+        collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(invite.getWorkspace().getId());
 
         invite.setIsActive(false);
         workspaceInviteRepository.save(invite);

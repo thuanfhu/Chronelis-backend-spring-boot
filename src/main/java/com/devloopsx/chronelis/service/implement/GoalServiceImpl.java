@@ -4,6 +4,7 @@ import com.devloopsx.chronelis.constant.*;
 import com.devloopsx.chronelis.domain.Goal;
 import com.devloopsx.chronelis.domain.Project;
 import com.devloopsx.chronelis.domain.User;
+import com.devloopsx.chronelis.domain.WorkspaceTeam;
 import com.devloopsx.chronelis.dto.request.goal.CreateGoalRequest;
 import com.devloopsx.chronelis.dto.request.goal.UpdateGoalRequest;
 import com.devloopsx.chronelis.dto.response.common.PaginationMeta;
@@ -15,6 +16,8 @@ import com.devloopsx.chronelis.mapper.GoalMapper;
 import com.devloopsx.chronelis.repository.GoalRepository;
 import com.devloopsx.chronelis.repository.TaskRepository;
 import com.devloopsx.chronelis.repository.TaskTypeRepository;
+import com.devloopsx.chronelis.repository.UserRepository;
+import com.devloopsx.chronelis.repository.WorkspaceTeamRepository;
 import com.devloopsx.chronelis.service.*;
 import com.devloopsx.chronelis.utils.SecurityUtils;
 import lombok.AccessLevel;
@@ -35,6 +38,8 @@ public class GoalServiceImpl implements GoalService {
     GoalRepository goalRepository;
     TaskRepository taskRepository;
     TaskTypeRepository taskTypeRepository;
+    UserRepository userRepository;
+    WorkspaceTeamRepository workspaceTeamRepository;
     GoalMapper goalMapper;
     CollaborationAccessService collaborationAccessService;
     SecurityUtils securityUtils;
@@ -44,8 +49,12 @@ public class GoalServiceImpl implements GoalService {
     @Override
     @Transactional
     public GoalResponse createGoal(CreateGoalRequest request) {
-        collaborationAccessService.ensureCurrentUserCanAccessProject(request.getProjectId());
+        collaborationAccessService.ensureCurrentUserCanManageProject(request.getProjectId());
         Project project = collaborationAccessService.requireProject(request.getProjectId());
+
+        if (request.getManagerUserId() != null || request.getManagerTeamId() != null) {
+            collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(project.getWorkspace().getId());
+        }
 
         Goal goal = goalMapper.toEntity(request);
         User currentUser = securityUtils.getAuthenticatedUser();
@@ -57,6 +66,9 @@ public class GoalServiceImpl implements GoalService {
         goal.setProgressPercent(request.getProgressPercent() == null ? BigDecimal.ZERO : request.getProgressPercent());
         goal.setCreatedAt(now);
         goal.setUpdatedAt(now);
+
+        applyGoalManagerAssignments(goal, project.getWorkspace().getId(), request.getManagerUserId(),
+                request.getManagerTeamId());
 
         validateProgress(goal.getProgressPercent());
 
@@ -77,14 +89,25 @@ public class GoalServiceImpl implements GoalService {
     @Transactional
     public GoalResponse updateGoal(Long goalId, UpdateGoalRequest request) {
         Goal goal = collaborationAccessService.requireGoal(goalId);
-        collaborationAccessService.ensureCurrentUserCanAccessProject(goal.getProject().getId());
+        collaborationAccessService.ensureCurrentUserCanManageGoal(goalId);
+
+        boolean managerUpdateRequested = request.getManagerUserId() != null || request.getManagerTeamId() != null;
+        if (managerUpdateRequested) {
+            collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(goal.getProject().getWorkspace().getId());
+        }
 
         if (request.getTitle() == null && request.getGoalType() == null && request.getStatus() == null
-                && request.getProgressPercent() == null) {
+                && request.getProgressPercent() == null && !managerUpdateRequested) {
             throw new ApplicationException(ErrorCode.NO_UPDATE_PROVIDED);
         }
 
         goalMapper.updateEntity(goal, request);
+
+        if (managerUpdateRequested) {
+            applyGoalManagerAssignments(goal, goal.getProject().getWorkspace().getId(), request.getManagerUserId(),
+                    request.getManagerTeamId());
+        }
+
         if (request.getProgressPercent() != null) {
             validateProgress(request.getProgressPercent());
         }
@@ -133,7 +156,7 @@ public class GoalServiceImpl implements GoalService {
     @Transactional
     public void deleteGoal(Long goalId) {
         Goal goal = collaborationAccessService.requireGoal(goalId);
-        collaborationAccessService.ensureCurrentUserCanAccessProject(goal.getProject().getId());
+        collaborationAccessService.ensureCurrentUserCanManageGoal(goalId);
 
         Long workspaceId = goal.getProject().getWorkspace().getId();
         Long projectId = goal.getProject().getId();
@@ -184,6 +207,36 @@ public class GoalServiceImpl implements GoalService {
         if (progress.compareTo(BigDecimal.ZERO) < 0 || progress.compareTo(BigDecimal.valueOf(100)) > 0) {
             throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
                     "Tiến độ goal phải nằm trong khoảng 0..100");
+        }
+    }
+
+    private void applyGoalManagerAssignments(Goal goal, Long workspaceId, String managerUserId, Long managerTeamId) {
+        if (managerUserId != null) {
+            if (managerUserId.isBlank()) {
+                goal.setManagerUser(null);
+            } else {
+                collaborationAccessService.ensureAssigneeBelongsWorkspace(managerUserId, workspaceId);
+                User managerUser = userRepository.findById(managerUserId)
+                        .orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
+                goal.setManagerUser(managerUser);
+            }
+        }
+
+        if (managerTeamId != null) {
+            if (managerTeamId <= 0) {
+                goal.setManagerTeam(null);
+            } else {
+                WorkspaceTeam managerTeam = workspaceTeamRepository.findById(managerTeamId)
+                        .orElseThrow(() -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND,
+                                "Team manager không tồn tại"));
+
+                if (!managerTeam.getWorkspace().getId().equals(workspaceId)) {
+                    throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
+                            "Manager team phải thuộc cùng workspace");
+                }
+
+                goal.setManagerTeam(managerTeam);
+            }
         }
     }
 }

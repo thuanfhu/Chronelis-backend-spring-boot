@@ -18,4 +18,8 @@ public class UpdateProjectRequest {
     String description;
 
     ProjectStatusType status;
+
+    String managerUserId;
+
+    Long managerTeamId;
 }

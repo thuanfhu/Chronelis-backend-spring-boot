@@ -22,6 +22,7 @@ public class TaskResponse {
     TaskStatusResponse status;
     String title;
     String description;
+    String notesHtml;
     TaskPriorityType priority;
     TaskTypeResponse taskType;
     SourceViewType sourceView;

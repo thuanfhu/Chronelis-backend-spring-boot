@@ -132,7 +132,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         @Override
         @Transactional
         public WorkspaceMemberResponse addMember(Long workspaceId, AddWorkspaceMemberRequest request) {
-                collaborationAccessService.ensureCurrentUserIsWorkspaceManager(workspaceId);
+                collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(workspaceId);
 
                 User targetUser = userRepository.findById(request.getUserId())
                                 .orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
@@ -184,7 +184,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         @Transactional
         public WorkspaceMemberResponse updateMemberRole(Long workspaceId, String userId,
                         UpdateWorkspaceMemberRoleRequest request) {
-                collaborationAccessService.ensureCurrentUserIsWorkspaceManager(workspaceId);
+                collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(workspaceId);
                 Workspace workspace = collaborationAccessService.requireWorkspace(workspaceId);
 
                 if (workspace.getOwner().getUserId().equals(userId)) {
@@ -218,7 +218,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         @Override
         @Transactional
         public void removeMember(Long workspaceId, String userId) {
-                collaborationAccessService.ensureCurrentUserIsWorkspaceManager(workspaceId);
+                collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(workspaceId);
                 Workspace workspace = collaborationAccessService.requireWorkspace(workspaceId);
 
                 if (workspace.getOwner().getUserId().equals(userId)) {
@@ -249,7 +249,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         @Transactional
         public void deleteWorkspace(Long workspaceId) {
                 Workspace workspace = collaborationAccessService.requireWorkspace(workspaceId);
-                collaborationAccessService.ensureCurrentUserIsWorkspaceManager(workspaceId);
+                collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(workspaceId);
 
                 User currentUser = securityUtils.getAuthenticatedUser();
                 if (!workspace.getOwner().getUserId().equals(currentUser.getUserId())) {

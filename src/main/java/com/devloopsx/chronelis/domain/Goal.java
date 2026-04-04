@@ -46,6 +46,14 @@ public class Goal {
     @JoinColumn(name = "created_by", nullable = false)
     User createdBy;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "manager_user_id")
+    User managerUser;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "manager_team_id")
+    WorkspaceTeam managerTeam;
+
     @Column(name = "created_at", nullable = false)
     LocalDateTime createdAt;
 

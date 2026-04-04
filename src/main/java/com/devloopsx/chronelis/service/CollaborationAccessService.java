@@ -11,6 +11,8 @@ public interface CollaborationAccessService {
 
     void ensureCurrentUserIsWorkspaceManager(Long workspaceId);
 
+    void ensureCurrentUserIsWorkspaceOwner(Long workspaceId);
+
     Project requireProject(Long projectId);
 
     Goal requireGoal(Long goalId);
@@ -19,7 +21,15 @@ public interface CollaborationAccessService {
 
     Task requireTask(Long taskId);
 
+    WorkspaceTeam requireWorkspaceTeam(Long teamId);
+
     void ensureCurrentUserCanAccessProject(Long projectId);
+
+    void ensureCurrentUserCanManageProject(Long projectId);
+
+    void ensureCurrentUserCanManageGoal(Long goalId);
+
+    void ensureCurrentUserCanManageTask(Long taskId);
 
     void ensureCurrentUserCanAccessTask(Long taskId);
 

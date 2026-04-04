@@ -21,4 +21,8 @@ public class CreateProjectRequest {
 
     @Size(max = 2000, message = "INVALID_REQUEST_DATA")
     String description;
+
+    String managerUserId;
+
+    Long managerTeamId;
 }

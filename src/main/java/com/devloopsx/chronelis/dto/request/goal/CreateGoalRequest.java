@@ -29,4 +29,8 @@ public class CreateGoalRequest {
     @DecimalMin(value = "0.00", message = "INVALID_REQUEST_DATA")
     @DecimalMax(value = "100.00", message = "INVALID_REQUEST_DATA")
     BigDecimal progressPercent;
+
+    String managerUserId;
+
+    Long managerTeamId;
 }

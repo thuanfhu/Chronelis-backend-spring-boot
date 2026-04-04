@@ -39,7 +39,7 @@ public class TaskStatusServiceImpl implements TaskStatusService {
     @Override
     @Transactional
     public TaskStatusResponse createStatus(CreateTaskStatusRequest request) {
-        collaborationAccessService.ensureCurrentUserCanAccessProject(request.getProjectId());
+        collaborationAccessService.ensureCurrentUserCanManageProject(request.getProjectId());
         Project project = collaborationAccessService.requireProject(request.getProjectId());
 
         String normalizedCode = request.getCode().trim().toUpperCase(Locale.ROOT);
@@ -84,7 +84,7 @@ public class TaskStatusServiceImpl implements TaskStatusService {
     @Transactional
     public TaskStatusResponse updateStatus(Long statusId, UpdateTaskStatusRequest request) {
         TaskStatus status = collaborationAccessService.requireTaskStatus(statusId);
-        collaborationAccessService.ensureCurrentUserCanAccessProject(status.getProject().getId());
+        collaborationAccessService.ensureCurrentUserCanManageProject(status.getProject().getId());
 
         boolean hasUpdate = request.getName() != null || request.getCode() != null || request.getPosition() != null
                 || request.getIsClosed() != null;
@@ -131,7 +131,7 @@ public class TaskStatusServiceImpl implements TaskStatusService {
     @Override
     @Transactional
     public List<TaskStatusResponse> reorderStatuses(Long projectId, ReorderTaskStatusesRequest request) {
-        collaborationAccessService.ensureCurrentUserCanAccessProject(projectId);
+        collaborationAccessService.ensureCurrentUserCanManageProject(projectId);
 
         List<TaskStatus> statuses = taskStatusRepository.findByProjectIdOrderByPositionAsc(projectId);
         List<Long> providedIds = request.getStatusIdsInOrder();
@@ -179,7 +179,7 @@ public class TaskStatusServiceImpl implements TaskStatusService {
     @Transactional
     public void deleteStatus(Long statusId) {
         TaskStatus status = collaborationAccessService.requireTaskStatus(statusId);
-        collaborationAccessService.ensureCurrentUserCanAccessProject(status.getProject().getId());
+        collaborationAccessService.ensureCurrentUserCanManageProject(status.getProject().getId());
 
         long taskCount = taskRepository.countByStatusId(statusId);
         if (taskCount > 0) {

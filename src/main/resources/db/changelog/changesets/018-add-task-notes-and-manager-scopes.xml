@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="018-add-task-notes-and-manager-scopes" author="copilot">
+        <addColumn tableName="tasks">
+            <column name="notes_html" type="MEDIUMTEXT"/>
+        </addColumn>
+
+        <addColumn tableName="projects">
+            <column name="manager_user_id" type="VARCHAR(36)"/>
+            <column name="manager_team_id" type="BIGINT UNSIGNED"/>
+        </addColumn>
+
+        <addForeignKeyConstraint baseTableName="projects" baseColumnNames="manager_user_id" referencedTableName="users" referencedColumnNames="user_id" constraintName="fk_projects_manager_user" onDelete="SET NULL"/>
+
+        <addForeignKeyConstraint baseTableName="projects" baseColumnNames="manager_team_id" referencedTableName="workspace_teams" referencedColumnNames="id" constraintName="fk_projects_manager_team" onDelete="SET NULL"/>
+
+        <createIndex tableName="projects" indexName="idx_projects_manager_user_id">
+            <column name="manager_user_id"/>
+        </createIndex>
+
+        <createIndex tableName="projects" indexName="idx_projects_manager_team_id">
+            <column name="manager_team_id"/>
+        </createIndex>
+
+        <addColumn tableName="goals">
+            <column name="manager_user_id" type="VARCHAR(36)"/>
+            <column name="manager_team_id" type="BIGINT UNSIGNED"/>
+        </addColumn>
+
+        <addForeignKeyConstraint baseTableName="goals" baseColumnNames="manager_user_id" referencedTableName="users" referencedColumnNames="user_id" constraintName="fk_goals_manager_user" onDelete="SET NULL"/>
+
+        <addForeignKeyConstraint baseTableName="goals" baseColumnNames="manager_team_id" referencedTableName="workspace_teams" referencedColumnNames="id" constraintName="fk_goals_manager_team" onDelete="SET NULL"/>
+
+        <createIndex tableName="goals" indexName="idx_goals_manager_user_id">
+            <column name="manager_user_id"/>
+        </createIndex>
+
+        <createIndex tableName="goals" indexName="idx_goals_manager_team_id">
+            <column name="manager_team_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
