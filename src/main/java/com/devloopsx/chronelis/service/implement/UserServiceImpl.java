@@ -12,8 +12,17 @@ import com.devloopsx.chronelis.domain.User;
 import com.devloopsx.chronelis.exception.ApplicationException;
 import com.devloopsx.chronelis.exception.ErrorCode;
 import com.devloopsx.chronelis.mapper.UserMapper;
+import com.devloopsx.chronelis.repository.ActivityLogRepository;
+import com.devloopsx.chronelis.repository.GoalRepository;
+import com.devloopsx.chronelis.repository.ProjectRepository;
 import com.devloopsx.chronelis.repository.RoleRepository;
+import com.devloopsx.chronelis.repository.TaskCommentRepository;
+import com.devloopsx.chronelis.repository.TaskRepository;
+import com.devloopsx.chronelis.repository.TaskScheduleRepository;
 import com.devloopsx.chronelis.repository.UserRepository;
+import com.devloopsx.chronelis.repository.WorkspaceInviteRepository;
+import com.devloopsx.chronelis.repository.WorkspaceRepository;
+import com.devloopsx.chronelis.repository.WorkspaceTeamRepository;
 import com.devloopsx.chronelis.service.EmailService;
 import com.devloopsx.chronelis.service.UserService;
 import com.devloopsx.chronelis.utils.PhoneNumberUtils;
@@ -45,6 +54,15 @@ import java.util.stream.Collectors;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class UserServiceImpl implements UserService {
 	UserRepository userRepository;
+	WorkspaceRepository workspaceRepository;
+	ProjectRepository projectRepository;
+	GoalRepository goalRepository;
+	TaskRepository taskRepository;
+	TaskScheduleRepository taskScheduleRepository;
+	TaskCommentRepository taskCommentRepository;
+	WorkspaceTeamRepository workspaceTeamRepository;
+	WorkspaceInviteRepository workspaceInviteRepository;
+	ActivityLogRepository activityLogRepository;
 	RoleRepository roleRepository;
 	EmailService emailService;
 	UserMapper userMapper;
@@ -184,13 +202,22 @@ public class UserServiceImpl implements UserService {
 	@Override
 	@Transactional
 	public void deleteUserById(String userId) {
-		User currentUser = userRepository.findById(userId)
+		User targetUser = userRepository.findById(userId)
 				.orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
-		securityUtils.enforceProtectedEmailPolicy(currentUser.getEmail());
+		securityUtils.enforceProtectedEmailPolicy(targetUser.getEmail());
 
-		// Delete user account if not system account
-		currentUser.getRoles().clear();
-		userRepository.delete(currentUser);
+		User replacementUser = userRepository.findById(securityUtils.getAuthenticatedUser().getUserId())
+				.orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
+
+		if (targetUser.getUserId().equals(replacementUser.getUserId())) {
+			throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
+					"Không thể tự xóa tài khoản đang đăng nhập");
+		}
+
+		reassignUserForeignKeys(targetUser.getUserId(), replacementUser);
+
+		targetUser.getRoles().clear();
+		userRepository.delete(targetUser);
 	}
 
 	@Override
@@ -234,5 +261,18 @@ public class UserServiceImpl implements UserService {
 		currentUser.getRoles().add(staffRole);
 		User savedUser = userRepository.save(currentUser);
 		return userMapper.userToSecureResponse(savedUser);
+	}
+
+	private void reassignUserForeignKeys(String sourceUserId, User replacementUser) {
+		taskRepository.clearAssigneeReferences(sourceUserId);
+		activityLogRepository.reassignActor(sourceUserId, replacementUser);
+		workspaceInviteRepository.reassignCreatedBy(sourceUserId, replacementUser);
+		workspaceTeamRepository.reassignCreatedBy(sourceUserId, replacementUser);
+		taskCommentRepository.reassignCommentAuthor(sourceUserId, replacementUser);
+		taskScheduleRepository.reassignCreatedBy(sourceUserId, replacementUser);
+		taskRepository.reassignCreatedBy(sourceUserId, replacementUser);
+		goalRepository.reassignCreatedBy(sourceUserId, replacementUser);
+		projectRepository.reassignCreatedBy(sourceUserId, replacementUser);
+		workspaceRepository.reassignOwner(sourceUserId, replacementUser);
 	}
 }

@@ -14,4 +14,6 @@ public interface WorkspaceTeamMemberRepository extends JpaRepository<WorkspaceTe
     Optional<WorkspaceTeamMember> findByTeamIdAndUserUserId(Long teamId, String userId);
 
     void deleteByTeamIdAndUserUserId(Long teamId, String userId);
+
+    void deleteByTeamId(Long teamId);
 }

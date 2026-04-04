@@ -1,6 +1,9 @@
 package com.devloopsx.chronelis.repository;
 
 import com.devloopsx.chronelis.domain.WorkspaceInvite;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -10,4 +13,9 @@ public interface WorkspaceInviteRepository extends JpaRepository<WorkspaceInvite
     List<WorkspaceInvite> findByWorkspaceIdAndIsActiveTrueOrderByCreatedAtDesc(Long workspaceId);
 
     Optional<WorkspaceInvite> findByInviteCode(String inviteCode);
+
+    @Modifying
+    @Query("UPDATE WorkspaceInvite wi SET wi.createdBy = :replacementUser WHERE wi.createdBy.userId = :sourceUserId")
+    int reassignCreatedBy(@Param("sourceUserId") String sourceUserId,
+            @Param("replacementUser") com.devloopsx.chronelis.domain.User replacementUser);
 }

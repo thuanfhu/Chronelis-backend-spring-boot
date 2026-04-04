@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -33,4 +34,21 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
 
         @Query("SELECT COALESCE(MAX(t.boardPosition), -1) FROM Task t WHERE t.status.id = :statusId")
         Integer findMaxBoardPositionByStatusId(@Param("statusId") Long statusId);
+
+        @Modifying
+        @Query("UPDATE Task t SET t.goal = null WHERE t.goal.id = :goalId")
+        int clearGoalReferences(@Param("goalId") Long goalId);
+
+        @Modifying
+        @Query("UPDATE Task t SET t.taskType = null WHERE t.taskType.id = :taskTypeId")
+        int clearTaskTypeReferences(@Param("taskTypeId") Long taskTypeId);
+
+        @Modifying
+        @Query("UPDATE Task t SET t.assignee = null WHERE t.assignee.userId = :sourceUserId")
+        int clearAssigneeReferences(@Param("sourceUserId") String sourceUserId);
+
+        @Modifying
+        @Query("UPDATE Task t SET t.createdBy = :replacementUser WHERE t.createdBy.userId = :sourceUserId")
+        int reassignCreatedBy(@Param("sourceUserId") String sourceUserId,
+                        @Param("replacementUser") com.devloopsx.chronelis.domain.User replacementUser);
 }

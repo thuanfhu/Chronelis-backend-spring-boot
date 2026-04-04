@@ -12,8 +12,12 @@ import com.devloopsx.chronelis.dto.response.tasktype.TaskTypeResponse;
 import com.devloopsx.chronelis.exception.ApplicationException;
 import com.devloopsx.chronelis.exception.ErrorCode;
 import com.devloopsx.chronelis.mapper.TaskTypeMapper;
+import com.devloopsx.chronelis.repository.TaskRepository;
 import com.devloopsx.chronelis.repository.TaskTypeRepository;
-import com.devloopsx.chronelis.service.*;
+import com.devloopsx.chronelis.service.ActivityLogService;
+import com.devloopsx.chronelis.service.CollaborationAccessService;
+import com.devloopsx.chronelis.service.RealtimeEventPublisherService;
+import com.devloopsx.chronelis.service.TaskTypeService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +32,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class TaskTypeServiceImpl implements TaskTypeService {
+    TaskRepository taskRepository;
     TaskTypeRepository taskTypeRepository;
     TaskTypeMapper taskTypeMapper;
     CollaborationAccessService collaborationAccessService;
@@ -140,6 +145,9 @@ public class TaskTypeServiceImpl implements TaskTypeService {
         Long workspaceId = taskType.getWorkspace().getId();
         Long projectId = taskType.getProject().getId();
         String name = taskType.getName();
+
+        // Defensive cleanup in case DB foreign keys are not configured with SET NULL.
+        taskRepository.clearTaskTypeReferences(taskTypeId);
 
         taskTypeRepository.delete(taskType);
 

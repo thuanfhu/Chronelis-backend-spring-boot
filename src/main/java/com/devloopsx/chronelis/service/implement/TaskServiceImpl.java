@@ -9,7 +9,9 @@ import com.devloopsx.chronelis.dto.response.task.TaskResponse;
 import com.devloopsx.chronelis.exception.ApplicationException;
 import com.devloopsx.chronelis.exception.ErrorCode;
 import com.devloopsx.chronelis.mapper.TaskMapper;
+import com.devloopsx.chronelis.repository.TaskCommentRepository;
 import com.devloopsx.chronelis.repository.TaskRepository;
+import com.devloopsx.chronelis.repository.TaskScheduleRepository;
 import com.devloopsx.chronelis.repository.TaskTypeRepository;
 import com.devloopsx.chronelis.repository.UserRepository;
 import com.devloopsx.chronelis.service.*;
@@ -29,7 +31,9 @@ import java.util.*;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class TaskServiceImpl implements TaskService {
+    TaskCommentRepository taskCommentRepository;
     TaskRepository taskRepository;
+    TaskScheduleRepository taskScheduleRepository;
     TaskTypeRepository taskTypeRepository;
     UserRepository userRepository;
     TaskMapper taskMapper;
@@ -428,6 +432,10 @@ public class TaskServiceImpl implements TaskService {
         int boardPosition = task.getBoardPosition();
         String title = task.getTitle();
         Long goalId = task.getGoal() != null ? task.getGoal().getId() : null;
+
+        // Defensive cleanup in case DB foreign keys are not configured with CASCADE.
+        taskCommentRepository.deleteByTaskId(taskId);
+        taskScheduleRepository.deleteByTaskId(taskId);
 
         taskRepository.delete(task);
         shiftLeftAfterRemoval(statusId, boardPosition);

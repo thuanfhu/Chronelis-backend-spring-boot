@@ -18,7 +18,10 @@ import com.devloopsx.chronelis.mapper.WorkspaceTeamMemberMapper;
 import com.devloopsx.chronelis.repository.UserRepository;
 import com.devloopsx.chronelis.repository.WorkspaceTeamMemberRepository;
 import com.devloopsx.chronelis.repository.WorkspaceTeamRepository;
-import com.devloopsx.chronelis.service.*;
+import com.devloopsx.chronelis.service.ActivityLogService;
+import com.devloopsx.chronelis.service.CollaborationAccessService;
+import com.devloopsx.chronelis.service.RealtimeEventPublisherService;
+import com.devloopsx.chronelis.service.WorkspaceTeamService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -132,6 +135,9 @@ public class WorkspaceTeamServiceImpl implements WorkspaceTeamService {
 
         Long workspaceId = team.getWorkspace().getId();
         String name = team.getName();
+
+        // Defensive cleanup in case DB foreign keys are not configured with CASCADE.
+        workspaceTeamMemberRepository.deleteByTeamId(teamId);
 
         workspaceTeamRepository.delete(team);
 

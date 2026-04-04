@@ -14,6 +14,7 @@ import com.devloopsx.chronelis.exception.ErrorCode;
 import com.devloopsx.chronelis.mapper.GoalMapper;
 import com.devloopsx.chronelis.repository.GoalRepository;
 import com.devloopsx.chronelis.repository.TaskRepository;
+import com.devloopsx.chronelis.repository.TaskTypeRepository;
 import com.devloopsx.chronelis.service.*;
 import com.devloopsx.chronelis.utils.SecurityUtils;
 import lombok.AccessLevel;
@@ -33,6 +34,7 @@ import java.time.LocalDateTime;
 public class GoalServiceImpl implements GoalService {
     GoalRepository goalRepository;
     TaskRepository taskRepository;
+    TaskTypeRepository taskTypeRepository;
     GoalMapper goalMapper;
     CollaborationAccessService collaborationAccessService;
     SecurityUtils securityUtils;
@@ -133,15 +135,13 @@ public class GoalServiceImpl implements GoalService {
         Goal goal = collaborationAccessService.requireGoal(goalId);
         collaborationAccessService.ensureCurrentUserCanAccessProject(goal.getProject().getId());
 
-        long linkedTaskCount = taskRepository.countByGoalId(goalId);
-        if (linkedTaskCount > 0) {
-            throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
-                    "Không thể xóa goal vì vẫn còn task liên kết");
-        }
-
         Long workspaceId = goal.getProject().getWorkspace().getId();
         Long projectId = goal.getProject().getId();
         User currentUser = securityUtils.getAuthenticatedUser();
+
+        // Defensive cleanup in case DB foreign keys are not configured with SET NULL.
+        taskRepository.clearGoalReferences(goalId);
+        taskTypeRepository.clearGoalReferences(goalId);
 
         goalRepository.delete(goal);
 
