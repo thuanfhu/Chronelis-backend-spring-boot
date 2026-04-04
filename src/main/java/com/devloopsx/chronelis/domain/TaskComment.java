@@ -5,6 +5,8 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
@@ -27,6 +29,10 @@ public class TaskComment {
     @JoinColumn(name = "user_id", nullable = false)
     User user;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_comment_id")
+    TaskComment parentComment;
+
     @Column(nullable = false, columnDefinition = "TEXT")
     String content;
 
@@ -35,4 +41,8 @@ public class TaskComment {
 
     @Column(name = "updated_at", nullable = false)
     LocalDateTime updatedAt;
+
+    @Builder.Default
+    @OneToMany(mappedBy = "parentComment", fetch = FetchType.LAZY)
+    List<TaskComment> replies = new ArrayList<>();
 }

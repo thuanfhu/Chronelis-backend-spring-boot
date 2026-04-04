@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 public class TaskCommentResponse {
     Long id;
     Long taskId;
+    Long parentCommentId;
     UserSummaryResponse user;
     String content;
     LocalDateTime createdAt;

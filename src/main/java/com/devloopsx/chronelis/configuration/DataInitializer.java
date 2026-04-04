@@ -189,6 +189,7 @@ public class DataInitializer implements ApplicationRunner {
 				// Module Workspaces
 				new Permission("Create a workspace", "/api/v1/workspaces", "POST", "WORKSPACES"),
 				new Permission("Update a workspace", "/api/v1/workspaces/{workspaceId}", "PATCH", "WORKSPACES"),
+				new Permission("Delete a workspace", "/api/v1/workspaces/{workspaceId}", "DELETE", "WORKSPACES"),
 				new Permission("Get workspace detail", "/api/v1/workspaces/{workspaceId}", "GET", "WORKSPACES"),
 				new Permission("List visible workspaces", "/api/v1/workspaces", "GET", "WORKSPACES"),
 				new Permission("Add workspace member", "/api/v1/workspaces/{workspaceId}/members", "POST",
@@ -203,6 +204,7 @@ public class DataInitializer implements ApplicationRunner {
 				// Module Projects
 				new Permission("Create a project", "/api/v1/projects", "POST", "PROJECTS"),
 				new Permission("Update a project", "/api/v1/projects/{projectId}", "PATCH", "PROJECTS"),
+				new Permission("Delete a project", "/api/v1/projects/{projectId}", "DELETE", "PROJECTS"),
 				new Permission("Update project status", "/api/v1/projects/{projectId}/status", "PATCH", "PROJECTS"),
 				new Permission("Get project detail", "/api/v1/projects/{projectId}", "GET", "PROJECTS"),
 				new Permission("List projects in workspace", "/api/v1/projects/workspace/{workspaceId}", "GET",
@@ -400,10 +402,12 @@ public class DataInitializer implements ApplicationRunner {
 				List.of(
 						findPermissionOrThrow("/api/v1/workspaces", "POST"),
 						findPermissionOrThrow("/api/v1/workspaces/{workspaceId}", "PATCH"),
+						findPermissionOrThrow("/api/v1/workspaces/{workspaceId}", "DELETE"),
 						findPermissionOrThrow("/api/v1/workspaces/{workspaceId}/members", "POST"),
 						findPermissionOrThrow("/api/v1/workspaces/{workspaceId}/members/{userId}/role", "PATCH"),
 						findPermissionOrThrow("/api/v1/projects", "POST"),
 						findPermissionOrThrow("/api/v1/projects/{projectId}", "PATCH"),
+						findPermissionOrThrow("/api/v1/projects/{projectId}", "DELETE"),
 						findPermissionOrThrow("/api/v1/projects/{projectId}/status", "PATCH"),
 						findPermissionOrThrow("/api/v1/goals", "POST"),
 						findPermissionOrThrow("/api/v1/goals/{goalId}", "PATCH"),

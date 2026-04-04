@@ -27,4 +27,6 @@ public interface WorkspaceService {
     WorkspaceMemberResponse updateMemberRole(Long workspaceId, String userId, UpdateWorkspaceMemberRoleRequest request);
 
     void removeMember(Long workspaceId, String userId);
+
+    void deleteWorkspace(Long workspaceId);
 }

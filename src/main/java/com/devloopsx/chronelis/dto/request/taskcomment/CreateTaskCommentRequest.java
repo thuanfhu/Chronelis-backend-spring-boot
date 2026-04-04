@@ -14,6 +14,8 @@ public class CreateTaskCommentRequest {
     @NotNull(message = "INVALID_REQUEST_DATA")
     Long taskId;
 
+    Long parentCommentId;
+
     @NotBlank(message = "INVALID_REQUEST_DATA")
     String content;
 }

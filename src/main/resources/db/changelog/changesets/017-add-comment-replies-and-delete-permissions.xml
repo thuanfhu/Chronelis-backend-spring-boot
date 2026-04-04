@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="017-add-parent-comment-column" author="chronelis" dbms="mysql">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="task_comments" columnName="parent_comment_id"/>
+            </not>
+        </preConditions>
+
+        <addColumn tableName="task_comments">
+            <column name="parent_comment_id" type="BIGINT UNSIGNED"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="017-add-parent-comment-foreign-key" author="chronelis" dbms="mysql">
+        <preConditions onFail="MARK_RAN">
+            <columnExists tableName="task_comments" columnName="parent_comment_id"/>
+            <not>
+                <foreignKeyConstraintExists foreignKeyName="fk_task_comments_parent_comment"/>
+            </not>
+        </preConditions>
+
+        <addForeignKeyConstraint baseTableName="task_comments" baseColumnNames="parent_comment_id" referencedTableName="task_comments" referencedColumnNames="id" constraintName="fk_task_comments_parent_comment" onDelete="CASCADE"/>
+    </changeSet>
+
+    <changeSet id="017-add-parent-comment-index" author="chronelis" dbms="mysql">
+        <preConditions onFail="MARK_RAN">
+            <columnExists tableName="task_comments" columnName="parent_comment_id"/>
+            <not>
+                <indexExists tableName="task_comments" indexName="idx_task_comments_parent_created_at"/>
+            </not>
+        </preConditions>
+
+        <createIndex tableName="task_comments" indexName="idx_task_comments_parent_created_at">
+            <column name="parent_comment_id"/>
+            <column name="created_at"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="017-seed-project-workspace-delete-permissions" author="chronelis" dbms="mysql">
+        <sql>
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Workspace delete', '/api/v1/workspaces/{workspaceId}', 'DELETE', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/workspaces/{workspaceId}' AND http_method = 'DELETE');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Project delete', '/api/v1/projects/{projectId}', 'DELETE', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/projects/{projectId}' AND http_method = 'DELETE');
+
+            INSERT INTO permission_roles (role_id, permission_id)
+            SELECT r.role_id, p.permission_id
+            FROM roles r
+            JOIN permissions p ON p.api_path = '/api/v1/workspaces/{workspaceId}' AND p.http_method = 'DELETE'
+            WHERE r.name IN ('ADMIN', 'USER')
+              AND NOT EXISTS (
+                  SELECT 1 FROM permission_roles pr
+                  WHERE pr.role_id = r.role_id AND pr.permission_id = p.permission_id
+              );
+
+            INSERT INTO permission_roles (role_id, permission_id)
+            SELECT r.role_id, p.permission_id
+            FROM roles r
+            JOIN permissions p ON p.api_path = '/api/v1/projects/{projectId}' AND p.http_method = 'DELETE'
+            WHERE r.name IN ('ADMIN', 'USER')
+              AND NOT EXISTS (
+                  SELECT 1 FROM permission_roles pr
+                  WHERE pr.role_id = r.role_id AND pr.permission_id = p.permission_id
+              );
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

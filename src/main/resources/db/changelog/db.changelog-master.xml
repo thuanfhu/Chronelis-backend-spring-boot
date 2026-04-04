@@ -19,5 +19,6 @@
     <include file="db/changelog/changesets/013-create-workspace-invites-table.xml"/>
     <include file="db/changelog/changesets/015-drop-task-check-items-table.xml"/>
     <include file="db/changelog/changesets/016-delete-task-check-item-permissions.xml"/>
+    <include file="db/changelog/changesets/017-add-comment-replies-and-delete-permissions.xml"/>
 
 </databaseChangeLog>

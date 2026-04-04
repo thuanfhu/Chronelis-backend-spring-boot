@@ -148,6 +148,27 @@ public class ProjectServiceImpl implements ProjectService {
                                 .build();
         }
 
+        @Override
+        @Transactional
+        public void deleteProject(Long projectId) {
+                Project project = collaborationAccessService.requireProject(projectId);
+                Long workspaceId = project.getWorkspace().getId();
+
+                collaborationAccessService.ensureCurrentUserIsWorkspaceManager(workspaceId);
+
+                String projectName = project.getName();
+                User currentUser = securityUtils.getAuthenticatedUser();
+
+                projectRepository.delete(project);
+
+                activityLogService.createLog(workspaceId, currentUser.getUserId(),
+                                ActivityActionType.PROJECT_DELETED,
+                                ActivityTargetType.PROJECT, projectId,
+                                "Xóa project " + projectName);
+
+                realtimeEventPublisherService.publishWorkspaceEvent(workspaceId, "project.deleted", projectId);
+        }
+
         private void createDefaultTaskStatuses(Project project, LocalDateTime now) {
                 List<TaskStatus> defaults = List.of(
                                 TaskStatus.builder().project(project).name("To do").code("TODO").position(1)

@@ -17,4 +17,6 @@ public interface ProjectService {
     ProjectResponse getProject(Long projectId);
 
     PaginationResponse listProjectsByWorkspace(Long workspaceId, Pageable pageable);
+
+    void deleteProject(Long projectId);
 }

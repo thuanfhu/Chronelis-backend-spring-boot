@@ -13,7 +13,13 @@ import java.util.List;
 public interface TaskCommentRepository extends JpaRepository<TaskComment, Long> {
     List<TaskComment> findByTaskIdOrderByCreatedAtAsc(Long taskId);
 
+    List<TaskComment> findByParentCommentIdOrderByCreatedAtAsc(Long parentCommentId);
+
     void deleteByTaskId(Long taskId);
+
+    @Modifying
+    @Query("DELETE FROM TaskComment tc WHERE tc.id = :commentId")
+    int deleteByIdDirect(@Param("commentId") Long commentId);
 
     @Modifying
     @Query("UPDATE TaskComment tc SET tc.user = :replacementUser WHERE tc.user.userId = :sourceUserId")

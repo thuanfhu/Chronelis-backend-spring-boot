@@ -3,11 +3,13 @@ package com.devloopsx.chronelis.constant;
 public enum ActivityActionType {
     WORKSPACE_CREATED,
     WORKSPACE_UPDATED,
+    WORKSPACE_DELETED,
     MEMBER_ADDED,
     MEMBER_REMOVED,
     MEMBER_ROLE_UPDATED,
     PROJECT_CREATED,
     PROJECT_UPDATED,
+    PROJECT_DELETED,
     GOAL_CREATED,
     GOAL_UPDATED,
     GOAL_DELETED,
