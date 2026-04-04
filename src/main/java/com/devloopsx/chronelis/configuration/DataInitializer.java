@@ -303,20 +303,7 @@ public class DataInitializer implements ApplicationRunner {
 				new Permission("Validate invite code", "/api/v1/workspace-invites/validate/{inviteCode}", "GET",
 						"WORKSPACE_INVITES"),
 				new Permission("Join workspace by invite code", "/api/v1/workspace-invites/join", "POST",
-						"WORKSPACE_INVITES"),
-
-				// Module Task Check Items
-				new Permission("Create task check item", "/api/v1/task-check-items", "POST", "TASK_CHECK_ITEMS"),
-				new Permission("Update task check item", "/api/v1/task-check-items/{checkItemId}", "PATCH",
-						"TASK_CHECK_ITEMS"),
-				new Permission("Toggle task check item", "/api/v1/task-check-items/{checkItemId}/toggle", "PATCH",
-						"TASK_CHECK_ITEMS"),
-				new Permission("Delete task check item", "/api/v1/task-check-items/{checkItemId}", "DELETE",
-						"TASK_CHECK_ITEMS"),
-				new Permission("List check items by task", "/api/v1/task-check-items/task/{taskId}", "GET",
-						"TASK_CHECK_ITEMS"),
-				new Permission("Reorder task check items", "/api/v1/task-check-items/reorder", "PATCH",
-						"TASK_CHECK_ITEMS"));
+						"WORKSPACE_INVITES"));
 	}
 
 	private Map<RoleType, List<Permission>> getDefaultRoles() {
@@ -354,8 +341,6 @@ public class DataInitializer implements ApplicationRunner {
 		List<Permission> moduleWorkspaceTeamAllPermissions = permissionRepository.findByModule("WORKSPACE_TEAMS")
 				.orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
 		List<Permission> moduleWorkspaceInviteAllPermissions = permissionRepository.findByModule("WORKSPACE_INVITES")
-				.orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-		List<Permission> moduleTaskCheckItemAllPermissions = permissionRepository.findByModule("TASK_CHECK_ITEMS")
 				.orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
 
 		// Common permissions for all authenticated users (CUSTOMER, STAFF, ADMIN)
@@ -402,12 +387,7 @@ public class DataInitializer implements ApplicationRunner {
 				// Workspace invites — validate + join (any authenticated user can use an invite
 				// link)
 				findPermissionOrThrow("/api/v1/workspace-invites/validate/{inviteCode}", "GET"),
-				findPermissionOrThrow("/api/v1/workspace-invites/join", "POST"),
-
-				// Task check items — read + personal productivity ops (all workspace members)
-				findPermissionOrThrow("/api/v1/task-check-items/task/{taskId}", "GET"),
-				findPermissionOrThrow("/api/v1/task-check-items", "POST"),
-				findPermissionOrThrow("/api/v1/task-check-items/{checkItemId}/toggle", "PATCH"));
+				findPermissionOrThrow("/api/v1/workspace-invites/join", "POST"));
 
 		// CUSTOMER permissions - Read + personal collaboration capabilities
 		List<Permission> customerRolePermissions = combinePermissions(
@@ -460,13 +440,7 @@ public class DataInitializer implements ApplicationRunner {
 						// OWNER/ADMIN enforced in service)
 						findPermissionOrThrow("/api/v1/workspace-invites", "POST"),
 						findPermissionOrThrow("/api/v1/workspace-invites/workspace/{workspaceId}", "GET"),
-						findPermissionOrThrow("/api/v1/workspace-invites/{inviteId}/revoke", "PATCH"),
-
-						// Task check items — all workspace members can fully manage check items on
-						// tasks they can access
-						findPermissionOrThrow("/api/v1/task-check-items/{checkItemId}", "PATCH"),
-						findPermissionOrThrow("/api/v1/task-check-items/{checkItemId}", "DELETE"),
-						findPermissionOrThrow("/api/v1/task-check-items/reorder", "PATCH"))));
+						findPermissionOrThrow("/api/v1/workspace-invites/{inviteId}/revoke", "PATCH"))));
 
 		// ADMIN permissions - Full system access
 		List<Permission> adminRolePermissions = permissionRepository.findAll();

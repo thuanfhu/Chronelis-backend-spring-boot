@@ -17,6 +17,7 @@
     <include file="db/changelog/changesets/011-add-task-new-fields.xml"/>
     <include file="db/changelog/changesets/012-create-workspace-teams-tables.xml"/>
     <include file="db/changelog/changesets/013-create-workspace-invites-table.xml"/>
-    <include file="db/changelog/changesets/014-create-task-check-items-table.xml"/>
+    <include file="db/changelog/changesets/015-drop-task-check-items-table.xml"/>
+    <include file="db/changelog/changesets/016-delete-task-check-item-permissions.xml"/>
 
 </databaseChangeLog>

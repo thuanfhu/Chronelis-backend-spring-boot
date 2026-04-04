@@ -34,6 +34,4 @@ public class TaskResponse {
     LocalDateTime completedAt;
     LocalDateTime createdAt;
     LocalDateTime updatedAt;
-    int checkItemCount;
-    int checkItemDoneCount;
 }

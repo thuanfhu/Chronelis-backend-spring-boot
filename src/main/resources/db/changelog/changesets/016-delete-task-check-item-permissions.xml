@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="016-delete-task-check-item-permissions" author="chronelis" dbms="mysql">
+        <sql>
+            DELETE pr
+            FROM permission_roles pr
+            JOIN permissions p ON p.permission_id = pr.permission_id
+            WHERE p.api_path LIKE '/api/v1/task-check-items%';
+
+            DELETE FROM permissions
+            WHERE api_path LIKE '/api/v1/task-check-items%';
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

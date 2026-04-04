@@ -45,7 +45,6 @@ public class DatabaseSeeder implements ApplicationRunner {
     TaskRepository taskRepository;
     TaskScheduleRepository taskScheduleRepository;
     TaskCommentRepository taskCommentRepository;
-    TaskCheckItemRepository taskCheckItemRepository;
     WorkspaceTeamRepository workspaceTeamRepository;
     WorkspaceTeamMemberRepository workspaceTeamMemberRepository;
 
@@ -148,14 +147,6 @@ public class DatabaseSeeder implements ApplicationRunner {
             "UI đẹp rồi, chỉ cần chỉnh responsive",
     };
 
-    static final String[] CHECK_ITEM_TITLES = {
-            "Viết unit test", "Code review", "Update documentation",
-            "Test trên mobile", "Kiểm tra performance", "Fix lint warnings",
-            "Add error handling", "Test edge cases", "Update changelog",
-            "Deploy staging", "QA testing", "Update API docs",
-            "Check security", "Optimize queries", "Add logging",
-    };
-
     static final String[] TEAM_NAMES = {
             "Frontend", "Backend", "Full Stack", "DevOps", "QA",
             "Design", "Product", "Data", "Security", "Mobile",
@@ -196,7 +187,6 @@ public class DatabaseSeeder implements ApplicationRunner {
                 workspaces, wsMembersMap, now));
         tx.executeWithoutResult(s -> seedTaskSchedules(random, tasks, projects, workspaces, wsMembersMap, now));
         tx.executeWithoutResult(s -> seedTaskComments(random, tasks, projects, workspaces, wsMembersMap));
-        tx.executeWithoutResult(s -> seedTaskCheckItems(random, tasks));
         tx.executeWithoutResult(s -> seedWorkspaceTeams(random, workspaces, wsMembersMap));
 
         log.info(">>> END SEEDING DEMO DATA");
@@ -557,27 +547,6 @@ public class DatabaseSeeder implements ApplicationRunner {
         }
         taskCommentRepository.saveAll(comments);
         log.info(">>> Seeded {} task comments", comments.size());
-    }
-
-    private void seedTaskCheckItems(Random random, List<Task> tasks) {
-        List<TaskCheckItem> items = new ArrayList<>();
-        for (Task task : tasks) {
-            if (random.nextInt(100) >= 20)
-                continue; // ~20% get check items
-            int count = random.nextInt(4) + 2;
-            for (int ci = 0; ci < count; ci++) {
-                items.add(TaskCheckItem.builder()
-                        .task(task)
-                        .title(limitLength(CHECK_ITEM_TITLES[(items.size() + ci) % CHECK_ITEM_TITLES.length], 200))
-                        .isChecked(random.nextBoolean())
-                        .position(ci)
-                        .createdAt(task.getCreatedAt().plusDays(1))
-                        .updatedAt(task.getCreatedAt().plusDays(random.nextInt(5) + 1))
-                        .build());
-            }
-        }
-        taskCheckItemRepository.saveAll(items);
-        log.info(">>> Seeded {} task check items", items.size());
     }
 
     private void seedWorkspaceTeams(Random random, List<Workspace> workspaces,

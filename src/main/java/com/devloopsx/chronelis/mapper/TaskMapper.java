@@ -21,14 +21,11 @@ public interface TaskMapper {
     @Mapping(target = "schedules", ignore = true)
     @Mapping(target = "comments", ignore = true)
     @Mapping(target = "taskType", ignore = true)
-    @Mapping(target = "checkItems", ignore = true)
     @Mapping(target = "sourceView", ignore = true)
     Task toEntity(CreateTaskRequest request);
 
     @Mapping(target = "projectId", source = "project.id")
     @Mapping(target = "goalId", expression = "java(task.getGoal() != null ? task.getGoal().getId() : null)")
-    @Mapping(target = "checkItemCount", expression = "java(task.getCheckItems() != null ? task.getCheckItems().size() : 0)")
-    @Mapping(target = "checkItemDoneCount", expression = "java(task.getCheckItems() != null ? (int) task.getCheckItems().stream().filter(ci -> Boolean.TRUE.equals(ci.getIsChecked())).count() : 0)")
     TaskResponse toResponse(Task task);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
@@ -46,7 +43,6 @@ public interface TaskMapper {
     @Mapping(target = "schedules", ignore = true)
     @Mapping(target = "comments", ignore = true)
     @Mapping(target = "taskType", ignore = true)
-    @Mapping(target = "checkItems", ignore = true)
     @Mapping(target = "sourceView", ignore = true)
     void updateEntity(@MappingTarget Task task, UpdateTaskRequest request);
 }

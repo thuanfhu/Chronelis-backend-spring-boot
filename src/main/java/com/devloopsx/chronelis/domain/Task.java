@@ -100,8 +100,4 @@ public class Task {
     @Builder.Default
     @OneToMany(mappedBy = "task", fetch = FetchType.LAZY)
     List<TaskComment> comments = new ArrayList<>();
-
-    @Builder.Default
-    @OneToMany(mappedBy = "task", fetch = FetchType.LAZY)
-    List<TaskCheckItem> checkItems = new ArrayList<>();
 }
