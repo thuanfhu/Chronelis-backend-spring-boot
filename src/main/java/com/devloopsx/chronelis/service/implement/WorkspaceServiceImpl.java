@@ -134,8 +134,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         public WorkspaceMemberResponse addMember(Long workspaceId, AddWorkspaceMemberRequest request) {
                 collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(workspaceId);
 
-                User targetUser = userRepository.findById(request.getUserId())
-                                .orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
+                User targetUser = resolveWorkspaceMemberTarget(request.getUserId());
 
                 if (workspaceMemberRepository.existsByWorkspaceIdAndUserUserId(workspaceId, targetUser.getUserId())) {
                         throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
@@ -186,6 +185,11 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                         UpdateWorkspaceMemberRoleRequest request) {
                 collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(workspaceId);
                 Workspace workspace = collaborationAccessService.requireWorkspace(workspaceId);
+
+                if (request.getRole() == WorkspaceMemberRoleType.OWNER) {
+                        throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
+                                        "Không thể gán vai trò OWNER cho thành viên");
+                }
 
                 if (workspace.getOwner().getUserId().equals(userId)) {
                         throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
@@ -243,6 +247,18 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                 notificationService.createAndPublish(userId, NotificationType.WORKSPACE_MEMBER_REMOVED,
                                 "Bạn đã bị xóa khỏi workspace", "Bạn đã bị xóa khỏi workspace " + workspace.getName(),
                                 ReferenceType.WORKSPACE, workspaceId);
+        }
+
+        private User resolveWorkspaceMemberTarget(String userIdentifier) {
+                String normalizedIdentifier = userIdentifier == null ? "" : userIdentifier.trim();
+                if (normalizedIdentifier.isEmpty()) {
+                        throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
+                                        "Thiếu thông tin định danh người dùng");
+                }
+
+                return userRepository.findById(normalizedIdentifier)
+                                .or(() -> userRepository.findByEmailIgnoreCase(normalizedIdentifier))
+                                .orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
         }
 
         @Override

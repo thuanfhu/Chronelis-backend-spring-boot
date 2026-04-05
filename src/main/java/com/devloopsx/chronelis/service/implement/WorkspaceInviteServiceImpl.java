@@ -50,6 +50,11 @@ public class WorkspaceInviteServiceImpl implements WorkspaceInviteService {
                 ? request.getRoleToAssign()
                 : WorkspaceMemberRoleType.MEMBER;
 
+        if (roleToAssign == WorkspaceMemberRoleType.OWNER) {
+            throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
+                    "Không thể tạo invite với vai trò OWNER");
+        }
+
         WorkspaceInvite invite = WorkspaceInvite.builder()
                 .workspace(workspace)
                 .inviteCode(UUID.randomUUID().toString().replace("-", "").substring(0, 12))
@@ -121,6 +126,10 @@ public class WorkspaceInviteServiceImpl implements WorkspaceInviteService {
         User currentUser = securityUtils.getAuthenticatedUser();
         Long workspaceId = invite.getWorkspace().getId();
 
+        WorkspaceMemberRoleType roleToAssign = invite.getRoleToAssign() == WorkspaceMemberRoleType.OWNER
+                ? WorkspaceMemberRoleType.MEMBER
+                : invite.getRoleToAssign();
+
         if (workspaceMemberRepository.existsByWorkspaceIdAndUserUserId(workspaceId, currentUser.getUserId())) {
             throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
                     "Bạn đã là thành viên của workspace này");
@@ -129,7 +138,7 @@ public class WorkspaceInviteServiceImpl implements WorkspaceInviteService {
         WorkspaceMember member = WorkspaceMember.builder()
                 .workspace(invite.getWorkspace())
                 .user(currentUser)
-                .role(invite.getRoleToAssign())
+                .role(roleToAssign)
                 .joinedAt(LocalDateTime.now())
                 .build();
         workspaceMemberRepository.save(member);
