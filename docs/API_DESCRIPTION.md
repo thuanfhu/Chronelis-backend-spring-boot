@@ -166,6 +166,7 @@ Ghi chú behavior:
 
 - `PATCH /users/{userId}` chỉ add thêm role qua `roleIds`, không thay thế toàn bộ role hiện có.
 - Muốn gỡ role phải gọi `DELETE /users/{userId}/roles`.
+- `GET /users` trả về `roles` dạng gọn (`roleId`, `name`), không kèm nested `permissions` để giữ payload nhẹ và ổn định khi admin list số lượng lớn.
 
 ### 2.2 Roles (6 APIs)
 
