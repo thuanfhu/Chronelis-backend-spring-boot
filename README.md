@@ -1,81 +1,48 @@
-# Chronelis Backend Spring Boot
+﻿# Chronelis Backend (Spring Boot)
 
-Backend cho hệ thống Chronelis, xây dựng bằng Spring Boot. Hệ thống quản lý người dùng, xác thực JWT, phân quyền, lưu trữ tệp trên AWS S3, và hỗ trợ giao tiếp thời gian thực qua WebSocket.
+Backend chính cho nền tảng cộng tác Chronelis: xác thực JWT + refresh cookie, RBAC bằng role/permission, quản lý workspace/project/task theo thời gian thực và lưu trữ file trên AWS S3.
 
-## Tổng quan kỹ thuật
+## 1) Tech Stack
 
-- Tên dự án Maven: `Chronelis`
-- Artifact ID: `chronelis-backend-spring-boot`
-- Phiên bản ứng dụng: `0.0.1-SNAPSHOT`
-- Spring Boot: `4.0.4`
-- Java: `25`
-- Maven Wrapper: `3.9.14`
-
-## Công nghệ đang sử dụng
-
-- Spring Boot Starter Web
-- Spring Boot Starter WebSocket (STOMP over WebSocket)
-- Spring Security + OAuth2 Resource Server
-- Spring Data JPA
-- Spring Validation
-- Spring Mail
-- Thymeleaf
-- MySQL Connector/J
+- Java 25
+- Spring Boot 4.0.4
+- Spring Security (OAuth2 Resource Server)
+- Spring Data JPA + MySQL
 - Liquibase
-- Redis + Jedis
-- Bucket4j
-- MapStruct
-- Lombok
+- Redis (token blacklist)
+- WebSocket STOMP
 - AWS SDK v2 S3
-- dotenv-java
+- Thymeleaf Mail Templates
+- MapStruct + Lombok
 
-## Chức năng chính
+## 2) Core Modules
 
-- Xác thực và phân quyền theo JWT
-- Đăng ký, đăng nhập, làm mới token, quên mật khẩu, xác thực email
-- Quản lý người dùng, vai trò và quyền
-- Tải lên, xoá và di chuyển tệp trên AWS S3
-- Email HTML dùng Thymeleaf cho xác thực tài khoản và đặt lại mật khẩu
-- WebSocket (STOMP) cho giao tiếp thời gian thực với xác thực JWT
+- Auth: register/login/refresh/logout/forgot/reset/verify email
+- Users + RBAC: users, roles, permissions, modules
+- Collaboration: workspaces, members, invites, teams
+- Delivery: projects, goals, task statuses/types/tasks/schedules/comments
+- Realtime: notifications + activity logs + websocket events
+- Storage: upload/delete/move file qua S3
 
-## WebSocket
+## 3) Project Structure
 
-Dự án sử dụng STOMP over WebSocket cho giao tiếp thời gian thực:
+- Source: `src/main/java/com/devloopsx/chronelis`
+- Config: `src/main/resources/application.yaml`
+- Liquibase changelog: `src/main/resources/db/changelog/db.changelog-master.xml`
+- Mail templates: `src/main/resources/templates`
+- API docs (chi tiết endpoint): `docs/API_DESCRIPTION.md`
 
-- **Endpoint kết nối**: `/ws`
-- **Xác thực**: JWT token gửi qua header `Authorization` trong STOMP CONNECT
-- **Prefix server**: `/server` (client gửi message tới đây)
-- **Prefix client**: `/client` (nhận message riêng cho user)
-- **Broker**: `/public` (broadcast), `/private` (riêng tư)
+## 4) Prerequisites
 
-Cấu trúc WebSocket:
+- JDK 25
+- MySQL
+- Redis
+- AWS S3 credentials (nếu dùng upload file)
+- SMTP credentials (nếu dùng email flow)
 
-- `WebSocketConfig`: Cấu hình STOMP broker và endpoint
-- `WebSocketEventListener`: Xử lý sự kiện kết nối/ngắt kết nối
-- `UserInterceptor`: Xác thực JWT cho kết nối WebSocket
-- `WebSocketExceptionHandler`: Xử lý lỗi toàn cục cho WebSocket
+## 5) Environment Variables
 
-## Yêu cầu hệ thống
-
-1. Java Development Kit: JDK `25`
-2. MySQL: qua biến môi trường `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`
-3. Redis: cho blacklist token
-4. Git: clone hoặc đồng bộ mã nguồn
-5. Maven: không bắt buộc nếu dùng Maven Wrapper (`mvnw` / `mvnw.cmd`)
-
-## Cấu trúc cấu hình quan trọng
-
-- File cấu hình Spring: `src/resources/application.yaml`
-- File biến môi trường mẫu: `src/resources/.env.example`
-- File biến môi trường thực tế: `src/resources/.env`
-- Template email Thymeleaf: `src/resources/templates/verify-email.html`, `src/resources/templates/forgot-password.html`
-- Liquibase master changelog: `src/resources/db/changelog/db.changelog-master.xml`
-
-Ứng dụng nạp biến môi trường bằng `dotenv-java` từ file `.env`.
-
-## Biến môi trường cần cấu hình
-
-Tạo hoặc cập nhật file `src/resources/.env` dựa trên `src/resources/.env.example`.
+Tạo file `src/main/resources/.env` dựa trên `.env.example`.
 
 ```env
 FRONTEND_BASE_URL=http://localhost:5173
@@ -110,7 +77,7 @@ REDIS_PASSWORD=your_redis_password
 REDIS_SSL=true
 ```
 
-## Cách chạy dự án
+## 6) Run Locally
 
 ### Windows
 
@@ -119,97 +86,68 @@ REDIS_SSL=true
 .\mvnw.cmd spring-boot:run
 ```
 
-### macOS / Linux
+### macOS/Linux
 
 ```bash
 ./mvnw clean install
 ./mvnw spring-boot:run
 ```
 
-### Chạy file JAR sau khi build
+Backend default: `http://localhost:8080`
 
-```bash
-java -jar target/chronelis-backend-spring-boot-0.0.1-SNAPSHOT.jar
-```
+## 7) API & Auth Notes
 
-## Kiểm thử
+- Base path: `/api/v1`
+- API wrapper: `{ success, message, data, meta }`
+- Refresh flow dùng cookie `refresh_token` (HttpOnly)
+- Public endpoints chỉ thuộc nhóm auth (register/login/verify/refresh/forgot/reset)
+- Endpoint còn lại yêu cầu:
+  1. JWT hợp lệ
+  2. Permission mapping hợp lệ trong DB (`PermissionInterceptor`)
 
-```bash
-./mvnw test          # macOS / Linux
-.\mvnw.cmd test      # Windows
-```
+Chi tiết endpoint đầy đủ: `docs/API_DESCRIPTION.md`
 
-## Truy cập hệ thống
+## 8) Frontend Link Contracts
 
-- Backend mặc định: `http://localhost:8080`
-- API base path: `/api/v1`
-- WebSocket endpoint: `ws://localhost:8080/ws`
-- Frontend mặc định: `http://localhost:5173`
+Email templates backend sinh link tới frontend theo `FRONTEND_BASE_URL`:
 
-Endpoint công khai:
+- `/auth/verify-active-account?token=...`
+- `/auth/verify-change-email?token=...`
+- `/auth/reset-password?token=...`
 
-- `POST /api/v1/auth/register`
-- `POST /api/v1/auth/login`
-- `POST /api/v1/auth/forgot-password`
+## 9) WebSocket
 
-## Template engine
+- Handshake: `/ws`
+- Client publish prefix: `/server`
+- Client subscribe prefix: `/client`
+- Broker prefixes: `/public`, `/private`
 
-Thymeleaf dùng để render email HTML, không dùng làm server-side view.
+Realtime channels chính:
 
-- `verify-email.html`: email xác thực tài khoản
-- `forgot-password.html`: email đặt lại mật khẩu
+- `/public/workspaces/{workspaceId}/events`
+- `/public/workspaces/{workspaceId}/projects/{projectId}/events`
+- `/public/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/events`
+- `/user/{userId}/private/notifications`
+- `/user/{userId}/private/notifications/unread-count`
 
-## Color theme
+## 10) Seed Data
 
-Chronelis sử dụng bảng màu Deep Indigo / Teal:
+`ALLOWED_INIT=true` sẽ chạy seed data khi khởi động (roles/permissions/accounts ban đầu).
 
-- **Primary (Deep Indigo / Blue-Violet)**: `#4a3ab5` — biểu thị sự quy hoạch, rõ ràng, trí tuệ và tin cậy
-- **Dark background**: `#1a1a2e` — nền tối tạo cảm giác chuyên nghiệp và tập trung
-- **Accent (Teal)**: `#2bbcb3` — biểu thị sự linh hoạt, tập trung và cộng tác
-- **Hover state**: `#3a2d96` — Dark Indigo cho trạng thái hover
-
-## Chuẩn response API
-
-### Thành công
-
-```json
-{
-    "success": true,
-    "message": "Đăng nhập thành công",
-    "data": { ... },
-    "meta": {
-        "timestamp": "2026-03-27T09:30:00Z",
-        "instance": "/api/v1/auth/login"
-    }
-}
-```
-
-### Lỗi
-
-```json
-{
-    "success": false,
-    "errors": [
-        {
-            "code": 1102,
-            "message": "Định dạng email không hợp lệ",
-            "field": "email",
-            "resource": "registerUserRequest"
-        }
-    ],
-    "meta": { ... }
-}
-```
-
-## Seed dữ liệu mặc định
-
-Khi `ALLOWED_INIT=true`, ứng dụng seed quyền, vai trò và tài khoản mặc định qua `DataInitializer`.
+Tắt seed:
 
 ```env
-ALLOWED_INIT=false  # tắt seed
+ALLOWED_INIT=false
 ```
 
-## Ghi chú
+## 11) Testing
 
-- Dự án chưa cấu hình Swagger/OpenAPI
-- Dự án sử dụng WebSocket broker cho realtime event; hiện không còn `@MessageMapping` controller kiểu template cũ.
+```bash
+./mvnw test
+```
+
+Windows:
+
+```powershell
+.\mvnw.cmd test
+```
