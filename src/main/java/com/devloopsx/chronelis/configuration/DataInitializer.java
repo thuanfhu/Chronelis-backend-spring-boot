@@ -373,6 +373,7 @@ public class DataInitializer implements ApplicationRunner {
 				findPermissionOrThrow("/api/v1/tasks/project/{projectId}", "GET"),
 				findPermissionOrThrow("/api/v1/tasks/{taskId}", "GET"),
 				findPermissionOrThrow("/api/v1/task-statuses/project/{projectId}", "GET"),
+				findPermissionOrThrow("/api/v1/task-schedules/calendar/project/{projectId}", "GET"),
 				findPermissionOrThrow("/api/v1/task-schedules/calendar/workspace/{workspaceId}", "GET"),
 				findPermissionOrThrow("/api/v1/notifications", "GET"),
 				findPermissionOrThrow("/api/v1/activity-logs/workspace/{workspaceId}", "GET"),
