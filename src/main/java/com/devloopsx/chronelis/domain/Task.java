@@ -37,6 +37,10 @@ public class Task {
     @JoinColumn(name = "status_id", nullable = false)
     TaskStatus status;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "last_open_status_id")
+    TaskStatus lastOpenStatus;
+
     @Column(nullable = false, length = 200)
     String title;
 

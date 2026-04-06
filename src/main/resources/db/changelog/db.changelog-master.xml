@@ -21,5 +21,6 @@
     <include file="db/changelog/changesets/016-delete-task-check-item-permissions.xml"/>
     <include file="db/changelog/changesets/017-add-comment-replies-and-delete-permissions.xml"/>
     <include file="db/changelog/changesets/018-add-task-notes-and-manager-scopes.xml"/>
+    <include file="db/changelog/changesets/019-add-task-last-open-status.xml"/>
 
 </databaseChangeLog>

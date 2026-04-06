@@ -12,6 +12,7 @@ import com.devloopsx.chronelis.mapper.TaskMapper;
 import com.devloopsx.chronelis.repository.TaskCommentRepository;
 import com.devloopsx.chronelis.repository.TaskRepository;
 import com.devloopsx.chronelis.repository.TaskScheduleRepository;
+import com.devloopsx.chronelis.repository.TaskStatusRepository;
 import com.devloopsx.chronelis.repository.TaskTypeRepository;
 import com.devloopsx.chronelis.repository.UserRepository;
 import com.devloopsx.chronelis.service.*;
@@ -34,6 +35,7 @@ public class TaskServiceImpl implements TaskService {
     TaskCommentRepository taskCommentRepository;
     TaskRepository taskRepository;
     TaskScheduleRepository taskScheduleRepository;
+    TaskStatusRepository taskStatusRepository;
     TaskTypeRepository taskTypeRepository;
     UserRepository userRepository;
     TaskMapper taskMapper;
@@ -111,9 +113,11 @@ public class TaskServiceImpl implements TaskService {
         if (Boolean.TRUE.equals(status.getIsClosed())) {
             task.setIsCompleted(true);
             task.setCompletedAt(now);
+            task.setLastOpenStatus(null);
         } else {
             task.setIsCompleted(false);
             task.setCompletedAt(null);
+            task.setLastOpenStatus(status);
         }
 
         Task savedTask = taskRepository.save(task);
@@ -251,6 +255,7 @@ public class TaskServiceImpl implements TaskService {
                     "Task status không thuộc project của task");
         }
 
+        TaskStatus sourceStatus = task.getStatus();
         Long sourceStatusId = task.getStatus().getId();
         int sourcePosition = task.getBoardPosition();
 
@@ -263,11 +268,15 @@ public class TaskServiceImpl implements TaskService {
             task.setBoardPosition(targetPosition);
 
             if (Boolean.TRUE.equals(targetStatus.getIsClosed())) {
+                if (!Boolean.TRUE.equals(sourceStatus.getIsClosed())) {
+                    task.setLastOpenStatus(sourceStatus);
+                }
                 task.setIsCompleted(true);
                 if (task.getCompletedAt() == null) {
                     task.setCompletedAt(LocalDateTime.now());
                 }
             } else {
+                task.setLastOpenStatus(targetStatus);
                 task.setIsCompleted(false);
                 task.setCompletedAt(null);
             }
@@ -397,11 +406,50 @@ public class TaskServiceImpl implements TaskService {
         Task task = collaborationAccessService.requireTask(taskId);
         collaborationAccessService.ensureCurrentUserCanManageTask(taskId);
 
-        task.setIsCompleted(request.getIsCompleted());
-        task.setCompletedAt(Boolean.TRUE.equals(request.getIsCompleted()) ? LocalDateTime.now() : null);
-        task.setUpdatedAt(LocalDateTime.now());
+        boolean nextCompleted = Boolean.TRUE.equals(request.getIsCompleted());
+        TaskStatus sourceStatus = task.getStatus();
+        TaskStatus targetStatus = sourceStatus;
 
+        if (nextCompleted && !Boolean.TRUE.equals(sourceStatus.getIsClosed())) {
+            targetStatus = resolveFirstClosedStatus(task.getProject().getId());
+        }
+
+        if (!nextCompleted && Boolean.TRUE.equals(sourceStatus.getIsClosed())) {
+            targetStatus = resolveRestoreOpenStatus(task);
+        }
+
+        boolean statusChanged = !sourceStatus.getId().equals(targetStatus.getId());
+        if (statusChanged) {
+            shiftLeftAfterRemoval(sourceStatus.getId(), task.getBoardPosition());
+            task.setStatus(targetStatus);
+            task.setBoardPosition(getEndPosition(targetStatus.getId()));
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (nextCompleted) {
+            if (!Boolean.TRUE.equals(sourceStatus.getIsClosed())) {
+                task.setLastOpenStatus(sourceStatus);
+            }
+            task.setIsCompleted(true);
+            if (task.getCompletedAt() == null) {
+                task.setCompletedAt(now);
+            }
+        } else {
+            if (!Boolean.TRUE.equals(targetStatus.getIsClosed())) {
+                task.setLastOpenStatus(targetStatus);
+            }
+            task.setIsCompleted(false);
+            task.setCompletedAt(null);
+        }
+
+        task.setUpdatedAt(now);
         Task updatedTask = taskRepository.save(task);
+
+        if (statusChanged) {
+            normalizeBoardPositions(sourceStatus.getId());
+            normalizeBoardPositions(targetStatus.getId());
+        }
+
         User currentUser = securityUtils.getAuthenticatedUser();
 
         activityLogService.createLog(task.getProject().getWorkspace().getId(), currentUser.getUserId(),
@@ -450,6 +498,29 @@ public class TaskServiceImpl implements TaskService {
         if (goalId != null) {
             goalService.recalculateGoalProgress(goalId);
         }
+    }
+
+    private TaskStatus resolveFirstClosedStatus(Long projectId) {
+        return taskStatusRepository.findFirstByProjectIdAndIsClosedTrueOrderByPositionAsc(projectId)
+                .orElseThrow(() -> new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
+                        "Project chưa có cột hoàn tất để đánh dấu task đã xong"));
+    }
+
+    private TaskStatus resolveRestoreOpenStatus(Task task) {
+        Long projectId = task.getProject().getId();
+
+        if (task.getLastOpenStatus() != null) {
+            Optional<TaskStatus> lastOpenStatus = taskStatusRepository.findByProjectIdAndIdAndIsClosedFalse(
+                    projectId,
+                    task.getLastOpenStatus().getId());
+            if (lastOpenStatus.isPresent()) {
+                return lastOpenStatus.get();
+            }
+        }
+
+        return taskStatusRepository.findFirstByProjectIdAndIsClosedFalseOrderByPositionAsc(projectId)
+                .orElseThrow(() -> new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
+                        "Project chưa có cột mở để khôi phục task"));
     }
 
     private int getEndPosition(Long statusId) {
