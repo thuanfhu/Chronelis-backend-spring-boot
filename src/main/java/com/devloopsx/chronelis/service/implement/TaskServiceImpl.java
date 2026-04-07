@@ -151,11 +151,18 @@ public class TaskServiceImpl implements TaskService {
         Task task = collaborationAccessService.requireTask(taskId);
         collaborationAccessService.ensureCurrentUserCanManageTask(taskId);
         User currentUser = securityUtils.getAuthenticatedUser();
+        Long previousGoalId = task.getGoal() != null ? task.getGoal().getId() : null;
 
-        if (request.getTitle() == null && request.getGoalId() == null && request.getPriority() == null
+        if (request.getTitle() == null && request.getDescription() == null && request.getGoalId() == null
+                && !Boolean.TRUE.equals(request.getClearGoal()) && request.getPriority() == null
                 && request.getDueDate() == null && request.getEstimatedMinutes() == null
                 && request.getTaskTypeId() == null && request.getNotesHtml() == null) {
             throw new ApplicationException(ErrorCode.NO_UPDATE_PROVIDED);
+        }
+
+        if (Boolean.TRUE.equals(request.getClearGoal()) && request.getGoalId() != null) {
+            throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
+                    "Không thể vừa chọn goal mới vừa yêu cầu bỏ liên kết goal");
         }
 
         if (request.getEstimatedMinutes() != null && request.getEstimatedMinutes() < 0) {
@@ -164,6 +171,10 @@ public class TaskServiceImpl implements TaskService {
         }
 
         taskMapper.updateEntity(task, request);
+
+        if (Boolean.TRUE.equals(request.getClearGoal())) {
+            task.setGoal(null);
+        }
 
         if (request.getGoalId() != null) {
             Goal goal = collaborationAccessService.requireGoal(request.getGoalId());
@@ -191,6 +202,16 @@ public class TaskServiceImpl implements TaskService {
         activityLogService.createLog(task.getProject().getWorkspace().getId(), currentUser.getUserId(),
                 ActivityActionType.TASK_UPDATED, ActivityTargetType.TASK, updatedTask.getId(),
                 "Cập nhật task " + updatedTask.getTitle());
+
+        Long nextGoalId = updatedTask.getGoal() != null ? updatedTask.getGoal().getId() : null;
+        if (!Objects.equals(previousGoalId, nextGoalId)) {
+            if (previousGoalId != null) {
+                goalService.recalculateGoalProgress(previousGoalId);
+            }
+            if (nextGoalId != null) {
+                goalService.recalculateGoalProgress(nextGoalId);
+            }
+        }
 
         TaskResponse response = taskMapper.toResponse(updatedTask);
         realtimeEventPublisherService.publishTaskEvent(task.getProject().getWorkspace().getId(),

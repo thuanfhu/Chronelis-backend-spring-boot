@@ -25,6 +25,8 @@ public class UpdateTaskRequest {
 
     Long goalId;
 
+    Boolean clearGoal;
+
     TaskPriorityType priority;
 
     LocalDateTime dueDate;
