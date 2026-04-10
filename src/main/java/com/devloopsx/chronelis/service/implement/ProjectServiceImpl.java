@@ -17,6 +17,7 @@ import com.devloopsx.chronelis.exception.ErrorCode;
 import com.devloopsx.chronelis.mapper.ProjectMapper;
 import com.devloopsx.chronelis.mapper.TaskStatusMapper;
 import com.devloopsx.chronelis.repository.ProjectRepository;
+import com.devloopsx.chronelis.repository.TaskRepository;
 import com.devloopsx.chronelis.repository.TaskStatusRepository;
 import com.devloopsx.chronelis.repository.UserRepository;
 import com.devloopsx.chronelis.repository.WorkspaceTeamRepository;
@@ -38,6 +39,7 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ProjectServiceImpl implements ProjectService {
         ProjectRepository projectRepository;
+        TaskRepository taskRepository;
         TaskStatusRepository taskStatusRepository;
         UserRepository userRepository;
         WorkspaceTeamRepository workspaceTeamRepository;
@@ -184,6 +186,10 @@ public class ProjectServiceImpl implements ProjectService {
 
                 String projectName = project.getName();
                 User currentUser = securityUtils.getAuthenticatedUser();
+
+                // Delete tasks explicitly before removing project so task_status FK (RESTRICT)
+                // does not conflict when DB cascades task_statuses via project delete.
+                taskRepository.deleteByProjectIdIn(List.of(projectId));
 
                 projectRepository.delete(project);
 

@@ -16,6 +16,8 @@ import com.devloopsx.chronelis.exception.ApplicationException;
 import com.devloopsx.chronelis.exception.ErrorCode;
 import com.devloopsx.chronelis.mapper.WorkspaceMapper;
 import com.devloopsx.chronelis.mapper.WorkspaceMemberMapper;
+import com.devloopsx.chronelis.repository.ProjectRepository;
+import com.devloopsx.chronelis.repository.TaskRepository;
 import com.devloopsx.chronelis.repository.WorkspaceMemberRepository;
 import com.devloopsx.chronelis.repository.WorkspaceRepository;
 import com.devloopsx.chronelis.repository.UserRepository;
@@ -37,6 +39,8 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class WorkspaceServiceImpl implements WorkspaceService {
         WorkspaceRepository workspaceRepository;
+        ProjectRepository projectRepository;
+        TaskRepository taskRepository;
         WorkspaceMemberRepository workspaceMemberRepository;
         UserRepository userRepository;
         WorkspaceMapper workspaceMapper;
@@ -274,6 +278,13 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                 }
 
                 String workspaceName = workspace.getName();
+
+                List<Long> workspaceProjectIds = projectRepository.findIdsByWorkspaceId(workspaceId);
+                if (!workspaceProjectIds.isEmpty()) {
+                        // Remove tasks before deleting workspace/project cascades to prevent
+                        // fk_tasks_status (RESTRICT) violations during status deletion.
+                        taskRepository.deleteByProjectIdIn(workspaceProjectIds);
+                }
 
                 workspaceRepository.delete(workspace);
 
