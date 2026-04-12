@@ -100,6 +100,7 @@ public class ProjectServiceImpl implements ProjectService {
                 }
 
                 if ((request.getName() == null || request.getName().isBlank())
+                                && request.getDescription() == null
                                 && request.getStatus() == null
                                 && !managerUpdateRequested) {
                         throw new ApplicationException(ErrorCode.NO_UPDATE_PROVIDED);

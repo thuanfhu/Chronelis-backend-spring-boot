@@ -32,6 +32,7 @@
         <mapstruct.version>1.6.3</mapstruct.version>
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
         <springfilter.version>3.2.1</springfilter.version>
+        <spring-ai.version>1.1.0</spring-ai.version>
         <aws-sdk.version>2.31.6</aws-sdk.version>
         <libphonenumber.version>9.0.17</libphonenumber.version>
         <dotenv-java.version>3.2.0</dotenv-java.version>
@@ -103,6 +104,18 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+
+        <!-- AI -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-client-chat</artifactId>
+            <version>${spring-ai.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-google-genai</artifactId>
+            <version>${spring-ai.version}</version>
         </dependency>
 
         <!-- Email -->

@@ -42,12 +42,27 @@ Backend chính cho nền tảng cộng tác Chronelis: xác thực JWT + refresh
 
 ## 5) Environment Variables
 
-Tạo file `src/main/resources/.env` dựa trên `.env.example`.
+Tạo file `.env` ở root backend dựa trên `.env.example`.
 
 ```env
 FRONTEND_BASE_URL=http://localhost:5173
 ACCOUNT_BASE_PASSWORD=Chronelis123@
 ALLOWED_INIT=true
+
+PROJECT_ASSISTANT_ENABLED=false
+PROJECT_ASSISTANT_MAX_PREVIEW_ACTIONS=12
+PROJECT_ASSISTANT_CONTEXT_GOAL_LIMIT=50
+PROJECT_ASSISTANT_CONTEXT_TASK_LIMIT=200
+PROJECT_ASSISTANT_CONTEXT_SCHEDULE_LIMIT=150
+PROJECT_ASSISTANT_VALIDATION_RETRY_ATTEMPTS=2
+PROJECT_ASSISTANT_GOOGLE_VERTEX_AI=false
+PROJECT_ASSISTANT_GOOGLE_API_KEY=
+PROJECT_ASSISTANT_GOOGLE_PROJECT_ID=
+PROJECT_ASSISTANT_GOOGLE_LOCATION=
+PROJECT_ASSISTANT_GOOGLE_CREDENTIALS_URI=
+PROJECT_ASSISTANT_GOOGLE_MODEL=gemini-2.5-flash
+PROJECT_ASSISTANT_GOOGLE_TEMPERATURE=0.15
+PROJECT_ASSISTANT_GOOGLE_MAX_OUTPUT_TOKENS=4096
 
 SERVER_PORT=8080
 
@@ -77,6 +92,14 @@ REDIS_PASSWORD=your_redis_password
 REDIS_SSL=true
 ```
 
+Ghi chú cho AI assistant:
+
+- Tat ca cau hinh AI da duoc doc tu bien moi truong, khong can sua source de doi model hay key.
+- Frontend khong giu secret AI. API key/model chi nam o backend env.
+- Muon bat feature, dat `PROJECT_ASSISTANT_ENABLED=true` va dien bo `PROJECT_ASSISTANT_GOOGLE_*` phu hop.
+- Neu dung Gemini API key thong thuong: can `PROJECT_ASSISTANT_GOOGLE_API_KEY`.
+- Neu dung Vertex AI: bat `PROJECT_ASSISTANT_GOOGLE_VERTEX_AI=true` va cau hinh `PROJECT_ASSISTANT_GOOGLE_PROJECT_ID`, `PROJECT_ASSISTANT_GOOGLE_LOCATION`, `PROJECT_ASSISTANT_GOOGLE_CREDENTIALS_URI`.
+
 ## 6) Run Locally
 
 ### Windows
@@ -102,8 +125,8 @@ Backend default: `http://localhost:8080`
 - Refresh flow dùng cookie `refresh_token` (HttpOnly)
 - Public endpoints chỉ thuộc nhóm auth (register/login/verify/refresh/forgot/reset)
 - Endpoint còn lại yêu cầu:
-  1. JWT hợp lệ
-  2. Permission mapping hợp lệ trong DB (`PermissionInterceptor`)
+    1. JWT hợp lệ
+    2. Permission mapping hợp lệ trong DB (`PermissionInterceptor`)
 
 Chi tiết endpoint đầy đủ: `docs/API_DESCRIPTION.md`
 
