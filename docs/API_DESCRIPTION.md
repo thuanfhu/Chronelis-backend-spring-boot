@@ -220,18 +220,21 @@ Một số API admin hỗ trợ `SpringFilter DSL`, ví dụ:
 
 ## 3.12. Module Tasks
 
-| ID       | Method | URL                                 | Auth     | Request                       | Response data                      | Ghi chú                    |
-| -------- | ------ | ----------------------------------- | -------- | ----------------------------- | ---------------------------------- | -------------------------- |
-| TASK-001 | POST   | `/api/v1/tasks`                     | `[AUTH]` | `CreateTaskRequest`           | `TaskResponse`                     | tạo task                   |
-| TASK-002 | PATCH  | `/api/v1/tasks/{taskId}`            | `[AUTH]` | `UpdateTaskRequest`           | `TaskResponse`                     | cập nhật task              |
-| TASK-003 | GET    | `/api/v1/tasks/{taskId}`            | `[AUTH]` | path `taskId`                 | `TaskResponse`                     | chi tiết task              |
-| TASK-004 | GET    | `/api/v1/tasks/project/{projectId}` | `[AUTH]` | query `page`, `size`, `sort`  | `PaginationResponse<TaskResponse>` | list theo project          |
-| TASK-005 | GET    | `/api/v1/tasks/goal/{goalId}`       | `[AUTH]` | query `page`, `size`, `sort`  | `PaginationResponse<TaskResponse>` | list theo goal             |
-| TASK-006 | PATCH  | `/api/v1/tasks/{taskId}/move`       | `[AUTH]` | `MoveTaskRequest`             | `TaskResponse`                     | đổi cột task               |
-| TASK-007 | PATCH  | `/api/v1/tasks/{taskId}/reorder`    | `[AUTH]` | `ReorderTaskRequest`          | `TaskResponse`                     | reorder trong cột          |
-| TASK-008 | PATCH  | `/api/v1/tasks/{taskId}/assignee`   | `[AUTH]` | `AssignTaskRequest`           | `TaskResponse`                     | assign/unassign            |
-| TASK-009 | PATCH  | `/api/v1/tasks/{taskId}/completion` | `[AUTH]` | `UpdateTaskCompletionRequest` | `TaskResponse`                     | mark complete / incomplete |
-| TASK-010 | DELETE | `/api/v1/tasks/{taskId}`            | `[AUTH]` | path `taskId`                 | `null`                             | xóa task                   |
+| ID       | Method | URL                                   | Auth     | Request                         | Response data                      | Ghi chú                            |
+| -------- | ------ | ------------------------------------- | -------- | ------------------------------- | ---------------------------------- | ---------------------------------- |
+| TASK-001 | POST   | `/api/v1/tasks`                       | `[AUTH]` | `CreateTaskRequest`             | `TaskResponse`                     | tạo task                           |
+| TASK-002 | PATCH  | `/api/v1/tasks/{taskId}`              | `[AUTH]` | `UpdateTaskRequest`             | `TaskResponse`                     | cập nhật task                      |
+| TASK-003 | GET    | `/api/v1/tasks/{taskId}`              | `[AUTH]` | path `taskId`                   | `TaskResponse`                     | chi tiết task                      |
+| TASK-004 | GET    | `/api/v1/tasks/project/{projectId}`   | `[AUTH]` | query `page`, `size`, `sort`    | `PaginationResponse<TaskResponse>` | list theo project                  |
+| TASK-005 | GET    | `/api/v1/tasks/goal/{goalId}`         | `[AUTH]` | query `page`, `size`, `sort`    | `PaginationResponse<TaskResponse>` | list theo goal                     |
+| TASK-006 | PATCH  | `/api/v1/tasks/{taskId}/move`         | `[AUTH]` | `MoveTaskRequest`               | `TaskResponse`                     | đổi cột task                       |
+| TASK-007 | PATCH  | `/api/v1/tasks/{taskId}/reorder`      | `[AUTH]` | `ReorderTaskRequest`            | `TaskResponse`                     | reorder trong cột                  |
+| TASK-008 | PATCH  | `/api/v1/tasks/{taskId}/assignee`     | `[AUTH]` | `AssignTaskRequest`             | `TaskResponse`                     | assign/unassign                    |
+| TASK-009 | PATCH  | `/api/v1/tasks/{taskId}/completion`   | `[AUTH]` | `UpdateTaskCompletionRequest`   | `TaskResponse`                     | mark complete / incomplete         |
+| TASK-010 | DELETE | `/api/v1/tasks/{taskId}`              | `[AUTH]` | path `taskId`                   | `null`                             | xóa task                           |
+| TASK-011 | GET    | `/api/v1/tasks/my-work`               | `[AUTH]` | không có body                   | `MyWorkResponse`                   | execution hub cá nhân              |
+| TASK-012 | GET    | `/api/v1/tasks/{taskId}/dependencies` | `[AUTH]` | path `taskId`                   | `TaskDependencyDetailsResponse`    | dependency + blocker của task      |
+| TASK-013 | PUT    | `/api/v1/tasks/{taskId}/dependencies` | `[AUTH]` | `UpdateTaskDependenciesRequest` | `TaskDependencyDetailsResponse`    | ghi đè toàn bộ danh sách phụ thuộc |
 
 ## 3.13. Module Task Schedules
 
@@ -268,7 +271,15 @@ Một số API admin hỗ trợ `SpringFilter DSL`, ví dụ:
 | ------- | ------ | ----------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------ |
 | ACT-001 | GET    | `/api/v1/activity-logs/workspace/{workspaceId}` | `[AUTH]` | query `actorId`, `actionType`, `targetType`, `fromDateTime`, `toDateTime`, `page`, `size`, `sort` | `PaginationResponse<ActivityLogResponse>` | audit log theo workspace |
 
-## 3.17. Module Storage AWS S3
+## 3.17. Module Project Assistant (AI)
+
+| ID         | Method | URL                                                      | Auth     | Request                          | Response data                     | Ghi chú                           |
+| ---------- | ------ | -------------------------------------------------------- | -------- | -------------------------------- | --------------------------------- | --------------------------------- |
+| ASSIST-001 | GET    | `/api/v1/project-assistant/status`                       | `[AUTH]` | không có body                    | `ProjectAssistantStatusResponse`  | kiểm tra AI đã được cấu hình chưa |
+| ASSIST-002 | POST   | `/api/v1/project-assistant/projects/{projectId}/preview` | `[AUTH]` | `ProjectAssistantPreviewRequest` | `ProjectAssistantPreviewResponse` | preview kế hoạch AI cho project   |
+| ASSIST-003 | POST   | `/api/v1/project-assistant/projects/{projectId}/apply`   | `[AUTH]` | `ProjectAssistantApplyRequest`   | `ProjectAssistantApplyResponse`   | áp dụng kế hoạch AI vào project   |
+
+## 3.18. Module Storage AWS S3
 
 | ID     | Method | URL                                                 | Auth     | Request                               | Response data          | Ghi chú              |
 | ------ | ------ | --------------------------------------------------- | -------- | ------------------------------------- | ---------------------- | -------------------- |
@@ -609,6 +620,29 @@ Ghi chú: không được gửi đồng thời `goalId` và `clearGoal=true`.
 | ------------- | --------- | -------- | ---------------------------------------- |
 | `isCompleted` | `boolean` | có       | đánh dấu hoàn thành hoặc chưa hoàn thành |
 
+### UpdateTaskDependenciesRequest
+
+| Field               | Type     | Bắt buộc | Mô tả                                                               |
+| ------------------- | -------- | -------- | ------------------------------------------------------------------- |
+| `dependencyTaskIds` | `long[]` | không    | danh sách task ID mà task này phụ thuộc vào; gửi `[]` để xóa tất cả |
+| `blockerNote`       | `string` | không    | ghi chú về blocker, tối đa 1000 ký tự                               |
+
+Ghi chú: đây là thao tác ghi đè (replace-all) — danh sách gửi lên sẽ trở thành toàn bộ dependency của task sau request.
+
+## 4.7. Project Assistant request DTOs
+
+### ProjectAssistantPreviewRequest
+
+| Field    | Type     | Bắt buộc | Mô tả                                  |
+| -------- | -------- | -------- | -------------------------------------- |
+| `prompt` | `string` | có       | prompt người dùng gửi cho AI assistant |
+
+### ProjectAssistantApplyRequest
+
+| Field      | Type     | Bắt buộc | Mô tả                                                |
+| ---------- | -------- | -------- | ---------------------------------------------------- |
+| `planJson` | `string` | có       | JSON kế hoạch từ bước preview để áp dụng vào project |
+
 ### CreateTaskScheduleRequest / UpdateTaskScheduleRequest
 
 | Field            | Type       | Bắt buộc ở create | Mô tả          |
@@ -880,29 +914,35 @@ Giống `RoleSecureResponse`, có thêm:
 
 ### TaskResponse
 
-| Field              | Type                  | Mô tả                 |
-| ------------------ | --------------------- | --------------------- |
-| `id`               | `long`                | id task               |
-| `projectId`        | `long`                | project chứa task     |
-| `goalId`           | `long`                | goal hiện tại         |
-| `status`           | `TaskStatusResponse`  | cột hiện tại          |
-| `title`            | `string`              | tiêu đề task          |
-| `description`      | `string`              | mô tả                 |
-| `notesHtml`        | `string`              | ghi chú HTML          |
-| `priority`         | `TaskPriorityType`    | mức ưu tiên           |
-| `taskType`         | `TaskTypeResponse`    | loại task             |
-| `sourceView`       | `SourceViewType`      | nguồn view tạo task   |
-| `assignee`         | `UserSummaryResponse` | người phụ trách       |
-| `createdBy`        | `UserSummaryResponse` | người tạo             |
-| `dueDate`          | `datetime`            | deadline              |
-| `estimatedMinutes` | `int`                 | thời lượng ước tính   |
-| `boardPosition`    | `int`                 | vị trí trong cột      |
-| `isCompleted`      | `boolean`             | trạng thái hoàn thành |
-| `completedAt`      | `datetime`            | thời gian hoàn thành  |
-| `createdAt`        | `datetime`            | thời gian tạo         |
-| `updatedAt`        | `datetime`            | thời gian cập nhật    |
+| Field                | Type                  | Mô tả                                         |
+| -------------------- | --------------------- | --------------------------------------------- |
+| `id`                 | `long`                | id task                                       |
+| `workspaceId`        | `long`                | workspace chứa project của task               |
+| `projectId`          | `long`                | project chứa task                             |
+| `goalId`             | `long`                | goal hiện tại                                 |
+| `status`             | `TaskStatusResponse`  | cột hiện tại                                  |
+| `title`              | `string`              | tiêu đề task                                  |
+| `description`        | `string`              | mô tả                                         |
+| `notesHtml`          | `string`              | ghi chú HTML                                  |
+| `priority`           | `TaskPriorityType`    | mức ưu tiên                                   |
+| `taskType`           | `TaskTypeResponse`    | loại task                                     |
+| `sourceView`         | `SourceViewType`      | nguồn view tạo task                           |
+| `assignee`           | `UserSummaryResponse` | người phụ trách                               |
+| `createdBy`          | `UserSummaryResponse` | người tạo                                     |
+| `dueDate`            | `datetime`            | deadline                                      |
+| `estimatedMinutes`   | `int`                 | thời lượng ước tính                           |
+| `boardPosition`      | `int`                 | vị trí trong cột                              |
+| `blockerNote`        | `string`              | ghi chú về blocker (nullable)                 |
+| `blocked`            | `boolean`             | task đang bị blocked bởi dependency chưa xong |
+| `blockedReason`      | `string`              | mô tả lý do blocked (nullable)                |
+| `blockedByOpenCount` | `int`                 | số dependency chưa hoàn thành                 |
+| `blockingTaskCount`  | `int`                 | số task khác đang phụ thuộc vào task này      |
+| `isCompleted`        | `boolean`             | trạng thái hoàn thành                         |
+| `completedAt`        | `datetime`            | thời gian hoàn thành                          |
+| `createdAt`          | `datetime`            | thời gian tạo                                 |
+| `updatedAt`          | `datetime`            | thời gian cập nhật                            |
 
-Ghi chú: `TaskResponse` hiện không expose `lastOpenStatus`, `importanceLevel`, `urgencyLevel` dù entity có các field này.
+Ghi chú: `lastOpenStatus`, `importanceLevel`, `urgencyLevel` tồn tại ở entity nhưng chưa được expose trong response DTO.
 
 ### TaskScheduleResponse
 
@@ -929,7 +969,96 @@ Ghi chú: `TaskResponse` hiện không expose `lastOpenStatus`, `importanceLevel
 | `createdAt`       | `datetime`            | thời gian tạo      |
 | `updatedAt`       | `datetime`            | thời gian cập nhật |
 
-## 5.6. Notification / Activity / Storage response DTOs
+### TaskDependencyTaskResponse
+
+| Field        | Type               | Mô tả                    |
+| ------------ | ------------------ | ------------------------ |
+| `id`         | `long`             | id task                  |
+| `projectId`  | `long`             | project chứa task        |
+| `goalId`     | `long`             | goal liên kết (nullable) |
+| `title`      | `string`           | tiêu đề task             |
+| `statusName` | `string`           | tên cột hiện tại         |
+| `statusCode` | `string`           | mã cột hiện tại          |
+| `priority`   | `TaskPriorityType` | mức ưu tiên              |
+| `dueDate`    | `datetime`         | deadline                 |
+| `completed`  | `boolean`          | đã hoàn thành hay chưa   |
+
+### TaskDependencyDetailsResponse
+
+| Field                | Type                           | Mô tả                                      |
+| -------------------- | ------------------------------ | ------------------------------------------ |
+| `taskId`             | `long`                         | id task được truy vấn                      |
+| `blockerNote`        | `string`                       | ghi chú về blocker (nullable)              |
+| `blocked`            | `boolean`                      | có đang bị block hay không                 |
+| `blockedReason`      | `string`                       | mô tả lý do blocked (nullable)             |
+| `blockedByOpenCount` | `int`                          | số dependency chưa hoàn thành              |
+| `blockingTaskCount`  | `int`                          | số task đang phụ thuộc vào task này        |
+| `blockedByTasks`     | `TaskDependencyTaskResponse[]` | danh sách task mà task này phụ thuộc vào   |
+| `blockingTasks`      | `TaskDependencyTaskResponse[]` | danh sách task đang phụ thuộc vào task này |
+
+### MyWorkScheduleItemResponse
+
+| Field            | Type           | Mô tả                            |
+| ---------------- | -------------- | -------------------------------- |
+| `scheduleId`     | `long`         | id lịch                          |
+| `taskId`         | `long`         | task chứa lịch                   |
+| `scheduledStart` | `datetime`     | bắt đầu                          |
+| `scheduledEnd`   | `datetime`     | kết thúc                         |
+| `task`           | `TaskResponse` | chi tiết task (có `workspaceId`) |
+
+### MyWorkResponse
+
+| Field                    | Type                           | Mô tả                                    |
+| ------------------------ | ------------------------------ | ---------------------------------------- |
+| `assignedCount`          | `int`                          | số task đang được assign cho user        |
+| `blockedCount`           | `int`                          | số task đang bị blocked                  |
+| `overdueCount`           | `int`                          | số task quá hạn mà chưa hoàn thành       |
+| `dueTodayCount`          | `int`                          | số task đến hạn hôm nay                  |
+| `highPriorityCount`      | `int`                          | số task HIGH hoặc URGENT chưa hoàn thành |
+| `upcomingScheduledCount` | `int`                          | số lịch trong 7 ngày tới                 |
+| `assignedTasks`          | `TaskResponse[]`               | danh sách tất cả task được assign        |
+| `upcomingSchedules`      | `MyWorkScheduleItemResponse[]` | lịch sắp tới (tối đa 20 mục)             |
+| `generatedAt`            | `datetime`                     | thời điểm snapshot được tạo              |
+
+## 5.6. Project Assistant response DTOs
+
+### ProjectAssistantStatusResponse
+
+| Field               | Type       | Mô tả                                   |
+| ------------------- | ---------- | --------------------------------------- |
+| `enabled`           | `boolean`  | AI assistant có được bật không          |
+| `configured`        | `boolean`  | API key và provider đã cấu hình chưa    |
+| `ready`             | `boolean`  | `enabled && configured`                 |
+| `provider`          | `string`   | tên AI provider (vd: `openai`)          |
+| `model`             | `string`   | model đang dùng (vd: `gpt-4o-mini`)     |
+| `maxPreviewActions` | `int`      | số hành động tối đa trong 1 lần preview |
+| `supportedActions`  | `string[]` | danh sách action AI hỗ trợ              |
+| `message`           | `string`   | thông báo trạng thái (nullable)         |
+
+### ProjectAssistantPreviewResponse
+
+| Field         | Type                   | Mô tả                  |
+| ------------- | ---------------------- | ---------------------- |
+| `projectId`   | `long`                 | project được preview   |
+| `provider`    | `string`               | AI provider            |
+| `model`       | `string`               | AI model               |
+| `plan`        | `ProjectAssistantPlan` | kế hoạch AI đề xuất    |
+| `generatedAt` | `datetime`             | thời điểm tạo kế hoạch |
+
+Ghi chú: `ProjectAssistantPlan` chứa danh sách `actions` kiểu `ProjectAssistantAction[]`, mỗi action có `actionType`, `payload` tùy theo loại.
+
+### ProjectAssistantApplyResponse
+
+| Field            | Type                                | Mô tả                           |
+| ---------------- | ----------------------------------- | ------------------------------- |
+| `projectId`      | `long`                              | project được áp dụng kế hoạch   |
+| `requestedCount` | `int`                               | tổng số action được yêu cầu     |
+| `appliedCount`   | `int`                               | số action đã áp dụng thành công |
+| `results`        | `ProjectAssistantExecutionResult[]` | chi tiết kết quả từng action    |
+| `warnings`       | `string[]`                          | danh sách cảnh báo (nếu có)     |
+| `appliedAt`      | `datetime`                          | thời điểm áp dụng               |
+
+## 5.7. Notification / Activity / Storage response DTOs
 
 ### NotificationResponse
 

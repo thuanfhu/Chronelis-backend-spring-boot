@@ -22,5 +22,8 @@
     <include file="db/changelog/changesets/017-add-comment-replies-and-delete-permissions.xml"/>
     <include file="db/changelog/changesets/018-add-task-notes-and-manager-scopes.xml"/>
     <include file="db/changelog/changesets/019-add-task-last-open-status.xml"/>
+    <include file="db/changelog/changesets/020-add-task-dependencies-and-blocker-note.xml"/>
+    <include file="db/changelog/changesets/021-seed-missing-permissions.xml"/>
+    <include file="db/changelog/changesets/022-seed-management-auth-storage-permissions.xml"/>
 
 </databaseChangeLog>

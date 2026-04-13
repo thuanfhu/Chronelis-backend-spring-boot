@@ -29,6 +29,8 @@ File này mô tả cách frontend Chronelis đang map màn hình và feature v�
 - `/workspaces/:workspaceId/projects/:projectId/goals/:goalId/tasks`
 - `/workspaces/:workspaceId/projects/:projectId/pomodoro/:taskId`
 - `/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/notes`
+- `/workspaces/:workspaceId/projects/:projectId/focus/:taskId`
+- `/my-work`
 - `/notifications`
 - `/profile`
 - `/join`
@@ -41,24 +43,26 @@ File này mô tả cách frontend Chronelis đang map màn hình và feature v�
 
 ## 3. Mapping màn hình với API backend
 
-| Màn hình / route                   | API backend chính                                                                                                                                                      | Ghi chú                                             |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| Login/Register/Forgot/Reset/Verify | `/auth/*`, `/users/verify-change-email`                                                                                                                                | dùng access token + refresh cookie                  |
-| Dashboard                          | `GET /workspaces`, `GET /notifications/unread-count`                                                                                                                   | hiển thị workspace gần đây và số thông báo chưa đọc |
-| Workspaces page                    | `GET /workspaces`, `POST /workspaces`                                                                                                                                  | tạo và liệt kê workspace                            |
-| Workspace detail                   | `GET /workspaces/{id}`, `GET /workspaces/{id}/members`, `GET /projects/workspace/{id}`, `GET /workspace-invites/workspace/{id}`, `GET /workspace-teams/workspace/{id}` | là màn hình tổng hợp collaboration                  |
-| Join by invite                     | `GET /workspace-invites/validate/{code}`, `POST /workspace-invites/join`                                                                                               | tham gia workspace qua code                         |
-| Tasks layout                       | `GET /projects/{id}`, `GET /tasks/project/{id}`, `GET /task-statuses/project/{id}`, `GET /goals/project/{id}`, `GET /activity-logs/workspace/{id}`                     | chia theo tab calendar/kanban/todo/goals/activity   |
-| Goal tasks page                    | `GET /goals/{goalId}`, `GET /tasks/goal/{goalId}`                                                                                                                      | màn hình task của một goal riêng biệt               |
-| Calendar page                      | `GET /task-schedules/calendar/project/{projectId}` hoặc workspace calendar                                                                                             | cần `fromDate`, `toDate`                            |
-| Task drawer / task detail          | `GET /tasks/{taskId}`, `PATCH /tasks/{taskId}` cùng comment/schedule liên quan                                                                                         | thao tác task theo context                          |
-| Task notes page                    | `GET /tasks/{taskId}`, `PATCH /tasks/{taskId}`, storage upload                                                                                                         | notes lưu vào `notesHtml`                           |
-| Task pomodoro page                 | `GET /tasks/{taskId}`                                                                                                                                                  | timer chủ yếu ở frontend, dữ liệu task lấy từ API   |
-| Notifications page                 | `GET /notifications`, `PATCH /notifications/{id}/read`, `PATCH /notifications/read-all`                                                                                | có realtime unread count                            |
-| Profile page                       | `PATCH /users/update-profile`, `PUT /users/update-password`, `PUT /users/update-email`                                                                                 | profile cá nhân                                     |
-| Admin users                        | `GET /users`, `PATCH /users/{userId}`, `DELETE /users/{userId}`, `DELETE /users/{userId}/roles`                                                                        | quản trị tài khoản                                  |
-| Admin roles                        | `GET /roles`, `POST /roles`, `PATCH /roles/{roleId}`, `DELETE /roles/{roleId}`                                                                                         | quản trị role                                       |
-| Admin permissions                  | `GET /permissions`, `POST /permissions`, `PATCH /permissions/{permissionId}`, `DELETE /permissions/{permissionId}`, `/permissions/module*`                             | quản trị permission và module                       |
+| Màn hình / route                   | API backend chính                                                                                                                                                      | Ghi chú                                           |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Login/Register/Forgot/Reset/Verify | `/auth/*`, `/users/verify-change-email`                                                                                                                                | dùng access token + refresh cookie                |
+| Dashboard                          | `GET /workspaces`, `GET /notifications/unread-count`, `GET /tasks/my-work`                                                                                             | workspace gần đây, thông báo, task đang phụ trách |
+| Workspaces page                    | `GET /workspaces`, `POST /workspaces`                                                                                                                                  | tạo và liệt kê workspace                          |
+| Workspace detail                   | `GET /workspaces/{id}`, `GET /workspaces/{id}/members`, `GET /projects/workspace/{id}`, `GET /workspace-invites/workspace/{id}`, `GET /workspace-teams/workspace/{id}` | là màn hình tổng hợp collaboration                |
+| Join by invite                     | `GET /workspace-invites/validate/{code}`, `POST /workspace-invites/join`                                                                                               | tham gia workspace qua code                       |
+| My Work (execution hub)            | `GET /tasks/my-work`                                                                                                                                                   | tất cả task được assign, blocked, sắp tới         |
+| Tasks layout                       | `GET /projects/{id}`, `GET /tasks/project/{id}`, `GET /task-statuses/project/{id}`, `GET /goals/project/{id}`, `GET /activity-logs/workspace/{id}`                     | chia theo tab calendar/kanban/todo/goals/activity |
+| Goal tasks page                    | `GET /goals/{goalId}`, `GET /tasks/goal/{goalId}`                                                                                                                      | màn hình task của một goal riêng biệt             |
+| Calendar page                      | `GET /task-schedules/calendar/project/{projectId}` hoặc workspace calendar                                                                                             | cần `fromDate`, `toDate`                          |
+| Task drawer / task detail          | `GET /tasks/{taskId}`, `PATCH /tasks/{taskId}`, `GET /tasks/{taskId}/dependencies`, `PUT /tasks/{taskId}/dependencies`, comment/schedule liên quan                     | sửa task, dependency và blocker note              |
+| Focus Mode page                    | `GET /tasks/{taskId}`, `GET /tasks/{taskId}/dependencies`, `GET /task-comments/task/{taskId}`, `GET /task-schedules/task/{taskId}`, `PATCH /tasks/{taskId}/completion` | màn hình execution đơn task                       |
+| Task notes page                    | `GET /tasks/{taskId}`, `PATCH /tasks/{taskId}`, storage upload                                                                                                         | notes lưu vào `notesHtml`                         |
+| Task pomodoro page                 | `GET /tasks/{taskId}`                                                                                                                                                  | timer chủ yếu ở frontend, dữ liệu task lấy từ API |
+| Notifications page                 | `GET /notifications`, `PATCH /notifications/{id}/read`, `PATCH /notifications/read-all`                                                                                | có realtime unread count                          |
+| Profile page                       | `PATCH /users/update-profile`, `PUT /users/update-password`, `PUT /users/update-email`                                                                                 | profile cá nhân                                   |
+| Admin users                        | `GET /users`, `PATCH /users/{userId}`, `DELETE /users/{userId}`, `DELETE /users/{userId}/roles`                                                                        | quản trị tài khoản                                |
+| Admin roles                        | `GET /roles`, `POST /roles`, `PATCH /roles/{roleId}`, `DELETE /roles/{roleId}`                                                                                         | quản trị role                                     |
+| Admin permissions                  | `GET /permissions`, `POST /permissions`, `PATCH /permissions/{permissionId}`, `DELETE /permissions/{permissionId}`, `/permissions/module*`                             | quản trị permission và module                     |
 
 ## 4. Cách frontend lấy dữ liệu
 
@@ -75,7 +79,7 @@ Các nhóm queryKey lớn đã được tách sẵn như:
 - workspaces
 - projects
 - goals
-- tasks
+- tasks (bao gồm `tasks.myWork`, `tasks.dependencies(taskId)`)
 - notifications
 - invites
 - teams

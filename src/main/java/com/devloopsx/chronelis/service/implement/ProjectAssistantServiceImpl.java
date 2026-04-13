@@ -40,9 +40,9 @@ import com.devloopsx.chronelis.service.ProjectService;
 import com.devloopsx.chronelis.service.TaskScheduleService;
 import com.devloopsx.chronelis.service.TaskService;
 import com.devloopsx.chronelis.service.projectassistant.ProjectAssistantAiGateway;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -356,7 +356,7 @@ public class ProjectAssistantServiceImpl implements ProjectAssistantService {
                     %s
                     """.formatted(projectId, this.properties.getMaxPreviewActions(), contextJson,
                     request.getPrompt().trim());
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             throw new ApplicationException(ErrorCode.PROJECT_ASSISTANT_UNAVAILABLE,
                     "Không thể chuẩn bị project context cho Gemini.");
         }

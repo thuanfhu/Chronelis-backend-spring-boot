@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class TaskResponse {
     Long id;
+    Long workspaceId;
     Long projectId;
     Long goalId;
     TaskStatusResponse status;
@@ -31,6 +32,11 @@ public class TaskResponse {
     LocalDateTime dueDate;
     Integer estimatedMinutes;
     Integer boardPosition;
+    String blockerNote;
+    Boolean blocked;
+    String blockedReason;
+    Integer blockedByOpenCount;
+    Integer blockingTaskCount;
     Boolean isCompleted;
     LocalDateTime completedAt;
     LocalDateTime createdAt;
