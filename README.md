@@ -1,6 +1,6 @@
-﻿# Chronelis Backend (Spring Boot)
+# Chronelis Backend (Spring Boot)
 
-Backend chính cho nền tảng cộng tác Chronelis: xác thực JWT + refresh cookie, RBAC bằng role/permission, quản lý workspace/project/task theo thời gian thực và lưu trữ file trên AWS S3.
+Backend chính cho nền tảng cộng tác Chronelis: xác thực JWT + refresh cookie, RBAC bằng role/permission, quản lý workspace/project/task theo thời gian thực và lưu trữ file trên Azure Blob Storage.
 
 ## 1) Tech Stack
 
@@ -11,7 +11,7 @@ Backend chính cho nền tảng cộng tác Chronelis: xác thực JWT + refresh
 - Liquibase
 - Redis (token blacklist)
 - WebSocket STOMP
-- AWS SDK v2 S3
+- Azure Blob Storage SDK
 - Thymeleaf Mail Templates
 - MapStruct + Lombok
 
@@ -22,7 +22,7 @@ Backend chính cho nền tảng cộng tác Chronelis: xác thực JWT + refresh
 - Collaboration: workspaces, members, invites, teams
 - Delivery: projects, goals, task statuses/types/tasks/schedules/comments
 - Realtime: notifications + activity logs + websocket events
-- Storage: upload/delete/move file qua S3
+- Storage: upload/delete/move file qua Azure Blob Storage
 
 ## 3) Project Structure
 
@@ -37,7 +37,7 @@ Backend chính cho nền tảng cộng tác Chronelis: xác thực JWT + refresh
 - JDK 25
 - MySQL
 - Redis
-- AWS S3 credentials (nếu dùng upload file)
+- Azure Storage credentials (nếu dùng upload file)
 - SMTP credentials (nếu dùng email flow)
 
 ## 5) Environment Variables
@@ -45,24 +45,9 @@ Backend chính cho nền tảng cộng tác Chronelis: xác thực JWT + refresh
 Tạo file `.env` ở root backend dựa trên `.env.example`.
 
 ```env
-FRONTEND_BASE_URL=http://localhost:5173
+FRONTEND_BASE_URL=https://chronelis.vercel.app
 ACCOUNT_BASE_PASSWORD=Chronelis123@
 ALLOWED_INIT=true
-
-PROJECT_ASSISTANT_ENABLED=false
-PROJECT_ASSISTANT_MAX_PREVIEW_ACTIONS=12
-PROJECT_ASSISTANT_CONTEXT_GOAL_LIMIT=50
-PROJECT_ASSISTANT_CONTEXT_TASK_LIMIT=200
-PROJECT_ASSISTANT_CONTEXT_SCHEDULE_LIMIT=150
-PROJECT_ASSISTANT_VALIDATION_RETRY_ATTEMPTS=2
-PROJECT_ASSISTANT_GOOGLE_VERTEX_AI=false
-PROJECT_ASSISTANT_GOOGLE_API_KEY=
-PROJECT_ASSISTANT_GOOGLE_PROJECT_ID=
-PROJECT_ASSISTANT_GOOGLE_LOCATION=
-PROJECT_ASSISTANT_GOOGLE_CREDENTIALS_URI=
-PROJECT_ASSISTANT_GOOGLE_MODEL=gemini-2.5-flash
-PROJECT_ASSISTANT_GOOGLE_TEMPERATURE=0.15
-PROJECT_ASSISTANT_GOOGLE_MAX_OUTPUT_TOKENS=4096
 
 SERVER_PORT=8080
 
@@ -80,10 +65,10 @@ JWT_REFRESH_SIGNER_KEY=your_refresh_signer_key
 JWT_ACCESS_TOKEN_DURATION=3600
 JWT_REFRESH_TOKEN_DURATION=604800
 
-AWS_ACCESS_KEY=your_aws_access_key
-AWS_SECRET_KEY=your_aws_secret_key
-AWS_BUCKET_NAME=your_bucket_name
-AWS_REGION=ap-southeast-1
+AZURE_STORAGE_ACCOUNT_NAME=your_account_name
+AZURE_STORAGE_ACCOUNT_KEY=your_account_key
+AZURE_STORAGE_CONTAINER_NAME=uploads
+AZURE_STORAGE_ENDPOINT=https://your_account_name.blob.core.windows.net
 
 REDIS_HOST=your_redis_host
 REDIS_PORT=6379
@@ -91,14 +76,6 @@ REDIS_USERNAME=default
 REDIS_PASSWORD=your_redis_password
 REDIS_SSL=true
 ```
-
-Ghi chú cho AI assistant:
-
-- Tat ca cau hinh AI da duoc doc tu bien moi truong, khong can sua source de doi model hay key.
-- Frontend khong giu secret AI. API key/model chi nam o backend env.
-- Muon bat feature, dat `PROJECT_ASSISTANT_ENABLED=true` va dien bo `PROJECT_ASSISTANT_GOOGLE_*` phu hop.
-- Neu dung Gemini API key thong thuong: can `PROJECT_ASSISTANT_GOOGLE_API_KEY`.
-- Neu dung Vertex AI: bat `PROJECT_ASSISTANT_GOOGLE_VERTEX_AI=true` va cau hinh `PROJECT_ASSISTANT_GOOGLE_PROJECT_ID`, `PROJECT_ASSISTANT_GOOGLE_LOCATION`, `PROJECT_ASSISTANT_GOOGLE_CREDENTIALS_URI`.
 
 ## 6) Run Locally
 
