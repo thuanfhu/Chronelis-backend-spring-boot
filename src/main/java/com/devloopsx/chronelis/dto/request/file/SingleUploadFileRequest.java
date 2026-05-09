@@ -11,9 +11,9 @@ import org.springframework.web.multipart.MultipartFile;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Builder
 public class SingleUploadFileRequest {
-	@NotNull(message = "FILE_NOT_BLANK")
-	MultipartFile file;
 
-	@Builder.Default
-	String folderName = "uploads";
+  @NotNull(message = "FILE_NOT_BLANK")
+  MultipartFile file;
+
+  String folderName;
 }

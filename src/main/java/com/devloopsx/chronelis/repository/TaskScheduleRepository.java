@@ -29,4 +29,11 @@ public interface TaskScheduleRepository extends JpaRepository<TaskSchedule, Long
 
         Page<TaskSchedule> findByTaskProjectWorkspaceIdAndScheduledDateBetween(Long workspaceId, LocalDate fromDate,
                         LocalDate toDate, Pageable pageable);
+
+        List<TaskSchedule> findByTaskAssigneeUserIdAndTaskIsCompletedFalseAndTaskProjectWorkspaceIdInAndScheduledDateBetweenOrderByScheduledStartAsc(
+                        String userId,
+                        List<Long> workspaceIds,
+                        LocalDate fromDate,
+                        LocalDate toDate,
+                        Pageable pageable);
 }

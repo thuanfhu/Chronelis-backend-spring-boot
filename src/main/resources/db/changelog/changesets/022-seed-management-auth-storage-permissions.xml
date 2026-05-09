@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+        Seeds permissions for controllers that were missing from all previous seed files:
+          - AuthenticationController  : /auth/logout, /auth/account   (module: AUTH)
+          - UserController (self)     : update-profile, update-password, update-email,
+                                        verify-change-email, staff-requests (module: USER_SELF)
+          - UserController (admin)    : list, detail, admin-update, delete, delete-roles (module: MANAGEMENT)
+          - RoleController            : full CRUD  (module: MANAGEMENT)
+          - PermissionController      : full CRUD + module management  (module: MANAGEMENT)
+          - S3FileStorageController   : upload/delete/move single+multiple  (module: STORAGE)
+
+        Grant strategy:
+          - MANAGEMENT → ADMIN only
+          - AUTH + USER_SELF + STORAGE → ADMIN + USER
+    -->
+    <changeSet id="022-seed-management-auth-storage-permissions" author="copilot" dbms="mysql">
+        <sql>
+            -- ===== AUTH module (logout + get-account) =====
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Auth logout', '/api/v1/auth/logout', 'POST', 'AUTH', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/auth/logout' AND http_method = 'POST');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Auth get account info', '/api/v1/auth/account', 'GET', 'AUTH', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/auth/account' AND http_method = 'GET');
+
+            -- ===== USER_SELF module (self-management endpoints) =====
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'User update profile', '/api/v1/users/update-profile', 'PATCH', 'USER_SELF', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/users/update-profile' AND http_method = 'PATCH');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'User update password', '/api/v1/users/update-password', 'PUT', 'USER_SELF', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/users/update-password' AND http_method = 'PUT');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'User update email', '/api/v1/users/update-email', 'PUT', 'USER_SELF', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/users/update-email' AND http_method = 'PUT');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'User verify change email', '/api/v1/users/verify-change-email', 'POST', 'USER_SELF', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/users/verify-change-email' AND http_method = 'POST');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'User become staff', '/api/v1/users/staff-requests', 'POST', 'USER_SELF', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/users/staff-requests' AND http_method = 'POST');
+
+            -- ===== MANAGEMENT module (admin-only) =====
+            -- User admin management
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'User list', '/api/v1/users', 'GET', 'MANAGEMENT', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/users' AND http_method = 'GET');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'User detail', '/api/v1/users/{userId}', 'GET', 'MANAGEMENT', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/users/{userId}' AND http_method = 'GET');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'User admin update', '/api/v1/users/{userId}', 'PATCH', 'MANAGEMENT', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/users/{userId}' AND http_method = 'PATCH');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'User delete', '/api/v1/users/{userId}', 'DELETE', 'MANAGEMENT', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/users/{userId}' AND http_method = 'DELETE');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'User role remove', '/api/v1/users/{userId}/roles', 'DELETE', 'MANAGEMENT', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/users/{userId}/roles' AND http_method = 'DELETE');
+
+            -- Role management
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Role create', '/api/v1/roles', 'POST', 'MANAGEMENT', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/roles' AND http_method = 'POST');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Role detail', '/api/v1/roles/{roleId}', 'GET', 'MANAGEMENT', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/roles/{roleId}' AND http_method = 'GET');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Role list', '/api/v1/roles', 'GET', 'MANAGEMENT', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/roles' AND http_method = 'GET');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Role update', '/api/v1/roles/{roleId}', 'PATCH', 'MANAGEMENT', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/roles/{roleId}' AND http_method = 'PATCH');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Role permission remove', '/api/v1/roles/{roleId}/permissions', 'DELETE', 'MANAGEMENT', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/roles/{roleId}/permissions' AND http_method = 'DELETE');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Role delete', '/api/v1/roles/{roleId}', 'DELETE', 'MANAGEMENT', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/roles/{roleId}' AND http_method = 'DELETE');
+
+            -- Permission management
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Permission module create', '/api/v1/permissions/module', 'POST', 'MANAGEMENT', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/permissions/module' AND http_method = 'POST');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Permission module delete', '/api/v1/permissions/module/{name}', 'DELETE', 'MANAGEMENT', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/permissions/module/{name}' AND http_method = 'DELETE');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Permission module list', '/api/v1/permissions/modules', 'GET', 'MANAGEMENT', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/permissions/modules' AND http_method = 'GET');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Permission create', '/api/v1/permissions', 'POST', 'MANAGEMENT', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/permissions' AND http_method = 'POST');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Permission update', '/api/v1/permissions/{permissionId}', 'PATCH', 'MANAGEMENT', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/permissions/{permissionId}' AND http_method = 'PATCH');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Permission detail', '/api/v1/permissions/{permissionId}', 'GET', 'MANAGEMENT', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/permissions/{permissionId}' AND http_method = 'GET');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Permission list', '/api/v1/permissions', 'GET', 'MANAGEMENT', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/permissions' AND http_method = 'GET');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Permission delete', '/api/v1/permissions/{permissionId}', 'DELETE', 'MANAGEMENT', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/permissions/{permissionId}' AND http_method = 'DELETE');
+
+            -- ===== STORAGE module (file upload/delete/move) =====
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'File upload single', '/api/v1/storage/aws-s3/upload/single', 'POST', 'STORAGE', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/storage/aws-s3/upload/single' AND http_method = 'POST');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'File upload multiple', '/api/v1/storage/aws-s3/upload/multiple', 'POST', 'STORAGE', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/storage/aws-s3/upload/multiple' AND http_method = 'POST');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'File delete single', '/api/v1/storage/aws-s3/delete/single', 'DELETE', 'STORAGE', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/storage/aws-s3/delete/single' AND http_method = 'DELETE');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'File delete multiple', '/api/v1/storage/aws-s3/delete/multiple', 'DELETE', 'STORAGE', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/storage/aws-s3/delete/multiple' AND http_method = 'DELETE');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'File move single', '/api/v1/storage/aws-s3/move/single', 'PUT', 'STORAGE', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/storage/aws-s3/move/single' AND http_method = 'PUT');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'File move multiple', '/api/v1/storage/aws-s3/move/multiple', 'PUT', 'STORAGE', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/storage/aws-s3/move/multiple' AND http_method = 'PUT');
+
+            -- ===== Grant ALL new modules to ADMIN =====
+            INSERT INTO permission_roles (role_id, permission_id)
+            SELECT r.role_id, p.permission_id
+            FROM roles r
+            JOIN permissions p ON p.module IN ('MANAGEMENT', 'AUTH', 'USER_SELF', 'STORAGE')
+            WHERE r.name = 'ADMIN'
+              AND NOT EXISTS (
+                  SELECT 1 FROM permission_roles pr
+                  WHERE pr.role_id = r.role_id AND pr.permission_id = p.permission_id
+              );
+
+            -- ===== Grant AUTH + USER_SELF + STORAGE to USER =====
+            INSERT INTO permission_roles (role_id, permission_id)
+            SELECT r.role_id, p.permission_id
+            FROM roles r
+            JOIN permissions p ON p.module IN ('AUTH', 'USER_SELF', 'STORAGE')
+            WHERE r.name = 'USER'
+              AND NOT EXISTS (
+                  SELECT 1 FROM permission_roles pr
+                  WHERE pr.role_id = r.role_id AND pr.permission_id = p.permission_id
+              );
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

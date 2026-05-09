@@ -526,7 +526,18 @@ public enum ErrorCode {
 	CONSENT_NOT_FOUND(2801, HttpStatus.NOT_FOUND, "Không tìm thấy bản đồng ý"), CONSENT_ALREADY_EXISTS(2802,
 			HttpStatus.CONFLICT, "Người dùng đã đồng ý với chính sách này rồi"),
 	CONSENT_ALREADY_GIVEN(2803,
-			HttpStatus.CONFLICT, "Người dùng đã đồng ý với chính sách này trước đó"),;
+			HttpStatus.CONFLICT, "Người dùng đã đồng ý với chính sách này trước đó"),
+
+	// Module Project Assistant errors
+	PROJECT_ASSISTANT_UNAVAILABLE(2901,
+			HttpStatus.SERVICE_UNAVAILABLE,
+			"Project assistant chưa sẵn sàng hoặc chưa được cấu hình"),
+	PROJECT_ASSISTANT_PLAN_INVALID(2902,
+			HttpStatus.BAD_REQUEST,
+			"Kế hoạch AI không hợp lệ hoặc không thể áp dụng an toàn"),
+	PROJECT_ASSISTANT_ACTION_NOT_SUPPORTED(2903,
+			HttpStatus.BAD_REQUEST,
+			"Action của project assistant không được hỗ trợ"),;
 
 	int code;
 	HttpStatusCode statusCode;

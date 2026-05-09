@@ -64,19 +64,19 @@ chronelis:
         base-password: ${ACCOUNT_BASE_PASSWORD:base_pass}
     allowed-init: ${ALLOWED_INIT:true}
 
+
 jwt:
     access-signer-key: ${JWT_ACCESS_SIGNER_KEY}
     refresh-signer-key: ${JWT_REFRESH_SIGNER_KEY}
     access-token-duration-in-seconds: ${JWT_ACCESS_TOKEN_DURATION:3600} # 1h
     refresh-token-duration-in-seconds: ${JWT_REFRESH_TOKEN_DURATION:604800} # 7 days
 
-aws:
-    credentials:
-        accessKey: ${AWS_ACCESS_KEY}
-        secretKey: ${AWS_SECRET_KEY}
-    s3:
-        bucketName: ${AWS_BUCKET_NAME}
-        region: ${AWS_REGION}
+azure:
+    storage:
+        account-name: ${AZURE_STORAGE_ACCOUNT_NAME}
+        account-key: ${AZURE_STORAGE_ACCOUNT_KEY}
+        container-name: ${AZURE_STORAGE_CONTAINER_NAME}
+        endpoint: ${AZURE_STORAGE_ENDPOINT}
 
 file:
     allowedTypes: ${FILE_ALLOWED_TYPES:image/jpeg,image/png,image/jpg,audio/mpeg}

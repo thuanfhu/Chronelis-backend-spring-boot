@@ -1,7 +1,7 @@
 package com.devloopsx.chronelis.dto.response.user;
 
 import com.devloopsx.chronelis.dto.response.common.AuditResponse;
-import com.devloopsx.chronelis.dto.response.role.RoleResponse;
+import com.devloopsx.chronelis.dto.response.role.RoleSecureResponse;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -28,5 +28,5 @@ public class UserResponse extends AuditResponse {
 	String city;
 	String nationality;
 	Boolean isVerified;
-	List<RoleResponse> roles;
+	List<RoleSecureResponse> roles;
 }

@@ -5,25 +5,32 @@ import com.devloopsx.chronelis.domain.*;
 import com.devloopsx.chronelis.dto.request.task.*;
 import com.devloopsx.chronelis.dto.response.common.PaginationMeta;
 import com.devloopsx.chronelis.dto.response.common.PaginationResponse;
+import com.devloopsx.chronelis.dto.response.task.MyWorkResponse;
+import com.devloopsx.chronelis.dto.response.task.MyWorkScheduleItemResponse;
 import com.devloopsx.chronelis.dto.response.task.TaskResponse;
 import com.devloopsx.chronelis.exception.ApplicationException;
 import com.devloopsx.chronelis.exception.ErrorCode;
 import com.devloopsx.chronelis.mapper.TaskMapper;
 import com.devloopsx.chronelis.repository.TaskCommentRepository;
+import com.devloopsx.chronelis.repository.TaskDependencyRepository;
 import com.devloopsx.chronelis.repository.TaskRepository;
 import com.devloopsx.chronelis.repository.TaskScheduleRepository;
+import com.devloopsx.chronelis.repository.TaskStatusRepository;
 import com.devloopsx.chronelis.repository.TaskTypeRepository;
 import com.devloopsx.chronelis.repository.UserRepository;
+import com.devloopsx.chronelis.repository.WorkspaceMemberRepository;
 import com.devloopsx.chronelis.service.*;
 import com.devloopsx.chronelis.utils.SecurityUtils;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -32,11 +39,15 @@ import java.util.*;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class TaskServiceImpl implements TaskService {
     TaskCommentRepository taskCommentRepository;
+    TaskDependencyRepository taskDependencyRepository;
     TaskRepository taskRepository;
     TaskScheduleRepository taskScheduleRepository;
+    TaskStatusRepository taskStatusRepository;
     TaskTypeRepository taskTypeRepository;
     UserRepository userRepository;
+    WorkspaceMemberRepository workspaceMemberRepository;
     TaskMapper taskMapper;
+    TaskDependencyService taskDependencyService;
     CollaborationAccessService collaborationAccessService;
     SecurityUtils securityUtils;
     NotificationService notificationService;
@@ -111,9 +122,11 @@ public class TaskServiceImpl implements TaskService {
         if (Boolean.TRUE.equals(status.getIsClosed())) {
             task.setIsCompleted(true);
             task.setCompletedAt(now);
+            task.setLastOpenStatus(null);
         } else {
             task.setIsCompleted(false);
             task.setCompletedAt(null);
+            task.setLastOpenStatus(status);
         }
 
         Task savedTask = taskRepository.save(task);
@@ -129,7 +142,7 @@ public class TaskServiceImpl implements TaskService {
                     ReferenceType.TASK, savedTask.getId());
         }
 
-        TaskResponse response = taskMapper.toResponse(savedTask);
+        TaskResponse response = toTaskResponse(savedTask);
         realtimeEventPublisherService.publishTaskEvent(project.getWorkspace().getId(), project.getId(),
                 savedTask.getId(),
                 "task.created", response);
@@ -147,11 +160,18 @@ public class TaskServiceImpl implements TaskService {
         Task task = collaborationAccessService.requireTask(taskId);
         collaborationAccessService.ensureCurrentUserCanManageTask(taskId);
         User currentUser = securityUtils.getAuthenticatedUser();
+        Long previousGoalId = task.getGoal() != null ? task.getGoal().getId() : null;
 
-        if (request.getTitle() == null && request.getGoalId() == null && request.getPriority() == null
+        if (request.getTitle() == null && request.getDescription() == null && request.getGoalId() == null
+                && !Boolean.TRUE.equals(request.getClearGoal()) && request.getPriority() == null
                 && request.getDueDate() == null && request.getEstimatedMinutes() == null
                 && request.getTaskTypeId() == null && request.getNotesHtml() == null) {
             throw new ApplicationException(ErrorCode.NO_UPDATE_PROVIDED);
+        }
+
+        if (Boolean.TRUE.equals(request.getClearGoal()) && request.getGoalId() != null) {
+            throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
+                    "Không thể vừa chọn goal mới vừa yêu cầu bỏ liên kết goal");
         }
 
         if (request.getEstimatedMinutes() != null && request.getEstimatedMinutes() < 0) {
@@ -160,6 +180,10 @@ public class TaskServiceImpl implements TaskService {
         }
 
         taskMapper.updateEntity(task, request);
+
+        if (Boolean.TRUE.equals(request.getClearGoal())) {
+            task.setGoal(null);
+        }
 
         if (request.getGoalId() != null) {
             Goal goal = collaborationAccessService.requireGoal(request.getGoalId());
@@ -188,7 +212,17 @@ public class TaskServiceImpl implements TaskService {
                 ActivityActionType.TASK_UPDATED, ActivityTargetType.TASK, updatedTask.getId(),
                 "Cập nhật task " + updatedTask.getTitle());
 
-        TaskResponse response = taskMapper.toResponse(updatedTask);
+        Long nextGoalId = updatedTask.getGoal() != null ? updatedTask.getGoal().getId() : null;
+        if (!Objects.equals(previousGoalId, nextGoalId)) {
+            if (previousGoalId != null) {
+                goalService.recalculateGoalProgress(previousGoalId);
+            }
+            if (nextGoalId != null) {
+                goalService.recalculateGoalProgress(nextGoalId);
+            }
+        }
+
+        TaskResponse response = toTaskResponse(updatedTask);
         realtimeEventPublisherService.publishTaskEvent(task.getProject().getWorkspace().getId(),
                 task.getProject().getId(),
                 task.getId(), "task.updated", response);
@@ -199,7 +233,7 @@ public class TaskServiceImpl implements TaskService {
     public TaskResponse getTask(Long taskId) {
         Task task = collaborationAccessService.requireTask(taskId);
         collaborationAccessService.ensureCurrentUserCanAccessProject(task.getProject().getId());
-        return taskMapper.toResponse(task);
+        return toTaskResponse(task);
     }
 
     @Override
@@ -216,7 +250,7 @@ public class TaskServiceImpl implements TaskService {
                         .hasNext(page.hasNext())
                         .hasPrevious(page.hasPrevious())
                         .build())
-                .content(page.getContent().stream().map(taskMapper::toResponse).toList())
+                .content(toTaskResponses(page.getContent()))
                 .build();
     }
 
@@ -235,7 +269,7 @@ public class TaskServiceImpl implements TaskService {
                         .hasNext(page.hasNext())
                         .hasPrevious(page.hasPrevious())
                         .build())
-                .content(page.getContent().stream().map(taskMapper::toResponse).toList())
+                .content(toTaskResponses(page.getContent()))
                 .build();
     }
 
@@ -251,6 +285,7 @@ public class TaskServiceImpl implements TaskService {
                     "Task status không thuộc project của task");
         }
 
+        TaskStatus sourceStatus = task.getStatus();
         Long sourceStatusId = task.getStatus().getId();
         int sourcePosition = task.getBoardPosition();
 
@@ -263,11 +298,15 @@ public class TaskServiceImpl implements TaskService {
             task.setBoardPosition(targetPosition);
 
             if (Boolean.TRUE.equals(targetStatus.getIsClosed())) {
+                if (!Boolean.TRUE.equals(sourceStatus.getIsClosed())) {
+                    task.setLastOpenStatus(sourceStatus);
+                }
                 task.setIsCompleted(true);
                 if (task.getCompletedAt() == null) {
                     task.setCompletedAt(LocalDateTime.now());
                 }
             } else {
+                task.setLastOpenStatus(targetStatus);
                 task.setIsCompleted(false);
                 task.setCompletedAt(null);
             }
@@ -291,7 +330,7 @@ public class TaskServiceImpl implements TaskService {
                         ReferenceType.TASK, updatedTask.getId());
             }
 
-            TaskResponse response = taskMapper.toResponse(updatedTask);
+            TaskResponse response = toTaskResponse(updatedTask);
             realtimeEventPublisherService.publishTaskEvent(task.getProject().getWorkspace().getId(),
                     task.getProject().getId(), task.getId(), "task.moved", response);
 
@@ -335,7 +374,7 @@ public class TaskServiceImpl implements TaskService {
                 ActivityActionType.TASK_REORDERED, ActivityTargetType.TASK, taskId,
                 "Reorder task " + updatedTask.getTitle());
 
-        TaskResponse response = taskMapper.toResponse(updatedTask);
+        TaskResponse response = toTaskResponse(updatedTask);
         realtimeEventPublisherService.publishTaskEvent(task.getProject().getWorkspace().getId(),
                 task.getProject().getId(), task.getId(), "task.reordered", response);
         return response;
@@ -359,7 +398,7 @@ public class TaskServiceImpl implements TaskService {
                     ActivityActionType.TASK_UNASSIGNED, ActivityTargetType.TASK, taskId,
                     "Bỏ gán task " + updatedTask.getTitle());
 
-            TaskResponse response = taskMapper.toResponse(updatedTask);
+            TaskResponse response = toTaskResponse(updatedTask);
             realtimeEventPublisherService.publishTaskEvent(task.getProject().getWorkspace().getId(),
                     task.getProject().getId(), task.getId(), "task.unassigned", response);
             return response;
@@ -385,7 +424,7 @@ public class TaskServiceImpl implements TaskService {
                     ReferenceType.TASK, updatedTask.getId());
         }
 
-        TaskResponse response = taskMapper.toResponse(updatedTask);
+        TaskResponse response = toTaskResponse(updatedTask);
         realtimeEventPublisherService.publishTaskEvent(task.getProject().getWorkspace().getId(),
                 task.getProject().getId(), task.getId(), "task.assigned", response);
         return response;
@@ -397,18 +436,57 @@ public class TaskServiceImpl implements TaskService {
         Task task = collaborationAccessService.requireTask(taskId);
         collaborationAccessService.ensureCurrentUserCanManageTask(taskId);
 
-        task.setIsCompleted(request.getIsCompleted());
-        task.setCompletedAt(Boolean.TRUE.equals(request.getIsCompleted()) ? LocalDateTime.now() : null);
-        task.setUpdatedAt(LocalDateTime.now());
+        boolean nextCompleted = Boolean.TRUE.equals(request.getIsCompleted());
+        TaskStatus sourceStatus = task.getStatus();
+        TaskStatus targetStatus = sourceStatus;
 
+        if (nextCompleted && !Boolean.TRUE.equals(sourceStatus.getIsClosed())) {
+            targetStatus = resolveFirstClosedStatus(task.getProject().getId());
+        }
+
+        if (!nextCompleted && Boolean.TRUE.equals(sourceStatus.getIsClosed())) {
+            targetStatus = resolveRestoreOpenStatus(task);
+        }
+
+        boolean statusChanged = !sourceStatus.getId().equals(targetStatus.getId());
+        if (statusChanged) {
+            shiftLeftAfterRemoval(sourceStatus.getId(), task.getBoardPosition());
+            task.setStatus(targetStatus);
+            task.setBoardPosition(getEndPosition(targetStatus.getId()));
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (nextCompleted) {
+            if (!Boolean.TRUE.equals(sourceStatus.getIsClosed())) {
+                task.setLastOpenStatus(sourceStatus);
+            }
+            task.setIsCompleted(true);
+            if (task.getCompletedAt() == null) {
+                task.setCompletedAt(now);
+            }
+        } else {
+            if (!Boolean.TRUE.equals(targetStatus.getIsClosed())) {
+                task.setLastOpenStatus(targetStatus);
+            }
+            task.setIsCompleted(false);
+            task.setCompletedAt(null);
+        }
+
+        task.setUpdatedAt(now);
         Task updatedTask = taskRepository.save(task);
+
+        if (statusChanged) {
+            normalizeBoardPositions(sourceStatus.getId());
+            normalizeBoardPositions(targetStatus.getId());
+        }
+
         User currentUser = securityUtils.getAuthenticatedUser();
 
         activityLogService.createLog(task.getProject().getWorkspace().getId(), currentUser.getUserId(),
                 ActivityActionType.TASK_UPDATED, ActivityTargetType.TASK, taskId,
                 "Cập nhật trạng thái hoàn thành task " + updatedTask.getTitle());
 
-        TaskResponse response = taskMapper.toResponse(updatedTask);
+        TaskResponse response = toTaskResponse(updatedTask);
         realtimeEventPublisherService.publishTaskEvent(task.getProject().getWorkspace().getId(),
                 task.getProject().getId(), task.getId(), "task.completion-updated", response);
 
@@ -417,6 +495,99 @@ public class TaskServiceImpl implements TaskService {
         }
 
         return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MyWorkResponse getMyWork() {
+        User currentUser = securityUtils.getAuthenticatedUser();
+        List<Long> workspaceIds = workspaceMemberRepository.findByUserUserId(currentUser.getUserId()).stream()
+                .map(member -> member.getWorkspace().getId())
+                .distinct()
+                .toList();
+
+        if (workspaceIds.isEmpty()) {
+            return MyWorkResponse.builder()
+                    .assignedCount(0)
+                    .blockedCount(0)
+                    .overdueCount(0)
+                    .dueTodayCount(0)
+                    .highPriorityCount(0)
+                    .upcomingScheduledCount(0)
+                    .generatedAt(LocalDateTime.now())
+                    .build();
+        }
+
+        List<Task> assignedTasks = taskRepository
+                .findByAssigneeUserIdAndIsCompletedFalseAndProjectWorkspaceIdInOrderByUpdatedAtDesc(
+                        currentUser.getUserId(),
+                        workspaceIds,
+                        PageRequest.of(0, 500));
+        List<TaskResponse> assignedTaskResponses = toTaskResponses(assignedTasks);
+
+        Map<Long, TaskResponse> taskResponseById = new LinkedHashMap<>();
+        for (TaskResponse taskResponse : assignedTaskResponses) {
+            taskResponseById.put(taskResponse.getId(), taskResponse);
+        }
+
+        LocalDate today = LocalDate.now();
+        List<MyWorkScheduleItemResponse> upcomingSchedules = taskScheduleRepository
+                .findByTaskAssigneeUserIdAndTaskIsCompletedFalseAndTaskProjectWorkspaceIdInAndScheduledDateBetweenOrderByScheduledStartAsc(
+                        currentUser.getUserId(),
+                        workspaceIds,
+                        today,
+                        today.plusDays(14),
+                        PageRequest.of(0, 80))
+                .stream()
+                .map(schedule -> {
+                    TaskResponse taskResponse = taskResponseById.computeIfAbsent(schedule.getTask().getId(),
+                            ignored -> toTaskResponse(schedule.getTask()));
+                    return MyWorkScheduleItemResponse.builder()
+                            .scheduleId(schedule.getId())
+                            .taskId(schedule.getTask().getId())
+                            .scheduledStart(schedule.getScheduledStart())
+                            .scheduledEnd(schedule.getScheduledEnd())
+                            .task(taskResponse)
+                            .build();
+                })
+                .toList();
+
+        int blockedCount = 0;
+        int overdueCount = 0;
+        int dueTodayCount = 0;
+        int highPriorityCount = 0;
+
+        for (TaskResponse taskResponse : assignedTaskResponses) {
+            if (Boolean.TRUE.equals(taskResponse.getBlocked())) {
+                blockedCount++;
+            }
+
+            if (taskResponse.getDueDate() != null) {
+                LocalDate dueDate = taskResponse.getDueDate().toLocalDate();
+                if (dueDate.isBefore(today)) {
+                    overdueCount++;
+                } else if (dueDate.isEqual(today)) {
+                    dueTodayCount++;
+                }
+            }
+
+            if (taskResponse.getPriority() == TaskPriorityType.HIGH
+                    || taskResponse.getPriority() == TaskPriorityType.URGENT) {
+                highPriorityCount++;
+            }
+        }
+
+        return MyWorkResponse.builder()
+                .assignedCount(assignedTaskResponses.size())
+                .blockedCount(blockedCount)
+                .overdueCount(overdueCount)
+                .dueTodayCount(dueTodayCount)
+                .highPriorityCount(highPriorityCount)
+                .upcomingScheduledCount(upcomingSchedules.size())
+                .assignedTasks(assignedTaskResponses)
+                .upcomingSchedules(upcomingSchedules)
+                .generatedAt(LocalDateTime.now())
+                .build();
     }
 
     @Override
@@ -436,6 +607,7 @@ public class TaskServiceImpl implements TaskService {
         // Defensive cleanup in case DB foreign keys are not configured with CASCADE.
         taskCommentRepository.deleteByTaskId(taskId);
         taskScheduleRepository.deleteByTaskId(taskId);
+        taskDependencyRepository.deleteByTaskIdOrDependsOnTaskId(taskId, taskId);
 
         taskRepository.delete(task);
         shiftLeftAfterRemoval(statusId, boardPosition);
@@ -450,6 +622,29 @@ public class TaskServiceImpl implements TaskService {
         if (goalId != null) {
             goalService.recalculateGoalProgress(goalId);
         }
+    }
+
+    private TaskStatus resolveFirstClosedStatus(Long projectId) {
+        return taskStatusRepository.findFirstByProjectIdAndIsClosedTrueOrderByPositionAsc(projectId)
+                .orElseThrow(() -> new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
+                        "Project chưa có cột hoàn tất để đánh dấu task đã xong"));
+    }
+
+    private TaskStatus resolveRestoreOpenStatus(Task task) {
+        Long projectId = task.getProject().getId();
+
+        if (task.getLastOpenStatus() != null) {
+            Optional<TaskStatus> lastOpenStatus = taskStatusRepository.findByProjectIdAndIdAndIsClosedFalse(
+                    projectId,
+                    task.getLastOpenStatus().getId());
+            if (lastOpenStatus.isPresent()) {
+                return lastOpenStatus.get();
+            }
+        }
+
+        return taskStatusRepository.findFirstByProjectIdAndIsClosedFalseOrderByPositionAsc(projectId)
+                .orElseThrow(() -> new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
+                        "Project chưa có cột mở để khôi phục task"));
     }
 
     private int getEndPosition(Long statusId) {
@@ -489,5 +684,49 @@ public class TaskServiceImpl implements TaskService {
             tasks.get(index).setBoardPosition(index);
         }
         taskRepository.saveAll(tasks);
+    }
+
+    private TaskResponse toTaskResponse(Task task) {
+        TaskResponse response = taskMapper.toResponse(task);
+        applyDependencySummary(response, taskDependencyService.summarizeTasks(List.of(task.getId()),
+                blockerNotesByTaskId(List.of(task))).get(task.getId()));
+        return response;
+    }
+
+    private List<TaskResponse> toTaskResponses(List<Task> tasks) {
+        if (tasks == null || tasks.isEmpty()) {
+            return List.of();
+        }
+
+        List<TaskResponse> responses = new ArrayList<>(tasks.stream().map(taskMapper::toResponse).toList());
+        Map<Long, TaskDependencyService.TaskDependencySummary> summaryByTaskId = taskDependencyService.summarizeTasks(
+                tasks.stream().map(Task::getId).toList(),
+                blockerNotesByTaskId(tasks));
+
+        for (TaskResponse response : responses) {
+            applyDependencySummary(response, summaryByTaskId.get(response.getId()));
+        }
+
+        return responses;
+    }
+
+    private Map<Long, String> blockerNotesByTaskId(List<Task> tasks) {
+        Map<Long, String> blockerNotesByTaskId = new LinkedHashMap<>();
+        for (Task task : tasks) {
+            blockerNotesByTaskId.put(task.getId(), task.getBlockerNote());
+        }
+        return blockerNotesByTaskId;
+    }
+
+    private void applyDependencySummary(TaskResponse response,
+            TaskDependencyService.TaskDependencySummary dependencySummary) {
+        if (response == null || dependencySummary == null) {
+            return;
+        }
+
+        response.setBlocked(dependencySummary.blocked());
+        response.setBlockedReason(dependencySummary.blockedReason());
+        response.setBlockedByOpenCount(dependencySummary.blockedByOpenCount());
+        response.setBlockingTaskCount(dependencySummary.blockingTaskCount());
     }
 }

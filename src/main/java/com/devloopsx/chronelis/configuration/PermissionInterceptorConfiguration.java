@@ -30,6 +30,8 @@ public class PermissionInterceptorConfiguration implements WebMvcConfigurer {
 				"/api/v1/auth/register", "/api/v1/auth/verify-active-account", "/api/v1/auth/login",
 				"/api/v1/auth/refresh", "/api/v1/auth/resend-verify", "/api/v1/auth/forgot-password",
 				"/api/v1/auth/reset-password",
+				// Project assistant (service-layer authorization)
+				"/api/v1/project-assistant/**",
 				// Public browsing
 				"/api/v1/categories", "/api/v1/categories/{categoryId}", "/api/v1/categories/tree", "/api/v1/products",
 				"/api/v1/products/{productId}", "/api/v1/products/slug/{slug}", "/api/v1/products/{productId}/reviews",

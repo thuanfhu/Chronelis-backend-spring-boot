@@ -10,9 +10,10 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Builder
 public class SingleMoveFileRequest {
-	@NotBlank(message = "EMPTY_SOURCE_KEY")
-	String sourceKey;
 
-	@NotBlank(message = "DESTINATION_FOLDER_EMPTY")
-	String destinationFolder;
+  @NotBlank(message = "EMPTY_SOURCE_KEY")
+  String sourceKey;
+
+  @NotBlank(message = "DESTINATION_FOLDER_EMPTY")
+  String destinationFolder;
 }

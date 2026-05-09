@@ -44,6 +44,15 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
         int clearTaskTypeReferences(@Param("taskTypeId") Long taskTypeId);
 
         @Modifying
+        @Query("DELETE FROM Task t WHERE t.project.id IN :projectIds")
+        int deleteByProjectIdIn(@Param("projectIds") List<Long> projectIds);
+
+        List<Task> findByAssigneeUserIdAndIsCompletedFalseAndProjectWorkspaceIdInOrderByUpdatedAtDesc(
+                        String userId,
+                        List<Long> workspaceIds,
+                        Pageable pageable);
+
+        @Modifying
         @Query("UPDATE Task t SET t.assignee = null WHERE t.assignee.userId = :sourceUserId")
         int clearAssigneeReferences(@Param("sourceUserId") String sourceUserId);
 

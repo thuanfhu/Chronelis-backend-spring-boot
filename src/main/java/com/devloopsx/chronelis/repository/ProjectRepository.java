@@ -10,9 +10,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 @Repository
 public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpecificationExecutor<Project> {
     Page<Project> findByWorkspaceId(Long workspaceId, Pageable pageable);
+
+    @Query("SELECT p.id FROM Project p WHERE p.workspace.id = :workspaceId")
+    List<Long> findIdsByWorkspaceId(@Param("workspaceId") Long workspaceId);
 
     boolean existsByWorkspaceIdAndId(Long workspaceId, Long id);
 

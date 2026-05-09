@@ -13,6 +13,12 @@ public interface TaskStatusRepository extends JpaRepository<TaskStatus, Long> {
 
     Optional<TaskStatus> findByProjectIdAndCodeIgnoreCase(Long projectId, String code);
 
+    Optional<TaskStatus> findByProjectIdAndIdAndIsClosedFalse(Long projectId, Long statusId);
+
+    Optional<TaskStatus> findFirstByProjectIdAndIsClosedTrueOrderByPositionAsc(Long projectId);
+
+    Optional<TaskStatus> findFirstByProjectIdAndIsClosedFalseOrderByPositionAsc(Long projectId);
+
     boolean existsByProjectIdAndCodeIgnoreCase(Long projectId, String code);
 
     boolean existsByProjectIdAndPosition(Long projectId, Integer position);

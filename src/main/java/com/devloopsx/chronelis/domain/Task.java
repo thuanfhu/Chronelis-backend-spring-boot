@@ -37,6 +37,10 @@ public class Task {
     @JoinColumn(name = "status_id", nullable = false)
     TaskStatus status;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "last_open_status_id")
+    TaskStatus lastOpenStatus;
+
     @Column(nullable = false, length = 200)
     String title;
 
@@ -45,6 +49,9 @@ public class Task {
 
     @Column(name = "notes_html", columnDefinition = "MEDIUMTEXT")
     String notesHtml;
+
+    @Column(name = "blocker_note", columnDefinition = "MEDIUMTEXT")
+    String blockerNote;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
