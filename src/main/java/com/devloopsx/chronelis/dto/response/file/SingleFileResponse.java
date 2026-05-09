@@ -14,6 +14,7 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class SingleFileResponse extends AuditResponse {
-	String fileName;
-	String fileUrl;
+
+  String fileName;
+  String fileUrl;
 }

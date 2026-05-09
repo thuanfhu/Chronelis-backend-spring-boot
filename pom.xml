@@ -32,23 +32,12 @@
         <mapstruct.version>1.6.3</mapstruct.version>
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
         <springfilter.version>3.2.1</springfilter.version>
-        <spring-ai.version>1.1.0</spring-ai.version>
-        <aws-sdk.version>2.31.6</aws-sdk.version>
+        <azure-storage-blob.version>12.27.0</azure-storage-blob.version>
         <libphonenumber.version>9.0.17</libphonenumber.version>
         <dotenv-java.version>3.2.0</dotenv-java.version>
         <bucket4j.version>8.10.0</bucket4j.version>
     </properties>
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>software.amazon.awssdk</groupId>
-                <artifactId>bom</artifactId>
-                <version>${aws-sdk.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
+
     <dependencies>
         <!-- Redis -->
         <dependency>
@@ -106,17 +95,7 @@
             <artifactId>spring-boot-starter-websocket</artifactId>
         </dependency>
 
-        <!-- AI -->
-        <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-client-chat</artifactId>
-            <version>${spring-ai.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-google-genai</artifactId>
-            <version>${spring-ai.version}</version>
-        </dependency>
+
 
         <!-- Email -->
         <dependency>
@@ -169,10 +148,11 @@
             <version>${springfilter.version}</version>
         </dependency>
 
-        <!-- AWS -->
+        <!-- Azure Blob Storage -->
         <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>s3</artifactId>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-storage-blob</artifactId>
+            <version>${azure-storage-blob.version}</version>
         </dependency>
 
         <!-- Utilities -->

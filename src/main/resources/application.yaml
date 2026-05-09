@@ -63,22 +63,7 @@ chronelis:
     account:
         base-password: ${ACCOUNT_BASE_PASSWORD:base_pass}
     allowed-init: ${ALLOWED_INIT:true}
-    project-assistant:
-        enabled: ${PROJECT_ASSISTANT_ENABLED:false}
-        max-preview-actions: ${PROJECT_ASSISTANT_MAX_PREVIEW_ACTIONS:12}
-        context-goal-limit: ${PROJECT_ASSISTANT_CONTEXT_GOAL_LIMIT:50}
-        context-task-limit: ${PROJECT_ASSISTANT_CONTEXT_TASK_LIMIT:200}
-        context-schedule-limit: ${PROJECT_ASSISTANT_CONTEXT_SCHEDULE_LIMIT:150}
-        validation-retry-attempts: ${PROJECT_ASSISTANT_VALIDATION_RETRY_ATTEMPTS:2}
-        google:
-            vertex-ai: ${PROJECT_ASSISTANT_GOOGLE_VERTEX_AI:false}
-            api-key: ${PROJECT_ASSISTANT_GOOGLE_API_KEY:}
-            project-id: ${PROJECT_ASSISTANT_GOOGLE_PROJECT_ID:}
-            location: ${PROJECT_ASSISTANT_GOOGLE_LOCATION:}
-            credentials-uri: ${PROJECT_ASSISTANT_GOOGLE_CREDENTIALS_URI:}
-            model: ${PROJECT_ASSISTANT_GOOGLE_MODEL:gemini-2.5-flash}
-            temperature: ${PROJECT_ASSISTANT_GOOGLE_TEMPERATURE:0.15}
-            max-output-tokens: ${PROJECT_ASSISTANT_GOOGLE_MAX_OUTPUT_TOKENS:4096}
+
 
 jwt:
     access-signer-key: ${JWT_ACCESS_SIGNER_KEY}
@@ -86,13 +71,12 @@ jwt:
     access-token-duration-in-seconds: ${JWT_ACCESS_TOKEN_DURATION:3600} # 1h
     refresh-token-duration-in-seconds: ${JWT_REFRESH_TOKEN_DURATION:604800} # 7 days
 
-aws:
-    credentials:
-        accessKey: ${AWS_ACCESS_KEY}
-        secretKey: ${AWS_SECRET_KEY}
-    s3:
-        bucketName: ${AWS_BUCKET_NAME}
-        region: ${AWS_REGION}
+azure:
+    storage:
+        account-name: ${AZURE_STORAGE_ACCOUNT_NAME}
+        account-key: ${AZURE_STORAGE_ACCOUNT_KEY}
+        container-name: ${AZURE_STORAGE_CONTAINER_NAME}
+        endpoint: ${AZURE_STORAGE_ENDPOINT}
 
 file:
     allowedTypes: ${FILE_ALLOWED_TYPES:image/jpeg,image/png,image/jpg,audio/mpeg}
