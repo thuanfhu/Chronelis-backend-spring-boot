@@ -4,7 +4,6 @@ import com.devloopsx.chronelis.constant.*;
 import com.devloopsx.chronelis.domain.Task;
 import com.devloopsx.chronelis.domain.TaskComment;
 import com.devloopsx.chronelis.domain.User;
-import com.devloopsx.chronelis.domain.WorkspaceMember;
 import com.devloopsx.chronelis.dto.request.taskcomment.CreateTaskCommentRequest;
 import com.devloopsx.chronelis.dto.request.taskcomment.UpdateTaskCommentRequest;
 import com.devloopsx.chronelis.dto.response.taskcomment.TaskCommentResponse;
@@ -12,7 +11,6 @@ import com.devloopsx.chronelis.exception.ApplicationException;
 import com.devloopsx.chronelis.exception.ErrorCode;
 import com.devloopsx.chronelis.mapper.TaskCommentMapper;
 import com.devloopsx.chronelis.repository.TaskCommentRepository;
-import com.devloopsx.chronelis.repository.WorkspaceMemberRepository;
 import com.devloopsx.chronelis.service.*;
 import com.devloopsx.chronelis.utils.SecurityUtils;
 import lombok.AccessLevel;
@@ -31,9 +29,9 @@ import java.util.Set;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class TaskCommentServiceImpl implements TaskCommentService {
         TaskCommentRepository taskCommentRepository;
-        WorkspaceMemberRepository workspaceMemberRepository;
         TaskCommentMapper taskCommentMapper;
         CollaborationAccessService collaborationAccessService;
+        ProjectPermissionService projectPermissionService;
         SecurityUtils securityUtils;
         NotificationService notificationService;
         ActivityLogService activityLogService;
@@ -43,7 +41,7 @@ public class TaskCommentServiceImpl implements TaskCommentService {
         @Transactional
         public TaskCommentResponse addComment(CreateTaskCommentRequest request) {
                 Task task = collaborationAccessService.requireTask(request.getTaskId());
-                collaborationAccessService.ensureCurrentUserCanManageTask(task.getId());
+                collaborationAccessService.ensureCurrentUserCanContributeToProject(task.getProject().getId());
 
                 User currentUser = securityUtils.getAuthenticatedUser();
                 LocalDateTime now = LocalDateTime.now();
@@ -96,7 +94,7 @@ public class TaskCommentServiceImpl implements TaskCommentService {
                                                 "Comment không tồn tại"));
 
                 Task task = comment.getTask();
-                collaborationAccessService.ensureCurrentUserCanManageTask(task.getId());
+                collaborationAccessService.ensureCurrentUserCanContributeToProject(task.getProject().getId());
 
                 User currentUser = securityUtils.getAuthenticatedUser();
                 if (!canModifyComment(comment, currentUser)) {
@@ -131,7 +129,7 @@ public class TaskCommentServiceImpl implements TaskCommentService {
                 }
 
                 Task task = comment.getTask();
-                collaborationAccessService.ensureCurrentUserCanManageTask(task.getId());
+                collaborationAccessService.ensureCurrentUserCanContributeToProject(task.getProject().getId());
 
                 User currentUser = securityUtils.getAuthenticatedUser();
                 if (!canModifyComment(comment, currentUser)) {
@@ -168,20 +166,8 @@ public class TaskCommentServiceImpl implements TaskCommentService {
                         return true;
                 }
 
-                String currentUserId = currentUser.getUserId();
-                Long workspaceId = comment.getTask().getProject().getWorkspace().getId();
-
-                if (comment.getTask().getProject().getWorkspace().getOwner().getUserId().equals(currentUserId)) {
-                        return true;
-                }
-
-                WorkspaceMember member = workspaceMemberRepository
-                                .findByWorkspaceIdAndUserUserId(workspaceId, currentUserId)
-                                .orElse(null);
-
-                return member != null
-                                && (member.getRole() == WorkspaceMemberRoleType.OWNER
-                                                || member.getRole() == WorkspaceMemberRoleType.ADMIN);
+                return projectPermissionService.resolveCurrentUserRole(comment.getTask().getProject())
+                                .atLeast(EffectiveProjectAccessRoleType.MANAGER);
         }
 
         private void notifyCommentParticipants(Task task, User actor, Long commentId) {

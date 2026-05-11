@@ -1,6 +1,7 @@
 package com.devloopsx.chronelis.dto.request.project;
 
 import com.devloopsx.chronelis.constant.ProjectStatusType;
+import com.devloopsx.chronelis.constant.ProjectVisibilityType;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -18,6 +19,8 @@ public class UpdateProjectRequest {
     String description;
 
     ProjectStatusType status;
+
+    ProjectVisibilityType visibility;
 
     String managerUserId;
 

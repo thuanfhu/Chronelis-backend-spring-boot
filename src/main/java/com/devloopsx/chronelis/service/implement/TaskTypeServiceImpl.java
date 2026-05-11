@@ -43,7 +43,7 @@ public class TaskTypeServiceImpl implements TaskTypeService {
         @Override
         @Transactional
         public TaskTypeResponse createTaskType(CreateTaskTypeRequest request) {
-                collaborationAccessService.ensureCurrentUserCanManageProject(request.getProjectId());
+                collaborationAccessService.ensureCurrentUserCanManageProjectWork(request.getProjectId());
 
                 Project project = collaborationAccessService.requireProject(request.getProjectId());
                 Workspace workspace = project.getWorkspace();
@@ -89,7 +89,7 @@ public class TaskTypeServiceImpl implements TaskTypeService {
                 TaskType taskType = taskTypeRepository.findById(taskTypeId)
                                 .orElseThrow(() -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND,
                                                 "Task type không tồn tại"));
-                collaborationAccessService.ensureCurrentUserCanManageProject(taskType.getProject().getId());
+                collaborationAccessService.ensureCurrentUserCanManageProjectWork(taskType.getProject().getId());
 
                 if (request.getName() != null && taskTypeRepository.existsByProjectIdAndNameIgnoreCaseAndIdNot(
                                 taskType.getProject().getId(), request.getName(), taskTypeId)) {
@@ -143,7 +143,7 @@ public class TaskTypeServiceImpl implements TaskTypeService {
                 TaskType taskType = taskTypeRepository.findById(taskTypeId)
                                 .orElseThrow(() -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND,
                                                 "Task type không tồn tại"));
-                collaborationAccessService.ensureCurrentUserCanManageProject(taskType.getProject().getId());
+                collaborationAccessService.ensureCurrentUserCanManageProjectWork(taskType.getProject().getId());
 
                 Long workspaceId = taskType.getWorkspace().getId();
                 Long projectId = taskType.getProject().getId();

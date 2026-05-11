@@ -58,9 +58,10 @@ public class TaskServiceImpl implements TaskService {
     @Override
     @Transactional
     public TaskResponse createTask(CreateTaskRequest request) {
-        collaborationAccessService.ensureCurrentUserCanManageProject(request.getProjectId());
+        collaborationAccessService.ensureCurrentUserCanContributeToProject(request.getProjectId());
 
         Project project = collaborationAccessService.requireProject(request.getProjectId());
+        User currentUser = securityUtils.getAuthenticatedUser();
         TaskStatus status = collaborationAccessService.requireTaskStatus(request.getStatusId());
         if (!status.getProject().getId().equals(project.getId())) {
             throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
@@ -78,6 +79,9 @@ public class TaskServiceImpl implements TaskService {
 
         User assignee = null;
         if (request.getAssigneeId() != null && !request.getAssigneeId().isBlank()) {
+            if (!request.getAssigneeId().equals(currentUser.getUserId())) {
+                collaborationAccessService.ensureCurrentUserCanAssignOthers(project.getId());
+            }
             collaborationAccessService.ensureAssigneeBelongsWorkspace(request.getAssigneeId(),
                     project.getWorkspace().getId());
             assignee = userRepository.findById(request.getAssigneeId())
@@ -85,7 +89,6 @@ public class TaskServiceImpl implements TaskService {
         }
 
         Task task = taskMapper.toEntity(request);
-        User currentUser = securityUtils.getAuthenticatedUser();
 
         task.setProject(project);
         task.setGoal(goal);
@@ -390,6 +393,9 @@ public class TaskServiceImpl implements TaskService {
         User currentUser = securityUtils.getAuthenticatedUser();
 
         if (request.getAssigneeId() == null || request.getAssigneeId().isBlank()) {
+            if (!Objects.equals(oldAssigneeId, currentUser.getUserId())) {
+                collaborationAccessService.ensureCurrentUserCanAssignOthers(task.getProject().getId());
+            }
             task.setAssignee(null);
             task.setUpdatedAt(LocalDateTime.now());
             Task updatedTask = taskRepository.save(task);
@@ -406,6 +412,9 @@ public class TaskServiceImpl implements TaskService {
 
         collaborationAccessService.ensureAssigneeBelongsWorkspace(request.getAssigneeId(),
                 task.getProject().getWorkspace().getId());
+        if (!request.getAssigneeId().equals(currentUser.getUserId())) {
+            collaborationAccessService.ensureCurrentUserCanAssignOthers(task.getProject().getId());
+        }
         User newAssignee = userRepository.findById(request.getAssigneeId())
                 .orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
 

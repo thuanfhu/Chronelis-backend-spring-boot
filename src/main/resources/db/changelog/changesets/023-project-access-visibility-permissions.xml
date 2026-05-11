@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="023-project-access-visibility-permissions" author="chronelis" dbms="mysql">
+        <sql>
+            ALTER TABLE projects
+            ADD COLUMN visibility VARCHAR(20) NOT NULL DEFAULT 'PUBLIC';
+
+            UPDATE workspace_members
+            SET role = 'MEMBER'
+            WHERE role = 'ADMIN';
+
+            UPDATE workspace_invites
+            SET role_to_assign = 'MEMBER'
+            WHERE role_to_assign = 'ADMIN';
+
+            CREATE TABLE project_accesses (
+                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                project_id BIGINT UNSIGNED NOT NULL,
+                subject_type VARCHAR(20) NOT NULL,
+                user_id VARCHAR(36) NULL,
+                team_id BIGINT UNSIGNED NULL,
+                role VARCHAR(30) NOT NULL,
+                granted_by VARCHAR(36) NOT NULL,
+                created_at DATETIME(6) NOT NULL,
+                updated_at DATETIME(6) NOT NULL,
+                CONSTRAINT fk_project_accesses_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                CONSTRAINT fk_project_accesses_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+                CONSTRAINT fk_project_accesses_team FOREIGN KEY (team_id) REFERENCES workspace_teams(id) ON DELETE CASCADE,
+                CONSTRAINT fk_project_accesses_granted_by FOREIGN KEY (granted_by) REFERENCES users(user_id),
+                CONSTRAINT uk_project_access_user UNIQUE (project_id, user_id),
+                CONSTRAINT uk_project_access_team UNIQUE (project_id, team_id),
+                CONSTRAINT chk_project_access_subject CHECK (
+                    (subject_type = 'USER' AND user_id IS NOT NULL AND team_id IS NULL)
+                    OR (subject_type = 'TEAM' AND team_id IS NOT NULL AND user_id IS NULL)
+                ),
+                CONSTRAINT chk_project_access_role CHECK (role IN ('MANAGER', 'CONTRIBUTOR', 'VIEWER'))
+            );
+
+            INSERT INTO project_accesses (project_id, subject_type, user_id, team_id, role, granted_by, created_at, updated_at)
+            SELECT p.id, 'USER', p.manager_user_id, NULL, 'MANAGER', p.created_by, NOW(6), NOW(6)
+            FROM projects p
+            WHERE p.manager_user_id IS NOT NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM project_accesses pa
+                  WHERE pa.project_id = p.id AND pa.user_id = p.manager_user_id
+              );
+
+            INSERT INTO project_accesses (project_id, subject_type, user_id, team_id, role, granted_by, created_at, updated_at)
+            SELECT p.id, 'TEAM', NULL, p.manager_team_id, 'MANAGER', p.created_by, NOW(6), NOW(6)
+            FROM projects p
+            WHERE p.manager_team_id IS NOT NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM project_accesses pa
+                  WHERE pa.project_id = p.id AND pa.team_id = p.manager_team_id
+              );
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Project access list', '/api/v1/projects/{projectId}/access', 'GET', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/projects/{projectId}/access' AND http_method = 'GET');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Project access upsert', '/api/v1/projects/{projectId}/access', 'POST', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/projects/{projectId}/access' AND http_method = 'POST');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Project access update', '/api/v1/projects/{projectId}/access/{accessId}', 'PATCH', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/projects/{projectId}/access/{accessId}' AND http_method = 'PATCH');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Project access revoke', '/api/v1/projects/{projectId}/access/{accessId}', 'DELETE', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/projects/{projectId}/access/{accessId}' AND http_method = 'DELETE');
+
+            INSERT INTO permissions (permission_id, name, api_path, http_method, module, created_at, updated_at, created_by, updated_by, version)
+            SELECT UUID(), 'Project effective access', '/api/v1/projects/{projectId}/access/me', 'GET', 'COLLAB', NOW(6), NOW(6), 'system', 'system', 0
+            WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE api_path = '/api/v1/projects/{projectId}/access/me' AND http_method = 'GET');
+
+            INSERT INTO permission_roles (role_id, permission_id)
+            SELECT r.role_id, p.permission_id
+            FROM roles r
+            JOIN permissions p ON p.module = 'COLLAB'
+            WHERE r.name IN ('ADMIN', 'USER')
+              AND NOT EXISTS (
+                  SELECT 1 FROM permission_roles pr
+                  WHERE pr.role_id = r.role_id AND pr.permission_id = p.permission_id
+              );
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

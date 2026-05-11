@@ -25,5 +25,6 @@
     <include file="db/changelog/changesets/020-add-task-dependencies-and-blocker-note.xml"/>
     <include file="db/changelog/changesets/021-seed-missing-permissions.xml"/>
     <include file="db/changelog/changesets/022-seed-management-auth-storage-permissions.xml"/>
+    <include file="db/changelog/changesets/023-project-access-visibility-permissions.xml"/>
 
 </databaseChangeLog>

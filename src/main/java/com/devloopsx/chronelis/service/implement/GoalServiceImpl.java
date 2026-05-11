@@ -49,7 +49,7 @@ public class GoalServiceImpl implements GoalService {
     @Override
     @Transactional
     public GoalResponse createGoal(CreateGoalRequest request) {
-        collaborationAccessService.ensureCurrentUserCanManageProject(request.getProjectId());
+        collaborationAccessService.ensureCurrentUserCanManageProjectWork(request.getProjectId());
         Project project = collaborationAccessService.requireProject(request.getProjectId());
 
         if (request.getManagerUserId() != null || request.getManagerTeamId() != null) {

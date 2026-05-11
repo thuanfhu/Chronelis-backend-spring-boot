@@ -52,7 +52,7 @@ public class ProjectServiceImpl implements ProjectService {
         @Override
         @Transactional
         public ProjectResponse createProject(CreateProjectRequest request) {
-                collaborationAccessService.ensureCurrentUserIsWorkspaceManager(request.getWorkspaceId());
+                collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(request.getWorkspaceId());
                 Workspace workspace = collaborationAccessService.requireWorkspace(request.getWorkspaceId());
 
                 if (request.getManagerUserId() != null || request.getManagerTeamId() != null) {
@@ -66,6 +66,8 @@ public class ProjectServiceImpl implements ProjectService {
                 project.setWorkspace(workspace);
                 project.setCreatedBy(currentUser);
                 project.setStatus(ProjectStatusType.ACTIVE);
+                project.setVisibility(request.getVisibility() != null ? request.getVisibility()
+                                : ProjectVisibilityType.PUBLIC);
                 project.setCreatedAt(now);
                 project.setUpdatedAt(now);
 
@@ -90,8 +92,12 @@ public class ProjectServiceImpl implements ProjectService {
         @Override
         @Transactional
         public ProjectResponse updateProject(Long projectId, UpdateProjectRequest request) {
-                collaborationAccessService.ensureCurrentUserCanManageProject(projectId);
                 Project project = collaborationAccessService.requireProject(projectId);
+                if (request.getVisibility() != null) {
+                        collaborationAccessService.ensureCurrentUserCanChangeProjectVisibility(projectId);
+                } else {
+                        collaborationAccessService.ensureCurrentUserCanManageProjectWork(projectId);
+                }
 
                 boolean managerUpdateRequested = request.getManagerUserId() != null
                                 || request.getManagerTeamId() != null;
@@ -102,6 +108,7 @@ public class ProjectServiceImpl implements ProjectService {
                 if ((request.getName() == null || request.getName().isBlank())
                                 && request.getDescription() == null
                                 && request.getStatus() == null
+                                && request.getVisibility() == null
                                 && !managerUpdateRequested) {
                         throw new ApplicationException(ErrorCode.NO_UPDATE_PROVIDED);
                 }
@@ -132,7 +139,7 @@ public class ProjectServiceImpl implements ProjectService {
         @Override
         @Transactional
         public ProjectResponse updateProjectStatus(Long projectId, UpdateProjectStatusRequest request) {
-                collaborationAccessService.ensureCurrentUserCanManageProject(projectId);
+                collaborationAccessService.ensureCurrentUserCanManageProjectWork(projectId);
                 Project project = collaborationAccessService.requireProject(projectId);
 
                 project.setStatus(request.getStatus());
@@ -162,7 +169,9 @@ public class ProjectServiceImpl implements ProjectService {
         @Override
         public PaginationResponse listProjectsByWorkspace(Long workspaceId, Pageable pageable) {
                 collaborationAccessService.requireCurrentWorkspaceMember(workspaceId);
-                Page<Project> page = projectRepository.findByWorkspaceId(workspaceId, pageable);
+                String currentUserId = securityUtils.getAuthenticatedUser().getUserId();
+                Page<Project> page = projectRepository.findVisibleByWorkspaceIdAndUserId(workspaceId, currentUserId,
+                                pageable);
 
                 return PaginationResponse.builder()
                                 .meta(PaginationMeta.builder()
@@ -183,7 +192,7 @@ public class ProjectServiceImpl implements ProjectService {
                 Project project = collaborationAccessService.requireProject(projectId);
                 Long workspaceId = project.getWorkspace().getId();
 
-                collaborationAccessService.ensureCurrentUserIsWorkspaceManager(workspaceId);
+                collaborationAccessService.ensureCurrentUserCanDeleteProject(projectId);
 
                 String projectName = project.getName();
                 User currentUser = securityUtils.getAuthenticatedUser();
@@ -192,14 +201,14 @@ public class ProjectServiceImpl implements ProjectService {
                 // does not conflict when DB cascades task_statuses via project delete.
                 taskRepository.deleteByProjectIdIn(List.of(projectId));
 
+                realtimeEventPublisherService.publishProjectEvent(workspaceId, projectId, "project.deleted", projectId);
+
                 projectRepository.delete(project);
 
                 activityLogService.createLog(workspaceId, currentUser.getUserId(),
                                 ActivityActionType.PROJECT_DELETED,
                                 ActivityTargetType.PROJECT, projectId,
                                 "Xóa project " + projectName);
-
-                realtimeEventPublisherService.publishWorkspaceEvent(workspaceId, "project.deleted", projectId);
         }
 
         private void applyProjectManagerAssignments(Project project, Long workspaceId, String managerUserId,

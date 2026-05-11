@@ -1,6 +1,7 @@
 package com.devloopsx.chronelis.domain;
 
 import com.devloopsx.chronelis.constant.ProjectStatusType;
+import com.devloopsx.chronelis.constant.ProjectVisibilityType;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -35,6 +36,11 @@ public class Project {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     ProjectStatusType status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    ProjectVisibilityType visibility = ProjectVisibilityType.PUBLIC;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
