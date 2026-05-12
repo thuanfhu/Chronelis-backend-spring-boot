@@ -5,13 +5,13 @@ import com.devloopsx.chronelis.constant.ProjectAccessRoleType;
 import com.devloopsx.chronelis.constant.ProjectAccessSubjectType;
 import com.devloopsx.chronelis.constant.ProjectVisibilityType;
 import com.devloopsx.chronelis.domain.Project;
-import com.devloopsx.chronelis.domain.ProjectAccess;
+import com.devloopsx.chronelis.domain.ProjectAccessGrant;
 import com.devloopsx.chronelis.domain.User;
 import com.devloopsx.chronelis.domain.WorkspaceMember;
 import com.devloopsx.chronelis.dto.response.projectaccess.EffectiveProjectAccessResponse;
 import com.devloopsx.chronelis.exception.ApplicationException;
 import com.devloopsx.chronelis.exception.ErrorCode;
-import com.devloopsx.chronelis.repository.ProjectAccessRepository;
+import com.devloopsx.chronelis.repository.ProjectAccessGrantRepository;
 import com.devloopsx.chronelis.repository.ProjectRepository;
 import com.devloopsx.chronelis.repository.WorkspaceMemberRepository;
 import com.devloopsx.chronelis.repository.WorkspaceTeamMemberRepository;
@@ -31,7 +31,7 @@ import java.util.Set;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ProjectPermissionServiceImpl implements ProjectPermissionService {
     ProjectRepository projectRepository;
-    ProjectAccessRepository projectAccessRepository;
+    ProjectAccessGrantRepository projectAccessGrantRepository;
     WorkspaceMemberRepository workspaceMemberRepository;
     WorkspaceTeamMemberRepository workspaceTeamMemberRepository;
     SecurityUtils securityUtils;
@@ -47,36 +47,22 @@ public class ProjectPermissionServiceImpl implements ProjectPermissionService {
     public EffectiveProjectAccessResponse resolveCurrentUserAccess(Project project) {
         User currentUser = securityUtils.getAuthenticatedUser();
         String currentUserId = currentUser.getUserId();
-        Long workspaceId = project.getWorkspace().getId();
-        boolean workspaceOwner = project.getWorkspace().getOwner().getUserId().equals(currentUserId);
-        EffectiveProjectAccessRoleType effectiveRole = resolveRole(project, currentUserId, workspaceOwner);
-
-        boolean canViewProject = effectiveRole.atLeast(EffectiveProjectAccessRoleType.VIEWER);
-        boolean canContribute = effectiveRole.atLeast(EffectiveProjectAccessRoleType.CONTRIBUTOR);
-        boolean canManageProjectWork = effectiveRole.atLeast(EffectiveProjectAccessRoleType.MANAGER);
-        boolean canManageProjectAccess = workspaceOwner || effectiveRole == EffectiveProjectAccessRoleType.MANAGER;
-
-        return EffectiveProjectAccessResponse.builder()
-                .projectId(project.getId())
-                .workspaceId(workspaceId)
-                .visibility(project.getVisibility())
-                .effectiveRole(effectiveRole)
-                .workspaceOwner(workspaceOwner)
-                .canViewProject(canViewProject)
-                .canContribute(canContribute)
-                .canManageProjectWork(canManageProjectWork)
-                .canManageProjectAccess(canManageProjectAccess)
-                .canManageManagerAccess(workspaceOwner)
-                .canChangeVisibility(workspaceOwner)
-                .canDeleteProject(workspaceOwner)
-                .canAssignOthers(workspaceOwner || effectiveRole == EffectiveProjectAccessRoleType.MANAGER)
-                .canComment(canContribute)
-                .build();
+        return resolveAccess(project, currentUserId);
     }
 
     @Override
     public EffectiveProjectAccessRoleType resolveCurrentUserRole(Project project) {
         return resolveCurrentUserAccess(project).getEffectiveRole();
+    }
+
+    @Override
+    public EffectiveProjectAccessRoleType resolveUserRole(Project project, String userId) {
+        if (userId == null || userId.isBlank()) {
+            return EffectiveProjectAccessRoleType.NO_ACCESS;
+        }
+
+        boolean workspaceOwner = project.getWorkspace().getOwner().getUserId().equals(userId);
+        return resolveRole(project, userId, workspaceOwner);
     }
 
     @Override
@@ -91,8 +77,8 @@ public class ProjectPermissionServiceImpl implements ProjectPermissionService {
             return userIds;
         }
 
-        List<ProjectAccess> grants = projectAccessRepository.findByProjectIdOrderByCreatedAtAsc(project.getId());
-        for (ProjectAccess grant : grants) {
+        List<ProjectAccessGrant> grants = projectAccessGrantRepository.findByProjectIdOrderByCreatedAtAsc(project.getId());
+        for (ProjectAccessGrant grant : grants) {
             if (grant.getSubjectType() == ProjectAccessSubjectType.USER && grant.getUser() != null) {
                 userIds.add(grant.getUser().getUserId());
             }
@@ -122,25 +108,25 @@ public class ProjectPermissionServiceImpl implements ProjectPermissionService {
                 ? EffectiveProjectAccessRoleType.CONTRIBUTOR
                 : EffectiveProjectAccessRoleType.NO_ACCESS;
 
-        return grantRole.ordinal() > defaultRole.ordinal() ? grantRole : defaultRole;
+        return EffectiveProjectAccessRoleType.max(grantRole, defaultRole);
     }
 
     private EffectiveProjectAccessRoleType resolveHighestGrantRole(Project project, String userId) {
         EffectiveProjectAccessRoleType highest = EffectiveProjectAccessRoleType.NO_ACCESS;
 
-        ProjectAccess userGrant = projectAccessRepository.findByProjectIdAndUserUserId(project.getId(), userId)
+        ProjectAccessGrant userGrant = projectAccessGrantRepository.findByProjectIdAndUserUserId(project.getId(), userId)
                 .orElse(null);
         if (userGrant != null) {
-            highest = max(highest, toEffectiveRole(userGrant.getRole()));
+            highest = EffectiveProjectAccessRoleType.max(highest, toEffectiveRole(userGrant.getRole()));
         }
 
         List<Long> teamIds = workspaceTeamMemberRepository.findTeamIdsByWorkspaceIdAndUserId(
                 project.getWorkspace().getId(), userId);
         if (!teamIds.isEmpty()) {
-            List<ProjectAccess> teamGrants = projectAccessRepository.findByProjectIdAndSubjectTypeAndTeamIdIn(
+            List<ProjectAccessGrant> teamGrants = projectAccessGrantRepository.findByProjectIdAndSubjectTypeAndTeamIdIn(
                     project.getId(), ProjectAccessSubjectType.TEAM, teamIds);
-            for (ProjectAccess teamGrant : teamGrants) {
-                highest = max(highest, toEffectiveRole(teamGrant.getRole()));
+            for (ProjectAccessGrant teamGrant : teamGrants) {
+                highest = EffectiveProjectAccessRoleType.max(highest, toEffectiveRole(teamGrant.getRole()));
             }
         }
 
@@ -155,7 +141,44 @@ public class ProjectPermissionServiceImpl implements ProjectPermissionService {
         };
     }
 
-    private EffectiveProjectAccessRoleType max(EffectiveProjectAccessRoleType left, EffectiveProjectAccessRoleType right) {
-        return left.ordinal() >= right.ordinal() ? left : right;
+    private EffectiveProjectAccessResponse resolveAccess(Project project, String userId) {
+        Long workspaceId = project.getWorkspace().getId();
+        boolean member = workspaceMemberRepository.existsByWorkspaceIdAndUserUserId(workspaceId, userId);
+        if (!member) {
+            throw new ApplicationException(ErrorCode.UNAUTHORIZED_ACCESS,
+                    "Người dùng không thuộc workspace của project này");
+        }
+
+        boolean workspaceOwner = project.getWorkspace().getOwner().getUserId().equals(userId);
+        EffectiveProjectAccessRoleType effectiveRole = resolveRole(project, userId, workspaceOwner);
+
+        boolean canViewProject = effectiveRole.atLeast(EffectiveProjectAccessRoleType.VIEWER);
+        boolean canContribute = effectiveRole.atLeast(EffectiveProjectAccessRoleType.CONTRIBUTOR);
+        boolean canManageProjectWork = effectiveRole.atLeast(EffectiveProjectAccessRoleType.MANAGER);
+        boolean canManageProjectAccess = workspaceOwner || effectiveRole == EffectiveProjectAccessRoleType.MANAGER;
+        boolean canGrantManager = workspaceOwner;
+
+        return EffectiveProjectAccessResponse.builder()
+                .projectId(project.getId())
+                .workspaceId(workspaceId)
+                .visibility(project.getVisibility())
+                .effectiveRole(effectiveRole)
+                .workspaceOwner(workspaceOwner)
+                .canViewProject(canViewProject)
+                .canContribute(canContribute)
+                .canComment(canContribute)
+                .canManageProjectWork(canManageProjectWork)
+                .canManageProjectAccess(canManageProjectAccess)
+                .canGrantManager(canGrantManager)
+                .canRevokeManager(canGrantManager)
+                .canManageManagerAccess(canGrantManager)
+                .canChangeVisibility(workspaceOwner)
+                .canDeleteProject(workspaceOwner)
+                .canAssignOthers(workspaceOwner || effectiveRole == EffectiveProjectAccessRoleType.MANAGER)
+                .canManageWorkspaceMembers(workspaceOwner)
+                .canManageWorkspaceTeams(workspaceOwner)
+                .canManageWorkspaceInvites(workspaceOwner)
+                .canManageWorkspaceSettings(workspaceOwner)
+                .build();
     }
 }

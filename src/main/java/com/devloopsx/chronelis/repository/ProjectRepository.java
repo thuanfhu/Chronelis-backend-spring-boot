@@ -27,13 +27,13 @@ public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpec
                   p.workspace.owner.userId = :userId
                   OR p.visibility = com.devloopsx.chronelis.constant.ProjectVisibilityType.PUBLIC
                   OR EXISTS (
-                      SELECT paUser.id FROM ProjectAccess paUser
+                      SELECT paUser.id FROM ProjectAccessGrant paUser
                       WHERE paUser.project.id = p.id
                         AND paUser.subjectType = com.devloopsx.chronelis.constant.ProjectAccessSubjectType.USER
                         AND paUser.user.userId = :userId
                   )
                   OR EXISTS (
-                      SELECT paTeam.id FROM ProjectAccess paTeam
+                      SELECT paTeam.id FROM ProjectAccessGrant paTeam
                       WHERE paTeam.project.id = p.id
                         AND paTeam.subjectType = com.devloopsx.chronelis.constant.ProjectAccessSubjectType.TEAM
                         AND EXISTS (

@@ -1,11 +1,17 @@
 package com.devloopsx.chronelis.constant;
 
 public enum ProjectAccessRoleType {
-    VIEWER,
-    CONTRIBUTOR,
-    MANAGER;
+    VIEWER(1),
+    CONTRIBUTOR(2),
+    MANAGER(3);
+
+    private final int level;
+
+    ProjectAccessRoleType(int level) {
+        this.level = level;
+    }
 
     public boolean atLeast(ProjectAccessRoleType requiredRole) {
-        return this.ordinal() >= requiredRole.ordinal();
+        return this.level >= requiredRole.level;
     }
 }

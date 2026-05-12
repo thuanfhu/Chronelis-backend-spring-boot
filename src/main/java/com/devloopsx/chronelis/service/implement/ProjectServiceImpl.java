@@ -2,6 +2,7 @@ package com.devloopsx.chronelis.service.implement;
 
 import com.devloopsx.chronelis.constant.*;
 import com.devloopsx.chronelis.domain.Project;
+import com.devloopsx.chronelis.domain.ProjectAccessGrant;
 import com.devloopsx.chronelis.domain.TaskStatus;
 import com.devloopsx.chronelis.domain.User;
 import com.devloopsx.chronelis.domain.Workspace;
@@ -16,6 +17,7 @@ import com.devloopsx.chronelis.exception.ApplicationException;
 import com.devloopsx.chronelis.exception.ErrorCode;
 import com.devloopsx.chronelis.mapper.ProjectMapper;
 import com.devloopsx.chronelis.mapper.TaskStatusMapper;
+import com.devloopsx.chronelis.repository.ProjectAccessGrantRepository;
 import com.devloopsx.chronelis.repository.ProjectRepository;
 import com.devloopsx.chronelis.repository.TaskRepository;
 import com.devloopsx.chronelis.repository.TaskStatusRepository;
@@ -39,6 +41,7 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ProjectServiceImpl implements ProjectService {
         ProjectRepository projectRepository;
+        ProjectAccessGrantRepository projectAccessGrantRepository;
         TaskRepository taskRepository;
         TaskStatusRepository taskStatusRepository;
         UserRepository userRepository;
@@ -75,6 +78,7 @@ public class ProjectServiceImpl implements ProjectService {
                                 request.getManagerTeamId());
 
                 Project savedProject = projectRepository.save(project);
+                syncProjectManagerGrants(savedProject, null, null, true, currentUser, now);
                 createDefaultTaskStatuses(savedProject, now);
 
                 activityLogService.createLog(workspace.getId(), currentUser.getUserId(),
@@ -93,6 +97,12 @@ public class ProjectServiceImpl implements ProjectService {
         @Transactional
         public ProjectResponse updateProject(Long projectId, UpdateProjectRequest request) {
                 Project project = collaborationAccessService.requireProject(projectId);
+                String previousManagerUserId = project.getManagerUser() != null
+                                ? project.getManagerUser().getUserId()
+                                : null;
+                Long previousManagerTeamId = project.getManagerTeam() != null ? project.getManagerTeam().getId()
+                                : null;
+
                 if (request.getVisibility() != null) {
                         collaborationAccessService.ensureCurrentUserCanChangeProjectVisibility(projectId);
                 } else {
@@ -124,6 +134,8 @@ public class ProjectServiceImpl implements ProjectService {
 
                 Project updatedProject = projectRepository.save(project);
                 User currentUser = securityUtils.getAuthenticatedUser();
+                syncProjectManagerGrants(updatedProject, previousManagerUserId, previousManagerTeamId,
+                                managerUpdateRequested, currentUser, LocalDateTime.now());
 
                 activityLogService.createLog(updatedProject.getWorkspace().getId(), currentUser.getUserId(),
                                 ActivityActionType.PROJECT_UPDATED, ActivityTargetType.PROJECT, updatedProject.getId(),
@@ -258,5 +270,67 @@ public class ProjectServiceImpl implements ProjectService {
                                                 .createdAt(now).build());
 
                 taskStatusRepository.saveAll(defaults);
+        }
+
+        private void syncProjectManagerGrants(Project project, String previousManagerUserId, Long previousManagerTeamId,
+                        boolean managerUpdateRequested, User actor, LocalDateTime now) {
+                if (!managerUpdateRequested) {
+                        return;
+                }
+
+                String nextManagerUserId = project.getManagerUser() != null ? project.getManagerUser().getUserId()
+                                : null;
+                Long nextManagerTeamId = project.getManagerTeam() != null ? project.getManagerTeam().getId() : null;
+
+                if (previousManagerUserId != null && !previousManagerUserId.equals(nextManagerUserId)) {
+                        projectAccessGrantRepository.findByProjectIdAndUserUserId(project.getId(), previousManagerUserId)
+                                        .filter(grant -> grant.getRole() == ProjectAccessRoleType.MANAGER)
+                                        .ifPresent(projectAccessGrantRepository::delete);
+                }
+
+                if (previousManagerTeamId != null && !previousManagerTeamId.equals(nextManagerTeamId)) {
+                        projectAccessGrantRepository.findByProjectIdAndTeamId(project.getId(), previousManagerTeamId)
+                                        .filter(grant -> grant.getRole() == ProjectAccessRoleType.MANAGER)
+                                        .ifPresent(projectAccessGrantRepository::delete);
+                }
+
+                if (project.getManagerUser() != null) {
+                        ProjectAccessGrant grant = projectAccessGrantRepository
+                                        .findByProjectIdAndUserUserId(project.getId(),
+                                                        project.getManagerUser().getUserId())
+                                        .orElseGet(() -> ProjectAccessGrant.builder()
+                                                        .project(project)
+                                                        .subjectType(ProjectAccessSubjectType.USER)
+                                                        .user(project.getManagerUser())
+                                                        .grantedBy(actor)
+                                                        .createdAt(now)
+                                                        .build());
+                        grant.setSubjectType(ProjectAccessSubjectType.USER);
+                        grant.setUser(project.getManagerUser());
+                        grant.setTeam(null);
+                        grant.setRole(ProjectAccessRoleType.MANAGER);
+                        grant.setGrantedBy(grant.getGrantedBy() != null ? grant.getGrantedBy() : actor);
+                        grant.setUpdatedAt(now);
+                        projectAccessGrantRepository.save(grant);
+                }
+
+                if (project.getManagerTeam() != null) {
+                        ProjectAccessGrant grant = projectAccessGrantRepository
+                                        .findByProjectIdAndTeamId(project.getId(), project.getManagerTeam().getId())
+                                        .orElseGet(() -> ProjectAccessGrant.builder()
+                                                        .project(project)
+                                                        .subjectType(ProjectAccessSubjectType.TEAM)
+                                                        .team(project.getManagerTeam())
+                                                        .grantedBy(actor)
+                                                        .createdAt(now)
+                                                        .build());
+                        grant.setSubjectType(ProjectAccessSubjectType.TEAM);
+                        grant.setUser(null);
+                        grant.setTeam(project.getManagerTeam());
+                        grant.setRole(ProjectAccessRoleType.MANAGER);
+                        grant.setGrantedBy(grant.getGrantedBy() != null ? grant.getGrantedBy() : actor);
+                        grant.setUpdatedAt(now);
+                        projectAccessGrantRepository.save(grant);
+                }
         }
 }

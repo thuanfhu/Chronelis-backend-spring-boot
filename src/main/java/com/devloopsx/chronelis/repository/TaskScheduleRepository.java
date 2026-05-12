@@ -30,10 +30,75 @@ public interface TaskScheduleRepository extends JpaRepository<TaskSchedule, Long
         Page<TaskSchedule> findByTaskProjectWorkspaceIdAndScheduledDateBetween(Long workspaceId, LocalDate fromDate,
                         LocalDate toDate, Pageable pageable);
 
+        @Query("""
+                        SELECT ts FROM TaskSchedule ts
+                        WHERE ts.task.project.workspace.id = :workspaceId
+                          AND ts.scheduledDate BETWEEN :fromDate AND :toDate
+                          AND (
+                              ts.task.project.workspace.owner.userId = :userId
+                              OR ts.task.project.visibility = com.devloopsx.chronelis.constant.ProjectVisibilityType.PUBLIC
+                              OR EXISTS (
+                                  SELECT grant.id FROM ProjectAccessGrant grant
+                                  WHERE grant.project.id = ts.task.project.id
+                                    AND grant.subjectType = com.devloopsx.chronelis.constant.ProjectAccessSubjectType.USER
+                                    AND grant.user.userId = :userId
+                              )
+                              OR EXISTS (
+                                  SELECT grant.id FROM ProjectAccessGrant grant
+                                  WHERE grant.project.id = ts.task.project.id
+                                    AND grant.subjectType = com.devloopsx.chronelis.constant.ProjectAccessSubjectType.TEAM
+                                    AND EXISTS (
+                                        SELECT teamMember.id FROM WorkspaceTeamMember teamMember
+                                        WHERE teamMember.team.id = grant.team.id
+                                          AND teamMember.user.userId = :userId
+                                    )
+                              )
+                          )
+                        """)
+        Page<TaskSchedule> findVisibleByWorkspaceCalendar(@Param("workspaceId") Long workspaceId,
+                        @Param("userId") String userId,
+                        @Param("fromDate") LocalDate fromDate,
+                        @Param("toDate") LocalDate toDate,
+                        Pageable pageable);
+
         List<TaskSchedule> findByTaskAssigneeUserIdAndTaskIsCompletedFalseAndTaskProjectWorkspaceIdInAndScheduledDateBetweenOrderByScheduledStartAsc(
                         String userId,
                         List<Long> workspaceIds,
                         LocalDate fromDate,
                         LocalDate toDate,
+                        Pageable pageable);
+
+        @Query("""
+                        SELECT ts FROM TaskSchedule ts
+                        WHERE ts.task.assignee.userId = :userId
+                          AND ts.task.isCompleted = false
+                          AND ts.task.project.workspace.id IN :workspaceIds
+                          AND ts.scheduledDate BETWEEN :fromDate AND :toDate
+                          AND (
+                              ts.task.project.workspace.owner.userId = :userId
+                              OR ts.task.project.visibility = com.devloopsx.chronelis.constant.ProjectVisibilityType.PUBLIC
+                              OR EXISTS (
+                                  SELECT grant.id FROM ProjectAccessGrant grant
+                                  WHERE grant.project.id = ts.task.project.id
+                                    AND grant.subjectType = com.devloopsx.chronelis.constant.ProjectAccessSubjectType.USER
+                                    AND grant.user.userId = :userId
+                              )
+                              OR EXISTS (
+                                  SELECT grant.id FROM ProjectAccessGrant grant
+                                  WHERE grant.project.id = ts.task.project.id
+                                    AND grant.subjectType = com.devloopsx.chronelis.constant.ProjectAccessSubjectType.TEAM
+                                    AND EXISTS (
+                                        SELECT teamMember.id FROM WorkspaceTeamMember teamMember
+                                        WHERE teamMember.team.id = grant.team.id
+                                          AND teamMember.user.userId = :userId
+                                    )
+                              )
+                          )
+                        ORDER BY ts.scheduledStart ASC
+                        """)
+        List<TaskSchedule> findVisibleAssignedOpenSchedules(@Param("userId") String userId,
+                        @Param("workspaceIds") List<Long> workspaceIds,
+                        @Param("fromDate") LocalDate fromDate,
+                        @Param("toDate") LocalDate toDate,
                         Pageable pageable);
 }

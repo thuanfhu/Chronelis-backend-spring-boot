@@ -15,11 +15,11 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Entity
-@Table(name = "project_accesses", uniqueConstraints = {
+@Table(name = "project_access_grants", uniqueConstraints = {
         @UniqueConstraint(name = "uk_project_access_user", columnNames = { "project_id", "user_id" }),
         @UniqueConstraint(name = "uk_project_access_team", columnNames = { "project_id", "team_id" })
 })
-public class ProjectAccess {
+public class ProjectAccessGrant {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Long id;

@@ -10,7 +10,7 @@ import com.devloopsx.chronelis.dto.response.projectaccess.ProjectAccessResponse;
 import com.devloopsx.chronelis.exception.ApplicationException;
 import com.devloopsx.chronelis.exception.ErrorCode;
 import com.devloopsx.chronelis.mapper.ProjectAccessMapper;
-import com.devloopsx.chronelis.repository.ProjectAccessRepository;
+import com.devloopsx.chronelis.repository.ProjectAccessGrantRepository;
 import com.devloopsx.chronelis.repository.UserRepository;
 import com.devloopsx.chronelis.service.CollaborationAccessService;
 import com.devloopsx.chronelis.service.ProjectAccessService;
@@ -29,7 +29,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ProjectAccessServiceImpl implements ProjectAccessService {
-    ProjectAccessRepository projectAccessRepository;
+    ProjectAccessGrantRepository projectAccessGrantRepository;
     UserRepository userRepository;
     ProjectAccessMapper projectAccessMapper;
     CollaborationAccessService collaborationAccessService;
@@ -39,7 +39,7 @@ public class ProjectAccessServiceImpl implements ProjectAccessService {
     @Override
     public List<ProjectAccessResponse> listProjectAccess(Long projectId) {
         collaborationAccessService.ensureCurrentUserCanManageProjectAccess(projectId);
-        return projectAccessRepository.findByProjectIdOrderByCreatedAtAsc(projectId).stream()
+        return projectAccessGrantRepository.findByProjectIdOrderByCreatedAtAsc(projectId).stream()
                 .map(projectAccessMapper::toResponse)
                 .toList();
     }
@@ -52,26 +52,25 @@ public class ProjectAccessServiceImpl implements ProjectAccessService {
         ensureCanManageRequestedRole(actorAccess, request.getRole());
 
         validateSubjectRequest(project, request);
-        ProjectAccess projectAccess = resolveExistingGrant(projectId, request);
+        ProjectAccessGrant projectAccess = resolveExistingGrant(projectId, request);
         LocalDateTime now = LocalDateTime.now();
 
-        if (projectAccess == null) {
-            projectAccess = ProjectAccess.builder()
-                    .project(project)
-                    .subjectType(request.getSubjectType())
-                    .role(request.getRole())
-                    .grantedBy(securityUtils.getAuthenticatedUser())
-                    .createdAt(now)
-                    .updatedAt(now)
-                    .build();
-        } else {
-            ensureCanManageExistingGrant(actorAccess, projectAccess);
-            projectAccess.setRole(request.getRole());
-            projectAccess.setUpdatedAt(now);
+        if (projectAccess != null) {
+            throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
+                    "Project access grant already exists");
         }
 
+        projectAccess = ProjectAccessGrant.builder()
+                .project(project)
+                .subjectType(request.getSubjectType())
+                .role(request.getRole())
+                .grantedBy(securityUtils.getAuthenticatedUser())
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+
         applySubject(projectAccess, project, request);
-        return projectAccessMapper.toResponse(projectAccessRepository.save(projectAccess));
+        return projectAccessMapper.toResponse(projectAccessGrantRepository.save(projectAccess));
     }
 
     @Override
@@ -81,14 +80,14 @@ public class ProjectAccessServiceImpl implements ProjectAccessService {
         EffectiveProjectAccessResponse actorAccess = projectPermissionService.resolveCurrentUserAccess(project);
         ensureCanManageRequestedRole(actorAccess, request.getRole());
 
-        ProjectAccess projectAccess = projectAccessRepository.findByIdAndProjectId(accessId, projectId)
+        ProjectAccessGrant projectAccess = projectAccessGrantRepository.findByIdAndProjectId(accessId, projectId)
                 .orElseThrow(() -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND,
                         "Quyền truy cập project không tồn tại"));
         ensureCanManageExistingGrant(actorAccess, projectAccess);
 
         projectAccess.setRole(request.getRole());
         projectAccess.setUpdatedAt(LocalDateTime.now());
-        return projectAccessMapper.toResponse(projectAccessRepository.save(projectAccess));
+        return projectAccessMapper.toResponse(projectAccessGrantRepository.save(projectAccess));
     }
 
     @Override
@@ -101,11 +100,11 @@ public class ProjectAccessServiceImpl implements ProjectAccessService {
                     "Bạn không có quyền thu hồi quyền truy cập project này");
         }
 
-        ProjectAccess projectAccess = projectAccessRepository.findByIdAndProjectId(accessId, projectId)
+        ProjectAccessGrant projectAccess = projectAccessGrantRepository.findByIdAndProjectId(accessId, projectId)
                 .orElseThrow(() -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND,
                         "Quyền truy cập project không tồn tại"));
         ensureCanManageExistingGrant(actorAccess, projectAccess);
-        projectAccessRepository.delete(projectAccess);
+        projectAccessGrantRepository.delete(projectAccess);
     }
 
     @Override
@@ -113,14 +112,14 @@ public class ProjectAccessServiceImpl implements ProjectAccessService {
         return projectPermissionService.resolveCurrentUserAccess(projectId);
     }
 
-    private ProjectAccess resolveExistingGrant(Long projectId, UpsertProjectAccessRequest request) {
+    private ProjectAccessGrant resolveExistingGrant(Long projectId, UpsertProjectAccessRequest request) {
         if (request.getSubjectType() == ProjectAccessSubjectType.USER) {
-            return projectAccessRepository.findByProjectIdAndUserUserId(projectId, request.getUserId()).orElse(null);
+            return projectAccessGrantRepository.findByProjectIdAndUserUserId(projectId, request.getUserId()).orElse(null);
         }
-        return projectAccessRepository.findByProjectIdAndTeamId(projectId, request.getTeamId()).orElse(null);
+        return projectAccessGrantRepository.findByProjectIdAndTeamId(projectId, request.getTeamId()).orElse(null);
     }
 
-    private void applySubject(ProjectAccess projectAccess, Project project, UpsertProjectAccessRequest request) {
+    private void applySubject(ProjectAccessGrant projectAccess, Project project, UpsertProjectAccessRequest request) {
         if (request.getSubjectType() == ProjectAccessSubjectType.USER) {
             User user = userRepository.findById(request.getUserId())
                     .orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
@@ -167,7 +166,7 @@ public class ProjectAccessServiceImpl implements ProjectAccessService {
         }
     }
 
-    private void ensureCanManageExistingGrant(EffectiveProjectAccessResponse actorAccess, ProjectAccess projectAccess) {
+    private void ensureCanManageExistingGrant(EffectiveProjectAccessResponse actorAccess, ProjectAccessGrant projectAccess) {
         if (projectAccess.getRole() == ProjectAccessRoleType.MANAGER && !actorAccess.isCanManageManagerAccess()) {
             throw new ApplicationException(ErrorCode.UNAUTHORIZED_ACCESS,
                     "Chỉ owner workspace mới có quyền thay đổi quyền MANAGER");

@@ -180,10 +180,11 @@ public class TaskCommentServiceImpl implements TaskCommentService {
                         recipients.add(task.getCreatedBy().getUserId());
                 }
 
-                recipients.remove(actor.getUserId());
+        recipients.remove(actor.getUserId());
+        recipients.retainAll(projectPermissionService.findAuthorizedUserIds(task.getProject()));
 
-                for (String recipientId : recipients) {
-                        notificationService.createAndPublish(recipientId, NotificationType.TASK_COMMENTED,
+        for (String recipientId : recipients) {
+            notificationService.createAndPublish(recipientId, NotificationType.TASK_COMMENTED,
                                         "Có bình luận mới", actor.getEmail() + " vừa bình luận task " + task.getTitle(),
                                         ReferenceType.COMMENT, commentId);
                 }

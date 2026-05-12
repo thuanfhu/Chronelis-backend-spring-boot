@@ -13,5 +13,7 @@ public interface ProjectPermissionService {
 
     EffectiveProjectAccessRoleType resolveCurrentUserRole(Project project);
 
+    EffectiveProjectAccessRoleType resolveUserRole(Project project, String userId);
+
     Set<String> findAuthorizedUserIds(Project project);
 }

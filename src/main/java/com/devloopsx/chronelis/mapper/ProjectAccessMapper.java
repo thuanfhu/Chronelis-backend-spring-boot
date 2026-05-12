@@ -1,6 +1,6 @@
 package com.devloopsx.chronelis.mapper;
 
-import com.devloopsx.chronelis.domain.ProjectAccess;
+import com.devloopsx.chronelis.domain.ProjectAccessGrant;
 import com.devloopsx.chronelis.dto.response.projectaccess.ProjectAccessResponse;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -14,7 +14,7 @@ public class ProjectAccessMapper {
     UserSummaryMapper userSummaryMapper;
     WorkspaceTeamMapper workspaceTeamMapper;
 
-    public ProjectAccessResponse toResponse(ProjectAccess projectAccess) {
+    public ProjectAccessResponse toResponse(ProjectAccessGrant projectAccess) {
         if (projectAccess == null) {
             return null;
         }

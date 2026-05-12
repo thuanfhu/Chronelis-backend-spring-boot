@@ -18,11 +18,17 @@ public class EffectiveProjectAccessResponse {
     boolean workspaceOwner;
     boolean canViewProject;
     boolean canContribute;
+    boolean canComment;
     boolean canManageProjectWork;
     boolean canManageProjectAccess;
+    boolean canGrantManager;
+    boolean canRevokeManager;
     boolean canManageManagerAccess;
     boolean canChangeVisibility;
     boolean canDeleteProject;
     boolean canAssignOthers;
-    boolean canComment;
+    boolean canManageWorkspaceMembers;
+    boolean canManageWorkspaceTeams;
+    boolean canManageWorkspaceInvites;
+    boolean canManageWorkspaceSettings;
 }
