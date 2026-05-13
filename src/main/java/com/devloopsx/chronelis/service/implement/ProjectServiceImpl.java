@@ -2,6 +2,7 @@ package com.devloopsx.chronelis.service.implement;
 
 import com.devloopsx.chronelis.constant.*;
 import com.devloopsx.chronelis.domain.Project;
+import com.devloopsx.chronelis.domain.ProjectAccessGrant;
 import com.devloopsx.chronelis.domain.TaskStatus;
 import com.devloopsx.chronelis.domain.User;
 import com.devloopsx.chronelis.domain.Workspace;
@@ -16,6 +17,7 @@ import com.devloopsx.chronelis.exception.ApplicationException;
 import com.devloopsx.chronelis.exception.ErrorCode;
 import com.devloopsx.chronelis.mapper.ProjectMapper;
 import com.devloopsx.chronelis.mapper.TaskStatusMapper;
+import com.devloopsx.chronelis.repository.ProjectAccessGrantRepository;
 import com.devloopsx.chronelis.repository.ProjectRepository;
 import com.devloopsx.chronelis.repository.TaskRepository;
 import com.devloopsx.chronelis.repository.TaskStatusRepository;
@@ -39,6 +41,7 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ProjectServiceImpl implements ProjectService {
         ProjectRepository projectRepository;
+        ProjectAccessGrantRepository projectAccessGrantRepository;
         TaskRepository taskRepository;
         TaskStatusRepository taskStatusRepository;
         UserRepository userRepository;
@@ -52,7 +55,7 @@ public class ProjectServiceImpl implements ProjectService {
         @Override
         @Transactional
         public ProjectResponse createProject(CreateProjectRequest request) {
-                collaborationAccessService.ensureCurrentUserIsWorkspaceManager(request.getWorkspaceId());
+                collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(request.getWorkspaceId());
                 Workspace workspace = collaborationAccessService.requireWorkspace(request.getWorkspaceId());
 
                 if (request.getManagerUserId() != null || request.getManagerTeamId() != null) {
@@ -66,6 +69,8 @@ public class ProjectServiceImpl implements ProjectService {
                 project.setWorkspace(workspace);
                 project.setCreatedBy(currentUser);
                 project.setStatus(ProjectStatusType.ACTIVE);
+                project.setVisibility(request.getVisibility() != null ? request.getVisibility()
+                                : ProjectVisibilityType.PUBLIC);
                 project.setCreatedAt(now);
                 project.setUpdatedAt(now);
 
@@ -73,6 +78,7 @@ public class ProjectServiceImpl implements ProjectService {
                                 request.getManagerTeamId());
 
                 Project savedProject = projectRepository.save(project);
+                syncProjectManagerGrants(savedProject, null, null, true, currentUser, now);
                 createDefaultTaskStatuses(savedProject, now);
 
                 activityLogService.createLog(workspace.getId(), currentUser.getUserId(),
@@ -90,8 +96,18 @@ public class ProjectServiceImpl implements ProjectService {
         @Override
         @Transactional
         public ProjectResponse updateProject(Long projectId, UpdateProjectRequest request) {
-                collaborationAccessService.ensureCurrentUserCanManageProject(projectId);
                 Project project = collaborationAccessService.requireProject(projectId);
+                String previousManagerUserId = project.getManagerUser() != null
+                                ? project.getManagerUser().getUserId()
+                                : null;
+                Long previousManagerTeamId = project.getManagerTeam() != null ? project.getManagerTeam().getId()
+                                : null;
+
+                if (request.getVisibility() != null) {
+                        collaborationAccessService.ensureCurrentUserCanChangeProjectVisibility(projectId);
+                } else {
+                        collaborationAccessService.ensureCurrentUserCanManageProjectWork(projectId);
+                }
 
                 boolean managerUpdateRequested = request.getManagerUserId() != null
                                 || request.getManagerTeamId() != null;
@@ -102,6 +118,7 @@ public class ProjectServiceImpl implements ProjectService {
                 if ((request.getName() == null || request.getName().isBlank())
                                 && request.getDescription() == null
                                 && request.getStatus() == null
+                                && request.getVisibility() == null
                                 && !managerUpdateRequested) {
                         throw new ApplicationException(ErrorCode.NO_UPDATE_PROVIDED);
                 }
@@ -117,6 +134,8 @@ public class ProjectServiceImpl implements ProjectService {
 
                 Project updatedProject = projectRepository.save(project);
                 User currentUser = securityUtils.getAuthenticatedUser();
+                syncProjectManagerGrants(updatedProject, previousManagerUserId, previousManagerTeamId,
+                                managerUpdateRequested, currentUser, LocalDateTime.now());
 
                 activityLogService.createLog(updatedProject.getWorkspace().getId(), currentUser.getUserId(),
                                 ActivityActionType.PROJECT_UPDATED, ActivityTargetType.PROJECT, updatedProject.getId(),
@@ -132,7 +151,7 @@ public class ProjectServiceImpl implements ProjectService {
         @Override
         @Transactional
         public ProjectResponse updateProjectStatus(Long projectId, UpdateProjectStatusRequest request) {
-                collaborationAccessService.ensureCurrentUserCanManageProject(projectId);
+                collaborationAccessService.ensureCurrentUserCanManageProjectWork(projectId);
                 Project project = collaborationAccessService.requireProject(projectId);
 
                 project.setStatus(request.getStatus());
@@ -162,7 +181,9 @@ public class ProjectServiceImpl implements ProjectService {
         @Override
         public PaginationResponse listProjectsByWorkspace(Long workspaceId, Pageable pageable) {
                 collaborationAccessService.requireCurrentWorkspaceMember(workspaceId);
-                Page<Project> page = projectRepository.findByWorkspaceId(workspaceId, pageable);
+                String currentUserId = securityUtils.getAuthenticatedUser().getUserId();
+                Page<Project> page = projectRepository.findVisibleByWorkspaceIdAndUserId(workspaceId, currentUserId,
+                                pageable);
 
                 return PaginationResponse.builder()
                                 .meta(PaginationMeta.builder()
@@ -183,7 +204,7 @@ public class ProjectServiceImpl implements ProjectService {
                 Project project = collaborationAccessService.requireProject(projectId);
                 Long workspaceId = project.getWorkspace().getId();
 
-                collaborationAccessService.ensureCurrentUserIsWorkspaceManager(workspaceId);
+                collaborationAccessService.ensureCurrentUserCanDeleteProject(projectId);
 
                 String projectName = project.getName();
                 User currentUser = securityUtils.getAuthenticatedUser();
@@ -192,14 +213,14 @@ public class ProjectServiceImpl implements ProjectService {
                 // does not conflict when DB cascades task_statuses via project delete.
                 taskRepository.deleteByProjectIdIn(List.of(projectId));
 
+                realtimeEventPublisherService.publishProjectEvent(workspaceId, projectId, "project.deleted", projectId);
+
                 projectRepository.delete(project);
 
                 activityLogService.createLog(workspaceId, currentUser.getUserId(),
                                 ActivityActionType.PROJECT_DELETED,
                                 ActivityTargetType.PROJECT, projectId,
                                 "Xóa project " + projectName);
-
-                realtimeEventPublisherService.publishWorkspaceEvent(workspaceId, "project.deleted", projectId);
         }
 
         private void applyProjectManagerAssignments(Project project, Long workspaceId, String managerUserId,
@@ -249,5 +270,67 @@ public class ProjectServiceImpl implements ProjectService {
                                                 .createdAt(now).build());
 
                 taskStatusRepository.saveAll(defaults);
+        }
+
+        private void syncProjectManagerGrants(Project project, String previousManagerUserId, Long previousManagerTeamId,
+                        boolean managerUpdateRequested, User actor, LocalDateTime now) {
+                if (!managerUpdateRequested) {
+                        return;
+                }
+
+                String nextManagerUserId = project.getManagerUser() != null ? project.getManagerUser().getUserId()
+                                : null;
+                Long nextManagerTeamId = project.getManagerTeam() != null ? project.getManagerTeam().getId() : null;
+
+                if (previousManagerUserId != null && !previousManagerUserId.equals(nextManagerUserId)) {
+                        projectAccessGrantRepository.findByProjectIdAndUserUserId(project.getId(), previousManagerUserId)
+                                        .filter(grant -> grant.getRole() == ProjectAccessRoleType.MANAGER)
+                                        .ifPresent(projectAccessGrantRepository::delete);
+                }
+
+                if (previousManagerTeamId != null && !previousManagerTeamId.equals(nextManagerTeamId)) {
+                        projectAccessGrantRepository.findByProjectIdAndTeamId(project.getId(), previousManagerTeamId)
+                                        .filter(grant -> grant.getRole() == ProjectAccessRoleType.MANAGER)
+                                        .ifPresent(projectAccessGrantRepository::delete);
+                }
+
+                if (project.getManagerUser() != null) {
+                        ProjectAccessGrant grant = projectAccessGrantRepository
+                                        .findByProjectIdAndUserUserId(project.getId(),
+                                                        project.getManagerUser().getUserId())
+                                        .orElseGet(() -> ProjectAccessGrant.builder()
+                                                        .project(project)
+                                                        .subjectType(ProjectAccessSubjectType.USER)
+                                                        .user(project.getManagerUser())
+                                                        .grantedBy(actor)
+                                                        .createdAt(now)
+                                                        .build());
+                        grant.setSubjectType(ProjectAccessSubjectType.USER);
+                        grant.setUser(project.getManagerUser());
+                        grant.setTeam(null);
+                        grant.setRole(ProjectAccessRoleType.MANAGER);
+                        grant.setGrantedBy(grant.getGrantedBy() != null ? grant.getGrantedBy() : actor);
+                        grant.setUpdatedAt(now);
+                        projectAccessGrantRepository.save(grant);
+                }
+
+                if (project.getManagerTeam() != null) {
+                        ProjectAccessGrant grant = projectAccessGrantRepository
+                                        .findByProjectIdAndTeamId(project.getId(), project.getManagerTeam().getId())
+                                        .orElseGet(() -> ProjectAccessGrant.builder()
+                                                        .project(project)
+                                                        .subjectType(ProjectAccessSubjectType.TEAM)
+                                                        .team(project.getManagerTeam())
+                                                        .grantedBy(actor)
+                                                        .createdAt(now)
+                                                        .build());
+                        grant.setSubjectType(ProjectAccessSubjectType.TEAM);
+                        grant.setUser(null);
+                        grant.setTeam(project.getManagerTeam());
+                        grant.setRole(ProjectAccessRoleType.MANAGER);
+                        grant.setGrantedBy(grant.getGrantedBy() != null ? grant.getGrantedBy() : actor);
+                        grant.setUpdatedAt(now);
+                        projectAccessGrantRepository.save(grant);
+                }
         }
 }

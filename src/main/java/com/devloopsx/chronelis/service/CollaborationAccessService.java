@@ -27,6 +27,18 @@ public interface CollaborationAccessService {
 
     void ensureCurrentUserCanManageProject(Long projectId);
 
+    void ensureCurrentUserCanContributeToProject(Long projectId);
+
+    void ensureCurrentUserCanManageProjectWork(Long projectId);
+
+    void ensureCurrentUserCanManageProjectAccess(Long projectId);
+
+    void ensureCurrentUserCanChangeProjectVisibility(Long projectId);
+
+    void ensureCurrentUserCanDeleteProject(Long projectId);
+
+    void ensureCurrentUserCanAssignOthers(Long projectId);
+
     void ensureCurrentUserCanManageGoal(Long goalId);
 
     void ensureCurrentUserCanManageTask(Long taskId);

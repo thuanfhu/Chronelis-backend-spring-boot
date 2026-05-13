@@ -1,6 +1,7 @@
 package com.devloopsx.chronelis.dto.response.project;
 
 import com.devloopsx.chronelis.constant.ProjectStatusType;
+import com.devloopsx.chronelis.constant.ProjectVisibilityType;
 import com.devloopsx.chronelis.dto.response.common.UserSummaryResponse;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -18,6 +19,7 @@ public class ProjectResponse {
     String name;
     String description;
     ProjectStatusType status;
+    ProjectVisibilityType visibility;
     UserSummaryResponse createdBy;
     UserSummaryResponse managerUser;
     Long managerTeamId;

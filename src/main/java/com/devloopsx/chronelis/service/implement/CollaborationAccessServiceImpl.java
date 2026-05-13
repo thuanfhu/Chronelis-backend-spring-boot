@@ -1,11 +1,13 @@
 package com.devloopsx.chronelis.service.implement;
 
-import com.devloopsx.chronelis.constant.WorkspaceMemberRoleType;
+import com.devloopsx.chronelis.constant.EffectiveProjectAccessRoleType;
 import com.devloopsx.chronelis.domain.*;
+import com.devloopsx.chronelis.dto.response.projectaccess.EffectiveProjectAccessResponse;
 import com.devloopsx.chronelis.exception.ApplicationException;
 import com.devloopsx.chronelis.exception.ErrorCode;
 import com.devloopsx.chronelis.repository.*;
 import com.devloopsx.chronelis.service.CollaborationAccessService;
+import com.devloopsx.chronelis.service.ProjectPermissionService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,7 @@ public class CollaborationAccessServiceImpl implements CollaborationAccessServic
     TaskRepository taskRepository;
     UserRepository userRepository;
     SecurityUtils securityUtils;
+    ProjectPermissionService projectPermissionService;
 
     @Override
     public Workspace requireWorkspace(Long workspaceId) {
@@ -48,18 +51,7 @@ public class CollaborationAccessServiceImpl implements CollaborationAccessServic
 
     @Override
     public void ensureCurrentUserIsWorkspaceManager(Long workspaceId) {
-        User currentUser = securityUtils.getAuthenticatedUser();
-        Workspace workspace = requireWorkspace(workspaceId);
-
-        if (workspace.getOwner().getUserId().equals(currentUser.getUserId())) {
-            return;
-        }
-
-        WorkspaceMember member = requireWorkspaceMember(workspaceId, currentUser.getUserId());
-        if (member.getRole() != WorkspaceMemberRoleType.OWNER && member.getRole() != WorkspaceMemberRoleType.ADMIN) {
-            throw new ApplicationException(ErrorCode.UNAUTHORIZED_ACCESS,
-                    "Bạn không có quyền quản trị workspace này");
-        }
+        ensureCurrentUserIsWorkspaceOwner(workspaceId);
     }
 
     @Override
@@ -106,36 +98,69 @@ public class CollaborationAccessServiceImpl implements CollaborationAccessServic
     @Override
     public void ensureCurrentUserCanAccessProject(Long projectId) {
         Project project = requireProject(projectId);
-        requireCurrentWorkspaceMember(project.getWorkspace().getId());
+        requireMinimumProjectRole(project, EffectiveProjectAccessRoleType.VIEWER,
+                "Bạn không có quyền truy cập project này");
     }
 
     @Override
     public void ensureCurrentUserCanManageProject(Long projectId) {
+        ensureCurrentUserCanManageProjectWork(projectId);
+    }
+
+    @Override
+    public void ensureCurrentUserCanContributeToProject(Long projectId) {
         Project project = requireProject(projectId);
-        ensureCurrentUserCanManageProject(project);
+        requireMinimumProjectRole(project, EffectiveProjectAccessRoleType.CONTRIBUTOR,
+                "Bạn không có quyền thao tác trong project này");
+    }
+
+    @Override
+    public void ensureCurrentUserCanManageProjectWork(Long projectId) {
+        Project project = requireProject(projectId);
+        requireMinimumProjectRole(project, EffectiveProjectAccessRoleType.MANAGER,
+                "Bạn không có quyền quản lý công việc trong project này");
+    }
+
+    @Override
+    public void ensureCurrentUserCanManageProjectAccess(Long projectId) {
+        EffectiveProjectAccessResponse access = projectPermissionService.resolveCurrentUserAccess(projectId);
+        if (!access.isCanManageProjectAccess()) {
+            throw new ApplicationException(ErrorCode.UNAUTHORIZED_ACCESS,
+                    "Bạn không có quyền quản lý quyền truy cập project này");
+        }
+    }
+
+    @Override
+    public void ensureCurrentUserCanChangeProjectVisibility(Long projectId) {
+        EffectiveProjectAccessResponse access = projectPermissionService.resolveCurrentUserAccess(projectId);
+        if (!access.isCanChangeVisibility()) {
+            throw new ApplicationException(ErrorCode.UNAUTHORIZED_ACCESS,
+                    "Chỉ owner workspace mới có quyền thay đổi visibility của project");
+        }
+    }
+
+    @Override
+    public void ensureCurrentUserCanDeleteProject(Long projectId) {
+        EffectiveProjectAccessResponse access = projectPermissionService.resolveCurrentUserAccess(projectId);
+        if (!access.isCanDeleteProject()) {
+            throw new ApplicationException(ErrorCode.UNAUTHORIZED_ACCESS,
+                    "Chỉ owner workspace mới có quyền xóa project");
+        }
+    }
+
+    @Override
+    public void ensureCurrentUserCanAssignOthers(Long projectId) {
+        EffectiveProjectAccessResponse access = projectPermissionService.resolveCurrentUserAccess(projectId);
+        if (!access.isCanAssignOthers()) {
+            throw new ApplicationException(ErrorCode.UNAUTHORIZED_ACCESS,
+                    "Bạn không có quyền giao task cho người khác");
+        }
     }
 
     @Override
     public void ensureCurrentUserCanManageGoal(Long goalId) {
         Goal goal = requireGoal(goalId);
-        User currentUser = securityUtils.getAuthenticatedUser();
-        String currentUserId = currentUser.getUserId();
-
-        if (isWorkspaceOwnerOrAdmin(goal.getProject().getWorkspace().getId(), currentUserId)) {
-            return;
-        }
-
-        if (goal.getManagerUser() != null && goal.getManagerUser().getUserId().equals(currentUserId)) {
-            return;
-        }
-
-        if (goal.getManagerTeam() != null
-                && workspaceTeamMemberRepository.existsByTeamIdAndUserUserId(goal.getManagerTeam().getId(),
-                        currentUserId)) {
-            return;
-        }
-
-        ensureCurrentUserCanManageProject(goal.getProject().getId());
+        ensureCurrentUserCanManageProjectWork(goal.getProject().getId());
     }
 
     @Override
@@ -143,11 +168,11 @@ public class CollaborationAccessServiceImpl implements CollaborationAccessServic
         Task task = requireTask(taskId);
 
         if (task.getGoal() != null) {
-            ensureCurrentUserCanManageGoal(task.getGoal().getId());
+            ensureCurrentUserCanContributeToProject(task.getProject().getId());
             return;
         }
 
-        ensureCurrentUserCanManageProject(task.getProject().getId());
+        ensureCurrentUserCanContributeToProject(task.getProject().getId());
     }
 
     @Override
@@ -172,37 +197,11 @@ public class CollaborationAccessServiceImpl implements CollaborationAccessServic
         }
     }
 
-    private void ensureCurrentUserCanManageProject(Project project) {
-        User currentUser = securityUtils.getAuthenticatedUser();
-        String currentUserId = currentUser.getUserId();
-        Long workspaceId = project.getWorkspace().getId();
-
-        if (isWorkspaceOwnerOrAdmin(workspaceId, currentUserId)) {
-            return;
+    private void requireMinimumProjectRole(Project project, EffectiveProjectAccessRoleType requiredRole,
+            String message) {
+        EffectiveProjectAccessRoleType effectiveRole = projectPermissionService.resolveCurrentUserRole(project);
+        if (!effectiveRole.atLeast(requiredRole)) {
+            throw new ApplicationException(ErrorCode.UNAUTHORIZED_ACCESS, message);
         }
-
-        if (project.getManagerUser() != null && project.getManagerUser().getUserId().equals(currentUserId)) {
-            return;
-        }
-
-        if (project.getManagerTeam() != null
-                && workspaceTeamMemberRepository.existsByTeamIdAndUserUserId(project.getManagerTeam().getId(),
-                        currentUserId)) {
-            return;
-        }
-
-        throw new ApplicationException(ErrorCode.UNAUTHORIZED_ACCESS,
-                "Bạn không có quyền quản lý project này");
-    }
-
-    private boolean isWorkspaceOwnerOrAdmin(Long workspaceId, String userId) {
-        Workspace workspace = requireWorkspace(workspaceId);
-
-        if (workspace.getOwner().getUserId().equals(userId)) {
-            return true;
-        }
-
-        WorkspaceMember member = requireWorkspaceMember(workspaceId, userId);
-        return member.getRole() == WorkspaceMemberRoleType.OWNER || member.getRole() == WorkspaceMemberRoleType.ADMIN;
     }
 }

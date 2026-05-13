@@ -63,7 +63,9 @@ chronelis:
     account:
         base-password: ${ACCOUNT_BASE_PASSWORD:base_pass}
     allowed-init: ${ALLOWED_INIT:true}
-
+    seed:
+        enabled: ${CHRONELIS_SEED_ENABLED:false}
+        reset-collaboration-data: ${CHRONELIS_SEED_RESET_COLLABORATION_DATA:false}
 
 jwt:
     access-signer-key: ${JWT_ACCESS_SIGNER_KEY}

@@ -45,7 +45,7 @@ public class TaskScheduleServiceImpl implements TaskScheduleService {
                 validateScheduleTime(request.getScheduledStart(), request.getScheduledEnd());
 
                 Task task = collaborationAccessService.requireTask(request.getTaskId());
-                collaborationAccessService.ensureCurrentUserCanManageTask(task.getId());
+                collaborationAccessService.ensureCurrentUserCanManageProjectWork(task.getProject().getId());
 
                 User currentUser = securityUtils.getAuthenticatedUser();
                 LocalDateTime now = LocalDateTime.now();
@@ -89,7 +89,7 @@ public class TaskScheduleServiceImpl implements TaskScheduleService {
                                                                 "Task schedule không tồn tại"));
 
                 Task task = schedule.getTask();
-                collaborationAccessService.ensureCurrentUserCanManageTask(task.getId());
+                collaborationAccessService.ensureCurrentUserCanManageProjectWork(task.getProject().getId());
 
                 taskScheduleMapper.updateEntity(schedule, request);
                 schedule.setScheduledDate(request.getScheduledStart().toLocalDate());
@@ -127,7 +127,7 @@ public class TaskScheduleServiceImpl implements TaskScheduleService {
                                                                 "Task schedule không tồn tại"));
 
                 Task task = schedule.getTask();
-                collaborationAccessService.ensureCurrentUserCanManageTask(task.getId());
+                collaborationAccessService.ensureCurrentUserCanManageProjectWork(task.getProject().getId());
 
                 taskScheduleRepository.delete(schedule);
                 User currentUser = securityUtils.getAuthenticatedUser();
@@ -179,8 +179,10 @@ public class TaskScheduleServiceImpl implements TaskScheduleService {
                 collaborationAccessService.requireCurrentWorkspaceMember(workspaceId);
                 validateCalendarRange(fromDate, toDate);
 
-                Page<TaskSchedule> page = taskScheduleRepository.findByTaskProjectWorkspaceIdAndScheduledDateBetween(
+                String currentUserId = securityUtils.getAuthenticatedUser().getUserId();
+                Page<TaskSchedule> page = taskScheduleRepository.findVisibleByWorkspaceCalendar(
                                 workspaceId,
+                                currentUserId,
                                 fromDate, toDate, pageable);
 
                 return PaginationResponse.builder()

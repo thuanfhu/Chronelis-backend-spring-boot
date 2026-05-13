@@ -9,6 +9,7 @@ import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.annotation.Order;
@@ -27,6 +28,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.regex.Pattern;
 
+@ConditionalOnProperty(prefix = "chronelis.seed", name = "enabled", havingValue = "true", matchIfMissing = false)
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -643,7 +645,7 @@ public class DatabaseSeeder implements ApplicationRunner {
                 if (memberUser.getUserId().equals(workspace.getOwner().getUserId())) {
                     role = WorkspaceMemberRoleType.OWNER;
                 } else if (promotedAdminUserIds.contains(memberUser.getUserId())) {
-                    role = WorkspaceMemberRoleType.ADMIN;
+                    role = WorkspaceMemberRoleType.MEMBER;
                     adminAssigned++;
                     admins.add(memberUser);
                 } else {
@@ -1639,7 +1641,7 @@ public class DatabaseSeeder implements ApplicationRunner {
             invites.add(WorkspaceInvite.builder()
                     .workspace(workspace)
                     .inviteCode(generateInviteCode(random, usedCodes, workspace.getName()))
-                    .roleToAssign(WorkspaceMemberRoleType.ADMIN)
+                    .roleToAssign(WorkspaceMemberRoleType.MEMBER)
                     .createdBy(primaryCreator)
                     .maxUses(1)
                     .usedCount(1)
@@ -1871,7 +1873,7 @@ public class DatabaseSeeder implements ApplicationRunner {
                         member.getJoinedAt().plusMinutes(4 + random.nextInt(40)));
             }
 
-            if (member.getRole() == WorkspaceMemberRoleType.ADMIN && random.nextDouble() < 0.45) {
+            if (member.getRole() == WorkspaceMemberRoleType.MEMBER && random.nextDouble() < 0.45) {
                 addActivityLog(
                         logs,
                         now,

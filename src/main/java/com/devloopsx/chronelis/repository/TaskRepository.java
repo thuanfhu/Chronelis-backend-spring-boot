@@ -52,6 +52,37 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
                         List<Long> workspaceIds,
                         Pageable pageable);
 
+        @Query("""
+                        SELECT t FROM Task t
+                        WHERE t.assignee.userId = :userId
+                          AND t.isCompleted = false
+                          AND t.project.workspace.id IN :workspaceIds
+                          AND (
+                              t.project.workspace.owner.userId = :userId
+                              OR t.project.visibility = com.devloopsx.chronelis.constant.ProjectVisibilityType.PUBLIC
+                              OR EXISTS (
+                                  SELECT grant.id FROM ProjectAccessGrant grant
+                                  WHERE grant.project.id = t.project.id
+                                    AND grant.subjectType = com.devloopsx.chronelis.constant.ProjectAccessSubjectType.USER
+                                    AND grant.user.userId = :userId
+                              )
+                              OR EXISTS (
+                                  SELECT grant.id FROM ProjectAccessGrant grant
+                                  WHERE grant.project.id = t.project.id
+                                    AND grant.subjectType = com.devloopsx.chronelis.constant.ProjectAccessSubjectType.TEAM
+                                    AND EXISTS (
+                                        SELECT teamMember.id FROM WorkspaceTeamMember teamMember
+                                        WHERE teamMember.team.id = grant.team.id
+                                          AND teamMember.user.userId = :userId
+                                    )
+                              )
+                          )
+                        ORDER BY t.updatedAt DESC
+                        """)
+        List<Task> findVisibleAssignedOpenTasks(@Param("userId") String userId,
+                        @Param("workspaceIds") List<Long> workspaceIds,
+                        Pageable pageable);
+
         @Modifying
         @Query("UPDATE Task t SET t.assignee = null WHERE t.assignee.userId = :sourceUserId")
         int clearAssigneeReferences(@Param("sourceUserId") String sourceUserId);

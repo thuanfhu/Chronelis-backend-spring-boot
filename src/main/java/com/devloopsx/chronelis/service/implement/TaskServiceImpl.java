@@ -54,13 +54,15 @@ public class TaskServiceImpl implements TaskService {
     ActivityLogService activityLogService;
     RealtimeEventPublisherService realtimeEventPublisherService;
     GoalService goalService;
+    ProjectPermissionService projectPermissionService;
 
     @Override
     @Transactional
     public TaskResponse createTask(CreateTaskRequest request) {
-        collaborationAccessService.ensureCurrentUserCanManageProject(request.getProjectId());
+        collaborationAccessService.ensureCurrentUserCanContributeToProject(request.getProjectId());
 
         Project project = collaborationAccessService.requireProject(request.getProjectId());
+        User currentUser = securityUtils.getAuthenticatedUser();
         TaskStatus status = collaborationAccessService.requireTaskStatus(request.getStatusId());
         if (!status.getProject().getId().equals(project.getId())) {
             throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
@@ -78,14 +80,17 @@ public class TaskServiceImpl implements TaskService {
 
         User assignee = null;
         if (request.getAssigneeId() != null && !request.getAssigneeId().isBlank()) {
+            if (!request.getAssigneeId().equals(currentUser.getUserId())) {
+                collaborationAccessService.ensureCurrentUserCanAssignOthers(project.getId());
+            }
             collaborationAccessService.ensureAssigneeBelongsWorkspace(request.getAssigneeId(),
                     project.getWorkspace().getId());
+            ensureAssigneeCanAccessProject(project, request.getAssigneeId());
             assignee = userRepository.findById(request.getAssigneeId())
                     .orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
         }
 
         Task task = taskMapper.toEntity(request);
-        User currentUser = securityUtils.getAuthenticatedUser();
 
         task.setProject(project);
         task.setGoal(goal);
@@ -390,6 +395,9 @@ public class TaskServiceImpl implements TaskService {
         User currentUser = securityUtils.getAuthenticatedUser();
 
         if (request.getAssigneeId() == null || request.getAssigneeId().isBlank()) {
+            if (!Objects.equals(oldAssigneeId, currentUser.getUserId())) {
+                collaborationAccessService.ensureCurrentUserCanAssignOthers(task.getProject().getId());
+            }
             task.setAssignee(null);
             task.setUpdatedAt(LocalDateTime.now());
             Task updatedTask = taskRepository.save(task);
@@ -406,6 +414,10 @@ public class TaskServiceImpl implements TaskService {
 
         collaborationAccessService.ensureAssigneeBelongsWorkspace(request.getAssigneeId(),
                 task.getProject().getWorkspace().getId());
+        ensureAssigneeCanAccessProject(task.getProject(), request.getAssigneeId());
+        if (!request.getAssigneeId().equals(currentUser.getUserId())) {
+            collaborationAccessService.ensureCurrentUserCanAssignOthers(task.getProject().getId());
+        }
         User newAssignee = userRepository.findById(request.getAssigneeId())
                 .orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
 
@@ -518,11 +530,10 @@ public class TaskServiceImpl implements TaskService {
                     .build();
         }
 
-        List<Task> assignedTasks = taskRepository
-                .findByAssigneeUserIdAndIsCompletedFalseAndProjectWorkspaceIdInOrderByUpdatedAtDesc(
-                        currentUser.getUserId(),
-                        workspaceIds,
-                        PageRequest.of(0, 500));
+        List<Task> assignedTasks = taskRepository.findVisibleAssignedOpenTasks(
+                currentUser.getUserId(),
+                workspaceIds,
+                PageRequest.of(0, 500));
         List<TaskResponse> assignedTaskResponses = toTaskResponses(assignedTasks);
 
         Map<Long, TaskResponse> taskResponseById = new LinkedHashMap<>();
@@ -532,7 +543,7 @@ public class TaskServiceImpl implements TaskService {
 
         LocalDate today = LocalDate.now();
         List<MyWorkScheduleItemResponse> upcomingSchedules = taskScheduleRepository
-                .findByTaskAssigneeUserIdAndTaskIsCompletedFalseAndTaskProjectWorkspaceIdInAndScheduledDateBetweenOrderByScheduledStartAsc(
+                .findVisibleAssignedOpenSchedules(
                         currentUser.getUserId(),
                         workspaceIds,
                         today,
@@ -594,7 +605,7 @@ public class TaskServiceImpl implements TaskService {
     @Transactional
     public void deleteTask(Long taskId) {
         Task task = collaborationAccessService.requireTask(taskId);
-        collaborationAccessService.ensureCurrentUserCanManageTask(taskId);
+        collaborationAccessService.ensureCurrentUserCanManageProjectWork(task.getProject().getId());
         User currentUser = securityUtils.getAuthenticatedUser();
 
         Long workspaceId = task.getProject().getWorkspace().getId();
@@ -728,5 +739,12 @@ public class TaskServiceImpl implements TaskService {
         response.setBlockedReason(dependencySummary.blockedReason());
         response.setBlockedByOpenCount(dependencySummary.blockedByOpenCount());
         response.setBlockingTaskCount(dependencySummary.blockingTaskCount());
+    }
+
+    private void ensureAssigneeCanAccessProject(Project project, String assigneeId) {
+        if (!projectPermissionService.resolveUserRole(project, assigneeId).atLeast(EffectiveProjectAccessRoleType.VIEWER)) {
+            throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
+                    "Assignee must have project access");
+        }
     }
 }

@@ -1,6 +1,10 @@
 package com.devloopsx.chronelis.service.implement;
 
+import com.devloopsx.chronelis.constant.ProjectVisibilityType;
+import com.devloopsx.chronelis.domain.Project;
 import com.devloopsx.chronelis.dto.response.realtime.RealtimeEventResponse;
+import com.devloopsx.chronelis.repository.ProjectRepository;
+import com.devloopsx.chronelis.service.ProjectPermissionService;
 import com.devloopsx.chronelis.service.RealtimeEventPublisherService;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +19,8 @@ import java.time.LocalDateTime;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class RealtimeEventPublisherServiceImpl implements RealtimeEventPublisherService {
     SimpMessagingTemplate messagingTemplate;
+    ProjectRepository projectRepository;
+    ProjectPermissionService projectPermissionService;
 
     @Override
     public void publishWorkspaceEvent(Long workspaceId, String eventType, Object data) {
@@ -24,15 +30,45 @@ public class RealtimeEventPublisherServiceImpl implements RealtimeEventPublisher
 
     @Override
     public void publishProjectEvent(Long workspaceId, Long projectId, String eventType, Object data) {
-        messagingTemplate.convertAndSend("/public/workspaces/" + workspaceId + "/projects/" + projectId + "/events",
-                buildEvent(eventType, data));
+        Project project = projectRepository.findById(projectId).orElse(null);
+        if (project == null) {
+            return;
+        }
+
+        RealtimeEventResponse event = buildEvent(eventType, data);
+        if (project.getVisibility() == ProjectVisibilityType.PUBLIC) {
+            messagingTemplate.convertAndSend("/public/workspaces/" + workspaceId + "/projects/" + projectId + "/events",
+                    event);
+            return;
+        }
+
+        for (String userId : projectPermissionService.findAuthorizedUserIds(project)) {
+            messagingTemplate.convertAndSendToUser(userId,
+                    "/private/workspaces/" + workspaceId + "/projects/" + projectId + "/events",
+                    event);
+        }
     }
 
     @Override
     public void publishTaskEvent(Long workspaceId, Long projectId, Long taskId, String eventType, Object data) {
-        messagingTemplate.convertAndSend(
-                "/public/workspaces/" + workspaceId + "/projects/" + projectId + "/tasks/" + taskId + "/events",
-                buildEvent(eventType, data));
+        Project project = projectRepository.findById(projectId).orElse(null);
+        if (project == null) {
+            return;
+        }
+
+        RealtimeEventResponse event = buildEvent(eventType, data);
+        if (project.getVisibility() == ProjectVisibilityType.PUBLIC) {
+            messagingTemplate.convertAndSend(
+                    "/public/workspaces/" + workspaceId + "/projects/" + projectId + "/tasks/" + taskId + "/events",
+                    event);
+            return;
+        }
+
+        for (String userId : projectPermissionService.findAuthorizedUserIds(project)) {
+            messagingTemplate.convertAndSendToUser(userId,
+                    "/private/workspaces/" + workspaceId + "/projects/" + projectId + "/tasks/" + taskId + "/events",
+                    event);
+        }
     }
 
     @Override

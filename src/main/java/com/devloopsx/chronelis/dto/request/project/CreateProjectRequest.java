@@ -1,5 +1,6 @@
 package com.devloopsx.chronelis.dto.request.project;
 
+import com.devloopsx.chronelis.constant.ProjectVisibilityType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -21,6 +22,8 @@ public class CreateProjectRequest {
 
     @Size(max = 2000, message = "INVALID_REQUEST_DATA")
     String description;
+
+    ProjectVisibilityType visibility;
 
     String managerUserId;
 
