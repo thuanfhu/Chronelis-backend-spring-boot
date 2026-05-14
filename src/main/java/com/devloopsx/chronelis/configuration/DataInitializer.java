@@ -399,11 +399,13 @@ public class DataInitializer implements ApplicationRunner {
 				findPermissionOrThrow("/api/v1/task-schedules/calendar/project/{projectId}", "GET"),
 				findPermissionOrThrow("/api/v1/task-schedules/calendar/workspace/{workspaceId}", "GET"),
 				findPermissionOrThrow("/api/v1/task-comments/task/{taskId}", "GET"),
+				findPermissionOrThrow("/api/v1/activity-logs/workspace/{workspaceId}", "GET"),
+				findPermissionOrThrow("/api/v1/projects/{projectId}/access/me", "GET"),
 				findPermissionOrThrow("/api/v1/notifications", "GET"),
+
 				findPermissionOrThrow("/api/v1/notifications/unread-count", "GET"),
 				findPermissionOrThrow("/api/v1/notifications/{notificationId}/read", "PATCH"),
 				findPermissionOrThrow("/api/v1/notifications/read-all", "PATCH"),
-				findPermissionOrThrow("/api/v1/activity-logs/workspace/{workspaceId}", "GET"),
 
 				// Task types — read (all members can view task types defined in their project)
 				findPermissionOrThrow("/api/v1/task-types/{taskTypeId}", "GET"),
