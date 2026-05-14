@@ -8,6 +8,7 @@ import com.devloopsx.chronelis.domain.Project;
 import com.devloopsx.chronelis.domain.ProjectAccessGrant;
 import com.devloopsx.chronelis.domain.User;
 import com.devloopsx.chronelis.domain.WorkspaceMember;
+import com.devloopsx.chronelis.constant.WorkspaceMemberRoleType;
 import com.devloopsx.chronelis.dto.response.projectaccess.EffectiveProjectAccessResponse;
 import com.devloopsx.chronelis.exception.ApplicationException;
 import com.devloopsx.chronelis.exception.ErrorCode;
@@ -61,7 +62,11 @@ public class ProjectPermissionServiceImpl implements ProjectPermissionService {
             return EffectiveProjectAccessRoleType.NO_ACCESS;
         }
 
-        boolean workspaceOwner = project.getWorkspace().getOwner().getUserId().equals(userId);
+        WorkspaceMember member = workspaceMemberRepository.findByWorkspaceIdAndUserUserId(project.getWorkspace().getId(), userId).orElse(null);
+        if (member == null) {
+            return EffectiveProjectAccessRoleType.NO_ACCESS;
+        }
+        boolean workspaceOwner = member.getRole() == WorkspaceMemberRoleType.OWNER;
         return resolveRole(project, userId, workspaceOwner);
     }
 
@@ -69,7 +74,9 @@ public class ProjectPermissionServiceImpl implements ProjectPermissionService {
     public Set<String> findAuthorizedUserIds(Project project) {
         Long workspaceId = project.getWorkspace().getId();
         Set<String> userIds = new HashSet<>();
-        userIds.add(project.getWorkspace().getOwner().getUserId());
+        workspaceMemberRepository.findByWorkspaceIdOrderByJoinedAtAsc(workspaceId).stream()
+                .filter(m -> m.getRole() == WorkspaceMemberRoleType.OWNER)
+                .forEach(m -> userIds.add(m.getUser().getUserId()));
 
         if (project.getVisibility() == ProjectVisibilityType.PUBLIC) {
             workspaceMemberRepository.findByWorkspaceIdOrderByJoinedAtAsc(workspaceId)
@@ -143,13 +150,13 @@ public class ProjectPermissionServiceImpl implements ProjectPermissionService {
 
     private EffectiveProjectAccessResponse resolveAccess(Project project, String userId) {
         Long workspaceId = project.getWorkspace().getId();
-        boolean member = workspaceMemberRepository.existsByWorkspaceIdAndUserUserId(workspaceId, userId);
-        if (!member) {
+        WorkspaceMember member = workspaceMemberRepository.findByWorkspaceIdAndUserUserId(workspaceId, userId).orElse(null);
+        if (member == null) {
             throw new ApplicationException(ErrorCode.UNAUTHORIZED_ACCESS,
                     "Người dùng không thuộc workspace của project này");
         }
 
-        boolean workspaceOwner = project.getWorkspace().getOwner().getUserId().equals(userId);
+        boolean workspaceOwner = member.getRole() == WorkspaceMemberRoleType.OWNER;
         EffectiveProjectAccessRoleType effectiveRole = resolveRole(project, userId, workspaceOwner);
 
         boolean canViewProject = effectiveRole.atLeast(EffectiveProjectAccessRoleType.VIEWER);
