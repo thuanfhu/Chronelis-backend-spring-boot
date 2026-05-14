@@ -67,18 +67,24 @@ public class DataInitializer implements ApplicationRunner {
 	}
 
 	private void initializePermissions(List<Permission> permissions) {
-		List<Permission> missingPermissions = permissions.stream()
-				.filter(permission -> !permissionRepository.existsByApiPathAndHttpMethod(
-						permission.getApiPath(), permission.getHttpMethod()))
-				.toList();
-
-		if (missingPermissions.isEmpty()) {
-			log.info(">>> Permissions are up to date, skipping initialization");
-			return;
+		int updated = 0;
+		int added = 0;
+		for (Permission p : permissions) {
+			var existingOpt = permissionRepository.findByApiPathAndHttpMethod(p.getApiPath(), p.getHttpMethod());
+			if (existingOpt.isPresent()) {
+				Permission existing = existingOpt.get();
+				if (!existing.getModule().equals(p.getModule()) || !existing.getName().equals(p.getName())) {
+					existing.setModule(p.getModule());
+					existing.setName(p.getName());
+					permissionRepository.save(existing);
+					updated++;
+				}
+			} else {
+				permissionRepository.save(p);
+				added++;
+			}
 		}
-
-		permissionRepository.saveAll(missingPermissions);
-		log.info(">>> Initialized {} missing permissions", missingPermissions.size());
+		log.info(">>> Initialized {} missing permissions, synchronized {} permissions", added, updated);
 	}
 
 	private void initializeRoles() {
@@ -140,209 +146,218 @@ public class DataInitializer implements ApplicationRunner {
 				new Permission("Reset user password", "/api/v1/auth/reset-password", "POST", "AUTH"),
 
 				// Module Users
-				new Permission("Update user profile", "/api/v1/users/update-profile", "PATCH", "USERS"),
-				new Permission("Update user password", "/api/v1/users/update-password", "PUT", "USERS"),
-				new Permission("Update user email", "/api/v1/users/update-email", "PUT", "USERS"),
-				new Permission("Verify and update new email", "/api/v1/users/verify-change-email", "POST", "USERS"),
-				new Permission("Retrieve user account details", "/api/v1/users/{userId}", "GET", "USERS"),
-				new Permission("Retrieve all user accounts with query parameters", "/api/v1/users", "GET", "USERS"),
-				new Permission("Update user account information (admin)", "/api/v1/users/{userId}", "PATCH", "USERS"),
-				new Permission("Delete a user account", "/api/v1/users/{userId}", "DELETE", "USERS"),
-				new Permission("Delete roles from user", "/api/v1/users/{userId}/roles", "DELETE", "USERS"),
-				new Permission("Become a staff", "/api/v1/users/staff-requests", "POST", "USERS"),
+				new Permission("Update user profile", "/api/v1/users/update-profile", "PATCH", "USER"),
+				new Permission("Update user password", "/api/v1/users/update-password", "PUT", "USER"),
+				new Permission("Update user email", "/api/v1/users/update-email", "PUT", "USER"),
+				new Permission("Verify and update new email", "/api/v1/users/verify-change-email", "POST", "USER"),
+				new Permission("Retrieve user account details", "/api/v1/users/{userId}", "GET", "USER"),
+				new Permission("Retrieve all user accounts with query parameters", "/api/v1/users", "GET", "USER"),
+				new Permission("Update user account information (admin)", "/api/v1/users/{userId}", "PATCH", "USER"),
+				new Permission("Delete a user account", "/api/v1/users/{userId}", "DELETE", "USER"),
+				new Permission("Delete roles from user", "/api/v1/users/{userId}/roles", "DELETE", "USER"),
+				new Permission("Become a staff", "/api/v1/users/staff-requests", "POST", "USER"),
 
 				// Module Roles
-				new Permission("Create a new role", "/api/v1/roles", "POST", "ROLES"),
+				new Permission("Create a new role", "/api/v1/roles", "POST", "ROLE"),
 				new Permission("Update role information (including adding permissions)", "/api/v1/roles/{roleId}",
-						"PATCH", "ROLES"),
-				new Permission("Retrieve role information", "/api/v1/roles/{roleId}", "GET", "ROLES"),
-				new Permission("Retrieve all roles with query parameters", "/api/v1/roles", "GET", "ROLES"),
+						"PATCH", "ROLE"),
+				new Permission("Retrieve role information", "/api/v1/roles/{roleId}", "GET", "ROLE"),
+				new Permission("Retrieve all roles with query parameters", "/api/v1/roles", "GET", "ROLE"),
 				new Permission("Remove permissions from a role", "/api/v1/roles/{roleId}/permissions", "DELETE",
-						"ROLES"),
-				new Permission("Delete a role", "/api/v1/roles/{roleId}", "DELETE", "ROLES"),
+						"ROLE"),
+				new Permission("Delete a role", "/api/v1/roles/{roleId}", "DELETE", "ROLE"),
 
 				// Module Permissions
-				new Permission("Create a new module", "/api/v1/permissions/module", "POST", "PERMISSIONS"),
-				new Permission("Delete a module by name", "/api/v1/permissions/module/{name}", "DELETE", "PERMISSIONS"),
-				new Permission("Retrieve all module names", "/api/v1/permissions/modules", "GET", "PERMISSIONS"),
-				new Permission("Create  new permission", "/api/v1/permissions", "POST", "PERMISSIONS"),
+				new Permission("Create a new module", "/api/v1/permissions/module", "POST", "PERMISSION"),
+				new Permission("Delete a module by name", "/api/v1/permissions/module/{name}", "DELETE", "PERMISSION"),
+				new Permission("Retrieve all module names", "/api/v1/permissions/modules", "GET", "PERMISSION"),
+				new Permission("Create  new permission", "/api/v1/permissions", "POST", "PERMISSION"),
 				new Permission("Update permission information", "/api/v1/permissions/{permissionId}", "PATCH",
-						"PERMISSIONS"),
+						"PERMISSION"),
 				new Permission("Retrieve permission information", "/api/v1/permissions/{permissionId}", "GET",
-						"PERMISSIONS"),
+						"PERMISSION"),
 				new Permission("Retrieve all permissions with query parameters", "/api/v1/permissions", "GET",
-						"PERMISSIONS"),
-				new Permission("Delete a permission", "/api/v1/permissions/{permissionId}", "DELETE", "PERMISSIONS"),
+						"PERMISSION"),
+				new Permission("Delete a permission", "/api/v1/permissions/{permissionId}", "DELETE", "PERMISSION"),
 
-				// Module Files (AWS S3)
-				new Permission("Upload a file to AWS S3", "/api/v1/storage/aws-s3/upload/single", "POST", "FILES"),
-				new Permission("Upload multiple files to AWS S3", "/api/v1/storage/aws-s3/upload/multiple", "POST",
-						"FILES"),
-				new Permission("Delete a file on AWS S3", "/api/v1/storage/aws-s3/delete/single", "DELETE", "FILES"),
-				new Permission("Delete multiple files on AWS S3", "/api/v1/storage/aws-s3/delete/multiple", "DELETE",
-						"FILES"),
-				new Permission("Move a file from one folder to another", "/api/v1/storage/aws-s3/move/single", "PUT",
-						"FILES"),
+				// Module Files (Azure Blob)
+				new Permission("Upload a file to Azure Blob", "/api/v1/storage/azure-blob/upload/single", "POST", "STORAGE"),
+				new Permission("Upload multiple files to Azure Blob", "/api/v1/storage/azure-blob/upload/multiple", "POST",
+						"STORAGE"),
+				new Permission("Delete a file on Azure Blob", "/api/v1/storage/azure-blob/delete/single", "DELETE", "STORAGE"),
+				new Permission("Delete multiple files on Azure Blob", "/api/v1/storage/azure-blob/delete/multiple", "DELETE",
+						"STORAGE"),
+				new Permission("Move a file from one folder to another", "/api/v1/storage/azure-blob/move/single", "PUT",
+						"STORAGE"),
 				new Permission("Move multiple files from various folders to a new folder",
-						"/api/v1/storage/aws-s3/move/multiple", "PUT", "FILES"),
+						"/api/v1/storage/azure-blob/move/multiple", "PUT", "STORAGE"),
 
 				// Module Workspaces
-				new Permission("Create a workspace", "/api/v1/workspaces", "POST", "WORKSPACES"),
-				new Permission("Update a workspace", "/api/v1/workspaces/{workspaceId}", "PATCH", "WORKSPACES"),
-				new Permission("Delete a workspace", "/api/v1/workspaces/{workspaceId}", "DELETE", "WORKSPACES"),
-				new Permission("Get workspace detail", "/api/v1/workspaces/{workspaceId}", "GET", "WORKSPACES"),
-				new Permission("List visible workspaces", "/api/v1/workspaces", "GET", "WORKSPACES"),
+				new Permission("Create a workspace", "/api/v1/workspaces", "POST", "WORKSPACE"),
+				new Permission("Update a workspace", "/api/v1/workspaces/{workspaceId}", "PATCH", "WORKSPACE"),
+				new Permission("Delete a workspace", "/api/v1/workspaces/{workspaceId}", "DELETE", "WORKSPACE"),
+				new Permission("Get workspace detail", "/api/v1/workspaces/{workspaceId}", "GET", "WORKSPACE"),
+				new Permission("List visible workspaces", "/api/v1/workspaces", "GET", "WORKSPACE"),
 				new Permission("Add workspace member", "/api/v1/workspaces/{workspaceId}/members", "POST",
-						"WORKSPACES"),
+						"WORKSPACE"),
 				new Permission("List workspace members", "/api/v1/workspaces/{workspaceId}/members", "GET",
-						"WORKSPACES"),
+						"WORKSPACE"),
 				new Permission("Update workspace member role", "/api/v1/workspaces/{workspaceId}/members/{userId}/role",
-						"PATCH", "WORKSPACES"),
+						"PATCH", "WORKSPACE"),
 				new Permission("Remove workspace member", "/api/v1/workspaces/{workspaceId}/members/{userId}", "DELETE",
-						"WORKSPACES"),
+						"WORKSPACE"),
 
 				// Module Projects
-				new Permission("Create a project", "/api/v1/projects", "POST", "PROJECTS"),
-				new Permission("Update a project", "/api/v1/projects/{projectId}", "PATCH", "PROJECTS"),
-				new Permission("Delete a project", "/api/v1/projects/{projectId}", "DELETE", "PROJECTS"),
-				new Permission("Update project status", "/api/v1/projects/{projectId}/status", "PATCH", "PROJECTS"),
-				new Permission("Get project detail", "/api/v1/projects/{projectId}", "GET", "PROJECTS"),
+				new Permission("Create a project", "/api/v1/projects", "POST", "PROJECT"),
+				new Permission("Update a project", "/api/v1/projects/{projectId}", "PATCH", "PROJECT"),
+				new Permission("Delete a project", "/api/v1/projects/{projectId}", "DELETE", "PROJECT"),
+				new Permission("Update project status", "/api/v1/projects/{projectId}/status", "PATCH", "PROJECT"),
+				new Permission("Get project detail", "/api/v1/projects/{projectId}", "GET", "PROJECT"),
 				new Permission("List projects in workspace", "/api/v1/projects/workspace/{workspaceId}", "GET",
-						"PROJECTS"),
+						"PROJECT"),
+
+				// Module Project Access
+				new Permission("List project access", "/api/v1/projects/{projectId}/access", "GET", "PROJECT_ACCESS"),
+				new Permission("Upsert project access", "/api/v1/projects/{projectId}/access", "POST", "PROJECT_ACCESS"),
+				new Permission("Update project access", "/api/v1/projects/{projectId}/access/{accessId}", "PATCH", "PROJECT_ACCESS"),
+				new Permission("Revoke project access", "/api/v1/projects/{projectId}/access/{accessId}", "DELETE", "PROJECT_ACCESS"),
+				new Permission("Get effective project access", "/api/v1/projects/{projectId}/access/me", "GET", "PROJECT_ACCESS"),
 
 				// Module Goals
-				new Permission("Create a goal", "/api/v1/goals", "POST", "GOALS"),
-				new Permission("Update a goal", "/api/v1/goals/{goalId}", "PATCH", "GOALS"),
-				new Permission("Get goal detail", "/api/v1/goals/{goalId}", "GET", "GOALS"),
-				new Permission("List goals by project", "/api/v1/goals/project/{projectId}", "GET", "GOALS"),
-				new Permission("Delete a goal", "/api/v1/goals/{goalId}", "DELETE", "GOALS"),
+				new Permission("Create a goal", "/api/v1/goals", "POST", "GOAL"),
+				new Permission("Update a goal", "/api/v1/goals/{goalId}", "PATCH", "GOAL"),
+				new Permission("Get goal detail", "/api/v1/goals/{goalId}", "GET", "GOAL"),
+				new Permission("List goals by project", "/api/v1/goals/project/{projectId}", "GET", "GOAL"),
+				new Permission("Delete a goal", "/api/v1/goals/{goalId}", "DELETE", "GOAL"),
 
 				// Module Tasks
-				new Permission("Create a task", "/api/v1/tasks", "POST", "TASKS"),
-				new Permission("Update a task", "/api/v1/tasks/{taskId}", "PATCH", "TASKS"),
-				new Permission("Get task detail", "/api/v1/tasks/{taskId}", "GET", "TASKS"),
-				new Permission("List tasks by project", "/api/v1/tasks/project/{projectId}", "GET", "TASKS"),
-				new Permission("List tasks by goal", "/api/v1/tasks/goal/{goalId}", "GET", "TASKS"),
-				new Permission("Move task to status", "/api/v1/tasks/{taskId}/move", "PATCH", "TASKS"),
-				new Permission("Reorder task", "/api/v1/tasks/{taskId}/reorder", "PATCH", "TASKS"),
-				new Permission("Assign task", "/api/v1/tasks/{taskId}/assignee", "PATCH", "TASKS"),
-				new Permission("Update completion", "/api/v1/tasks/{taskId}/completion", "PATCH", "TASKS"),
-				new Permission("Delete task", "/api/v1/tasks/{taskId}", "DELETE", "TASKS"),
+				new Permission("Create a task", "/api/v1/tasks", "POST", "TASK"),
+				new Permission("Update a task", "/api/v1/tasks/{taskId}", "PATCH", "TASK"),
+				new Permission("Get task detail", "/api/v1/tasks/{taskId}", "GET", "TASK"),
+				new Permission("List tasks by project", "/api/v1/tasks/project/{projectId}", "GET", "TASK"),
+				new Permission("List tasks by goal", "/api/v1/tasks/goal/{goalId}", "GET", "TASK"),
+				new Permission("Move task to status", "/api/v1/tasks/{taskId}/move", "PATCH", "TASK"),
+				new Permission("Reorder task", "/api/v1/tasks/{taskId}/reorder", "PATCH", "TASK"),
+				new Permission("Assign task", "/api/v1/tasks/{taskId}/assignee", "PATCH", "TASK"),
+				new Permission("Update completion", "/api/v1/tasks/{taskId}/completion", "PATCH", "TASK"),
+				new Permission("Delete task", "/api/v1/tasks/{taskId}", "DELETE", "TASK"),
 
 				// Module Task Statuses
-				new Permission("Create task status", "/api/v1/task-statuses", "POST", "TASK_STATUSES"),
+				new Permission("Create task status", "/api/v1/task-statuses", "POST", "TASK_STATUS"),
 				new Permission("List statuses by project", "/api/v1/task-statuses/project/{projectId}", "GET",
-						"TASK_STATUSES"),
-				new Permission("Update task status", "/api/v1/task-statuses/{statusId}", "PATCH", "TASK_STATUSES"),
+						"TASK_STATUS"),
+				new Permission("Update task status", "/api/v1/task-statuses/{statusId}", "PATCH", "TASK_STATUS"),
 				new Permission("Reorder statuses", "/api/v1/task-statuses/project/{projectId}/reorder", "PATCH",
-						"TASK_STATUSES"),
-				new Permission("Delete task status", "/api/v1/task-statuses/{statusId}", "DELETE", "TASK_STATUSES"),
+						"TASK_STATUS"),
+				new Permission("Delete task status", "/api/v1/task-statuses/{statusId}", "DELETE", "TASK_STATUS"),
 
 				// Module Task Schedules
-				new Permission("Create task schedule", "/api/v1/task-schedules", "POST", "TASK_SCHEDULES"),
+				new Permission("Create task schedule", "/api/v1/task-schedules", "POST", "TASK_SCHEDULE"),
 				new Permission("Update task schedule", "/api/v1/task-schedules/{scheduleId}", "PATCH",
-						"TASK_SCHEDULES"),
+						"TASK_SCHEDULE"),
 				new Permission("Delete task schedule", "/api/v1/task-schedules/{scheduleId}", "DELETE",
-						"TASK_SCHEDULES"),
+						"TASK_SCHEDULE"),
 				new Permission("List schedules by task", "/api/v1/task-schedules/task/{taskId}", "GET",
-						"TASK_SCHEDULES"),
+						"TASK_SCHEDULE"),
 				new Permission("Calendar by project", "/api/v1/task-schedules/calendar/project/{projectId}", "GET",
-						"TASK_SCHEDULES"),
+						"TASK_SCHEDULE"),
 				new Permission("Calendar by workspace", "/api/v1/task-schedules/calendar/workspace/{workspaceId}",
-						"GET", "TASK_SCHEDULES"),
+						"GET", "TASK_SCHEDULE"),
 
 				// Module Task Comments
-				new Permission("Create task comment", "/api/v1/task-comments", "POST", "TASK_COMMENTS"),
-				new Permission("Update task comment", "/api/v1/task-comments/{commentId}", "PATCH", "TASK_COMMENTS"),
-				new Permission("Delete task comment", "/api/v1/task-comments/{commentId}", "DELETE", "TASK_COMMENTS"),
-				new Permission("List comments by task", "/api/v1/task-comments/task/{taskId}", "GET", "TASK_COMMENTS"),
+				new Permission("Create task comment", "/api/v1/task-comments", "POST", "TASK_COMMENT"),
+				new Permission("Update task comment", "/api/v1/task-comments/{commentId}", "PATCH", "TASK_COMMENT"),
+				new Permission("Delete task comment", "/api/v1/task-comments/{commentId}", "DELETE", "TASK_COMMENT"),
+				new Permission("List comments by task", "/api/v1/task-comments/task/{taskId}", "GET", "TASK_COMMENT"),
 
 				// Module Notifications
-				new Permission("List notifications", "/api/v1/notifications", "GET", "NOTIFICATIONS"),
+				new Permission("List notifications", "/api/v1/notifications", "GET", "NOTIFICATION"),
 				new Permission("Get unread notification count", "/api/v1/notifications/unread-count", "GET",
-						"NOTIFICATIONS"),
+						"NOTIFICATION"),
 				new Permission("Mark notification as read", "/api/v1/notifications/{notificationId}/read", "PATCH",
-						"NOTIFICATIONS"),
+						"NOTIFICATION"),
 				new Permission("Mark all notifications as read", "/api/v1/notifications/read-all", "PATCH",
-						"NOTIFICATIONS"),
+						"NOTIFICATION"),
 
 				// Module Activity Logs
 				new Permission("List activity logs by workspace", "/api/v1/activity-logs/workspace/{workspaceId}",
-						"GET", "ACTIVITY_LOGS"),
+						"GET", "ACTIVITY_LOG"),
 
 				// Module Task Types
-				new Permission("Create a task type", "/api/v1/task-types", "POST", "TASK_TYPES"),
-				new Permission("Update a task type", "/api/v1/task-types/{taskTypeId}", "PATCH", "TASK_TYPES"),
-				new Permission("Get task type detail", "/api/v1/task-types/{taskTypeId}", "GET", "TASK_TYPES"),
+				new Permission("Create a task type", "/api/v1/task-types", "POST", "TASK_TYPE"),
+				new Permission("Update a task type", "/api/v1/task-types/{taskTypeId}", "PATCH", "TASK_TYPE"),
+				new Permission("Get task type detail", "/api/v1/task-types/{taskTypeId}", "GET", "TASK_TYPE"),
 				new Permission("List task types by project", "/api/v1/task-types/project/{projectId}", "GET",
-						"TASK_TYPES"),
-				new Permission("Delete a task type", "/api/v1/task-types/{taskTypeId}", "DELETE", "TASK_TYPES"),
+						"TASK_TYPE"),
+				new Permission("Delete a task type", "/api/v1/task-types/{taskTypeId}", "DELETE", "TASK_TYPE"),
 
 				// Module Workspace Teams
-				new Permission("Create a workspace team", "/api/v1/workspace-teams", "POST", "WORKSPACE_TEAMS"),
+				new Permission("Create a workspace team", "/api/v1/workspace-teams", "POST", "WORKSPACE_TEAM"),
 				new Permission("Update a workspace team", "/api/v1/workspace-teams/{teamId}", "PATCH",
-						"WORKSPACE_TEAMS"),
+						"WORKSPACE_TEAM"),
 				new Permission("Get workspace team detail", "/api/v1/workspace-teams/{teamId}", "GET",
-						"WORKSPACE_TEAMS"),
+						"WORKSPACE_TEAM"),
 				new Permission("List teams by workspace", "/api/v1/workspace-teams/workspace/{workspaceId}", "GET",
-						"WORKSPACE_TEAMS"),
+						"WORKSPACE_TEAM"),
 				new Permission("Delete a workspace team", "/api/v1/workspace-teams/{teamId}", "DELETE",
-						"WORKSPACE_TEAMS"),
+						"WORKSPACE_TEAM"),
 				new Permission("Add member to team", "/api/v1/workspace-teams/{teamId}/members", "POST",
-						"WORKSPACE_TEAMS"),
+						"WORKSPACE_TEAM"),
 				new Permission("Remove member from team", "/api/v1/workspace-teams/{teamId}/members/{userId}", "DELETE",
-						"WORKSPACE_TEAMS"),
+						"WORKSPACE_TEAM"),
 				new Permission("List team members", "/api/v1/workspace-teams/{teamId}/members", "GET",
-						"WORKSPACE_TEAMS"),
+						"WORKSPACE_TEAM"),
 
 				// Module Workspace Invites
 				new Permission("Create workspace invite link", "/api/v1/workspace-invites", "POST",
-						"WORKSPACE_INVITES"),
+						"WORKSPACE_INVITE"),
 				new Permission("List active workspace invites", "/api/v1/workspace-invites/workspace/{workspaceId}",
-						"GET", "WORKSPACE_INVITES"),
+						"GET", "WORKSPACE_INVITE"),
 				new Permission("Revoke workspace invite", "/api/v1/workspace-invites/{inviteId}/revoke", "PATCH",
-						"WORKSPACE_INVITES"),
+						"WORKSPACE_INVITE"),
 				new Permission("Validate invite code", "/api/v1/workspace-invites/validate/{inviteCode}", "GET",
-						"WORKSPACE_INVITES"),
+						"WORKSPACE_INVITE"),
 				new Permission("Join workspace by invite code", "/api/v1/workspace-invites/join", "POST",
-						"WORKSPACE_INVITES"));
+						"WORKSPACE_INVITE"));
 	}
 
 	private Map<RoleType, List<Permission>> getDefaultRoles() {
 		// Get all permissions of modules
 		List<Permission> moduleAuthAllPermissions = permissionRepository.findByModule("AUTH")
 				.orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-		List<Permission> moduleUserAllPermissions = permissionRepository.findByModule("USERS")
+		List<Permission> moduleUserAllPermissions = permissionRepository.findByModule("USER")
 				.orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-		List<Permission> moduleRoleAllPermissions = permissionRepository.findByModule("ROLES")
+		List<Permission> moduleRoleAllPermissions = permissionRepository.findByModule("ROLE")
 				.orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-		List<Permission> modulePermissionAllPermissions = permissionRepository.findByModule("PERMISSIONS")
+		List<Permission> modulePermissionAllPermissions = permissionRepository.findByModule("PERMISSION")
 				.orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-		List<Permission> moduleFileAllPermissions = permissionRepository.findByModule("FILES")
+		List<Permission> moduleFileAllPermissions = permissionRepository.findByModule("STORAGE")
 				.orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-		List<Permission> moduleWorkspaceAllPermissions = permissionRepository.findByModule("WORKSPACES")
+		List<Permission> moduleWorkspaceAllPermissions = permissionRepository.findByModule("WORKSPACE")
 				.orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-		List<Permission> moduleProjectAllPermissions = permissionRepository.findByModule("PROJECTS")
+		List<Permission> moduleProjectAllPermissions = permissionRepository.findByModule("PROJECT")
 				.orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-		List<Permission> moduleGoalAllPermissions = permissionRepository.findByModule("GOALS")
+		List<Permission> moduleProjectAccessAllPermissions = permissionRepository.findByModule("PROJECT_ACCESS")
 				.orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-		List<Permission> moduleTaskAllPermissions = permissionRepository.findByModule("TASKS")
+		List<Permission> moduleGoalAllPermissions = permissionRepository.findByModule("GOAL")
 				.orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-		List<Permission> moduleTaskStatusAllPermissions = permissionRepository.findByModule("TASK_STATUSES")
+		List<Permission> moduleTaskAllPermissions = permissionRepository.findByModule("TASK")
 				.orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-		List<Permission> moduleTaskScheduleAllPermissions = permissionRepository.findByModule("TASK_SCHEDULES")
+		List<Permission> moduleTaskStatusAllPermissions = permissionRepository.findByModule("TASK_STATUS")
 				.orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-		List<Permission> moduleTaskCommentAllPermissions = permissionRepository.findByModule("TASK_COMMENTS")
+		List<Permission> moduleTaskScheduleAllPermissions = permissionRepository.findByModule("TASK_SCHEDULE")
 				.orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-		List<Permission> moduleNotificationAllPermissions = permissionRepository.findByModule("NOTIFICATIONS")
+		List<Permission> moduleTaskCommentAllPermissions = permissionRepository.findByModule("TASK_COMMENT")
 				.orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-		List<Permission> moduleActivityLogAllPermissions = permissionRepository.findByModule("ACTIVITY_LOGS")
+		List<Permission> moduleNotificationAllPermissions = permissionRepository.findByModule("NOTIFICATION")
 				.orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-		List<Permission> moduleTaskTypeAllPermissions = permissionRepository.findByModule("TASK_TYPES")
+		List<Permission> moduleActivityLogAllPermissions = permissionRepository.findByModule("ACTIVITY_LOG")
 				.orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-		List<Permission> moduleWorkspaceTeamAllPermissions = permissionRepository.findByModule("WORKSPACE_TEAMS")
+		List<Permission> moduleTaskTypeAllPermissions = permissionRepository.findByModule("TASK_TYPE")
 				.orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-		List<Permission> moduleWorkspaceInviteAllPermissions = permissionRepository.findByModule("WORKSPACE_INVITES")
+		List<Permission> moduleWorkspaceTeamAllPermissions = permissionRepository.findByModule("WORKSPACE_TEAM")
+				.orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
+		List<Permission> moduleWorkspaceInviteAllPermissions = permissionRepository.findByModule("WORKSPACE_INVITE")
 				.orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
 
 		// Common permissions for all authenticated users (CUSTOMER, STAFF, ADMIN)
@@ -359,8 +374,8 @@ public class DataInitializer implements ApplicationRunner {
 				findPermissionOrThrow("/api/v1/users/staff-requests", "POST"),
 
 				// File upload for avatars and attachments
-				findPermissionOrThrow("/api/v1/storage/aws-s3/upload/single", "POST"),
-				findPermissionOrThrow("/api/v1/storage/aws-s3/upload/multiple", "POST"),
+				findPermissionOrThrow("/api/v1/storage/azure-blob/upload/single", "POST"),
+				findPermissionOrThrow("/api/v1/storage/azure-blob/upload/multiple", "POST"),
 
 				// Basic collaboration access
 				findPermissionOrThrow("/api/v1/workspaces", "POST"),
@@ -376,6 +391,9 @@ public class DataInitializer implements ApplicationRunner {
 				findPermissionOrThrow("/api/v1/task-schedules/calendar/project/{projectId}", "GET"),
 				findPermissionOrThrow("/api/v1/task-schedules/calendar/workspace/{workspaceId}", "GET"),
 				findPermissionOrThrow("/api/v1/notifications", "GET"),
+				findPermissionOrThrow("/api/v1/notifications/unread-count", "GET"),
+				findPermissionOrThrow("/api/v1/notifications/{notificationId}/read", "PATCH"),
+				findPermissionOrThrow("/api/v1/notifications/read-all", "PATCH"),
 				findPermissionOrThrow("/api/v1/activity-logs/workspace/{workspaceId}", "GET"),
 
 				// Task types — read (all members can view task types defined in their project)
@@ -410,6 +428,11 @@ public class DataInitializer implements ApplicationRunner {
 						findPermissionOrThrow("/api/v1/projects/{projectId}", "PATCH"),
 						findPermissionOrThrow("/api/v1/projects/{projectId}", "DELETE"),
 						findPermissionOrThrow("/api/v1/projects/{projectId}/status", "PATCH"),
+						findPermissionOrThrow("/api/v1/projects/{projectId}/access", "GET"),
+						findPermissionOrThrow("/api/v1/projects/{projectId}/access", "POST"),
+						findPermissionOrThrow("/api/v1/projects/{projectId}/access/{accessId}", "PATCH"),
+						findPermissionOrThrow("/api/v1/projects/{projectId}/access/{accessId}", "DELETE"),
+						findPermissionOrThrow("/api/v1/projects/{projectId}/access/me", "GET"),
 						findPermissionOrThrow("/api/v1/goals", "POST"),
 						findPermissionOrThrow("/api/v1/goals/{goalId}", "PATCH"),
 						findPermissionOrThrow("/api/v1/tasks", "POST"),
@@ -425,8 +448,6 @@ public class DataInitializer implements ApplicationRunner {
 						findPermissionOrThrow("/api/v1/task-schedules/{scheduleId}", "PATCH"),
 						findPermissionOrThrow("/api/v1/task-comments", "POST"),
 						findPermissionOrThrow("/api/v1/task-comments/{commentId}", "PATCH"),
-						findPermissionOrThrow("/api/v1/notifications/{notificationId}/read", "PATCH"),
-						findPermissionOrThrow("/api/v1/notifications/read-all", "PATCH"),
 
 						// Task types — managers (workspace OWNER/ADMIN enforced in service)
 						// create/update/delete types per project

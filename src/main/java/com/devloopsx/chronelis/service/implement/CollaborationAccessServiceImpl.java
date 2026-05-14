@@ -57,9 +57,9 @@ public class CollaborationAccessServiceImpl implements CollaborationAccessServic
     @Override
     public void ensureCurrentUserIsWorkspaceOwner(Long workspaceId) {
         User currentUser = securityUtils.getAuthenticatedUser();
-        Workspace workspace = requireWorkspace(workspaceId);
+        WorkspaceMember member = requireWorkspaceMember(workspaceId, currentUser.getUserId());
 
-        if (!workspace.getOwner().getUserId().equals(currentUser.getUserId())) {
+        if (member.getRole() != com.devloopsx.chronelis.constant.WorkspaceMemberRoleType.OWNER) {
             throw new ApplicationException(ErrorCode.UNAUTHORIZED_ACCESS,
                     "Chỉ owner workspace mới có quyền thực hiện thao tác này");
         }

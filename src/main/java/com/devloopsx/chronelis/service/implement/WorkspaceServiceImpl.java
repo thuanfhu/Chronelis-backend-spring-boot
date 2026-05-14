@@ -145,11 +145,6 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                                         "Người dùng đã là thành viên workspace");
                 }
 
-                if (request.getRole() == WorkspaceMemberRoleType.OWNER) {
-                        throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
-                                        "Không thể thêm thành viên mới với vai trò OWNER");
-                }
-
                 Workspace workspace = collaborationAccessService.requireWorkspace(workspaceId);
                 WorkspaceMember member = WorkspaceMember.builder()
                                 .workspace(workspace)
@@ -190,22 +185,20 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                 collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(workspaceId);
                 Workspace workspace = collaborationAccessService.requireWorkspace(workspaceId);
 
-                if (request.getRole() == WorkspaceMemberRoleType.OWNER) {
-                        throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
-                                        "Không thể gán vai trò OWNER cho thành viên");
-                }
-
-                if (workspace.getOwner().getUserId().equals(userId)) {
-                        throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
-                                        "Không thể thay đổi vai trò của owner");
-                }
-
                 WorkspaceMember member = workspaceMemberRepository.findByWorkspaceIdAndUserUserId(workspaceId, userId)
                                 .orElseThrow(() -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND,
                                                 "Thành viên workspace không tồn tại"));
 
                 if (member.getRole() == request.getRole()) {
                         throw new ApplicationException(ErrorCode.NO_UPDATE_PROVIDED);
+                }
+
+                if (member.getRole() == WorkspaceMemberRoleType.OWNER && request.getRole() != WorkspaceMemberRoleType.OWNER) {
+                        long ownerCount = workspaceMemberRepository.countByWorkspaceIdAndRole(workspaceId, WorkspaceMemberRoleType.OWNER);
+                        if (ownerCount <= 1) {
+                                throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
+                                                "Không thể hạ cấp OWNER duy nhất của workspace");
+                        }
                 }
 
                 member.setRole(request.getRole());
@@ -229,14 +222,17 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                 collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(workspaceId);
                 Workspace workspace = collaborationAccessService.requireWorkspace(workspaceId);
 
-                if (workspace.getOwner().getUserId().equals(userId)) {
-                        throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
-                                        "Không thể xóa owner khỏi workspace");
-                }
-
                 WorkspaceMember member = workspaceMemberRepository.findByWorkspaceIdAndUserUserId(workspaceId, userId)
                                 .orElseThrow(() -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND,
                                                 "Thành viên workspace không tồn tại"));
+
+                if (member.getRole() == WorkspaceMemberRoleType.OWNER) {
+                        long ownerCount = workspaceMemberRepository.countByWorkspaceIdAndRole(workspaceId, WorkspaceMemberRoleType.OWNER);
+                        if (ownerCount <= 1) {
+                                throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
+                                                "Không thể xóa OWNER duy nhất của workspace");
+                        }
+                }
 
                 workspaceMemberRepository.delete(member);
 
@@ -272,10 +268,6 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                 collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(workspaceId);
 
                 User currentUser = securityUtils.getAuthenticatedUser();
-                if (!workspace.getOwner().getUserId().equals(currentUser.getUserId())) {
-                        throw new ApplicationException(ErrorCode.UNAUTHORIZED_ACCESS,
-                                        "Chỉ owner workspace mới có quyền xóa workspace này");
-                }
 
                 String workspaceName = workspace.getName();
 
