@@ -379,6 +379,8 @@ public class DataInitializer implements ApplicationRunner {
 				// File upload for avatars and attachments
 				findPermissionOrThrow("/api/v1/storage/azure-blob/upload/single", "POST"),
 				findPermissionOrThrow("/api/v1/storage/azure-blob/upload/multiple", "POST"),
+				findPermissionOrThrow("/api/v1/storage/azure-blob/delete/single", "DELETE"),
+				findPermissionOrThrow("/api/v1/storage/azure-blob/move/single", "PUT"),
 
 				// Basic collaboration access
 				findPermissionOrThrow("/api/v1/workspaces", "POST"),
