@@ -241,6 +241,9 @@ public class DataInitializer implements ApplicationRunner {
 				new Permission("Assign task", "/api/v1/tasks/{taskId}/assignee", "PATCH", "TASK"),
 				new Permission("Update completion", "/api/v1/tasks/{taskId}/completion", "PATCH", "TASK"),
 				new Permission("Delete task", "/api/v1/tasks/{taskId}", "DELETE", "TASK"),
+				new Permission("Retrieve my work items", "/api/v1/tasks/my-work", "GET", "TASK"),
+				new Permission("Retrieve task dependencies", "/api/v1/tasks/{taskId}/dependencies", "GET", "TASK"),
+				new Permission("Update task dependencies", "/api/v1/tasks/{taskId}/dependencies", "PUT", "TASK"),
 
 				// Module Task Statuses
 				new Permission("Create task status", "/api/v1/task-statuses", "POST", "TASK_STATUS"),
@@ -376,6 +379,8 @@ public class DataInitializer implements ApplicationRunner {
 				// File upload for avatars and attachments
 				findPermissionOrThrow("/api/v1/storage/azure-blob/upload/single", "POST"),
 				findPermissionOrThrow("/api/v1/storage/azure-blob/upload/multiple", "POST"),
+				findPermissionOrThrow("/api/v1/storage/azure-blob/delete/single", "DELETE"),
+				findPermissionOrThrow("/api/v1/storage/azure-blob/move/single", "PUT"),
 
 				// Basic collaboration access
 				findPermissionOrThrow("/api/v1/workspaces", "POST"),
@@ -385,16 +390,24 @@ public class DataInitializer implements ApplicationRunner {
 				findPermissionOrThrow("/api/v1/projects/{projectId}", "GET"),
 				findPermissionOrThrow("/api/v1/projects/workspace/{workspaceId}", "GET"),
 				findPermissionOrThrow("/api/v1/goals/project/{projectId}", "GET"),
+				findPermissionOrThrow("/api/v1/goals/{goalId}", "GET"),
 				findPermissionOrThrow("/api/v1/tasks/project/{projectId}", "GET"),
 				findPermissionOrThrow("/api/v1/tasks/{taskId}", "GET"),
+				findPermissionOrThrow("/api/v1/tasks/my-work", "GET"),
+				findPermissionOrThrow("/api/v1/tasks/goal/{goalId}", "GET"),
+				findPermissionOrThrow("/api/v1/tasks/{taskId}/dependencies", "GET"),
 				findPermissionOrThrow("/api/v1/task-statuses/project/{projectId}", "GET"),
+				findPermissionOrThrow("/api/v1/task-schedules/task/{taskId}", "GET"),
 				findPermissionOrThrow("/api/v1/task-schedules/calendar/project/{projectId}", "GET"),
 				findPermissionOrThrow("/api/v1/task-schedules/calendar/workspace/{workspaceId}", "GET"),
+				findPermissionOrThrow("/api/v1/task-comments/task/{taskId}", "GET"),
+				findPermissionOrThrow("/api/v1/activity-logs/workspace/{workspaceId}", "GET"),
+				findPermissionOrThrow("/api/v1/projects/{projectId}/access/me", "GET"),
 				findPermissionOrThrow("/api/v1/notifications", "GET"),
+
 				findPermissionOrThrow("/api/v1/notifications/unread-count", "GET"),
 				findPermissionOrThrow("/api/v1/notifications/{notificationId}/read", "PATCH"),
 				findPermissionOrThrow("/api/v1/notifications/read-all", "PATCH"),
-				findPermissionOrThrow("/api/v1/activity-logs/workspace/{workspaceId}", "GET"),
 
 				// Task types — read (all members can view task types defined in their project)
 				findPermissionOrThrow("/api/v1/task-types/{taskTypeId}", "GET"),
@@ -441,13 +454,16 @@ public class DataInitializer implements ApplicationRunner {
 						findPermissionOrThrow("/api/v1/tasks/{taskId}/reorder", "PATCH"),
 						findPermissionOrThrow("/api/v1/tasks/{taskId}/assignee", "PATCH"),
 						findPermissionOrThrow("/api/v1/tasks/{taskId}/completion", "PATCH"),
+						findPermissionOrThrow("/api/v1/tasks/{taskId}/dependencies", "PUT"),
 						findPermissionOrThrow("/api/v1/task-statuses", "POST"),
 						findPermissionOrThrow("/api/v1/task-statuses/{statusId}", "PATCH"),
 						findPermissionOrThrow("/api/v1/task-statuses/project/{projectId}/reorder", "PATCH"),
 						findPermissionOrThrow("/api/v1/task-schedules", "POST"),
 						findPermissionOrThrow("/api/v1/task-schedules/{scheduleId}", "PATCH"),
+						findPermissionOrThrow("/api/v1/task-schedules/{scheduleId}", "DELETE"),
 						findPermissionOrThrow("/api/v1/task-comments", "POST"),
 						findPermissionOrThrow("/api/v1/task-comments/{commentId}", "PATCH"),
+						findPermissionOrThrow("/api/v1/task-comments/{commentId}", "DELETE"),
 
 						// Task types — managers (workspace OWNER/ADMIN enforced in service)
 						// create/update/delete types per project
