@@ -4,6 +4,7 @@ import com.devloopsx.chronelis.dto.request.project.CreateProjectRequest;
 import com.devloopsx.chronelis.dto.request.project.UpdateProjectRequest;
 import com.devloopsx.chronelis.dto.request.project.UpdateProjectStatusRequest;
 import com.devloopsx.chronelis.dto.response.common.PaginationResponse;
+import com.devloopsx.chronelis.dto.response.project.ProjectAnalyticsResponse;
 import com.devloopsx.chronelis.dto.response.project.ProjectResponse;
 import org.springframework.data.domain.Pageable;
 
@@ -19,4 +20,6 @@ public interface ProjectService {
     PaginationResponse listProjectsByWorkspace(Long workspaceId, Pageable pageable);
 
     void deleteProject(Long projectId);
+
+    ProjectAnalyticsResponse getProjectAnalytics(Long projectId);
 }

@@ -5,6 +5,7 @@ import com.devloopsx.chronelis.dto.request.project.UpdateProjectRequest;
 import com.devloopsx.chronelis.dto.request.project.UpdateProjectStatusRequest;
 import com.devloopsx.chronelis.dto.response.common.ApiResponse;
 import com.devloopsx.chronelis.dto.response.common.PaginationResponse;
+import com.devloopsx.chronelis.dto.response.project.ProjectAnalyticsResponse;
 import com.devloopsx.chronelis.dto.response.project.ProjectResponse;
 import com.devloopsx.chronelis.service.ProjectService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -80,6 +81,16 @@ public class ProjectController {
                 projectService.deleteProject(projectId);
                 return ApiResponse.<Void>builder()
                                 .message("Xóa project thành công")
+                                .meta(buildMetaInfo(servletRequest))
+                                .build();
+        }
+
+        @GetMapping("/{projectId}/analytics")
+        ApiResponse<ProjectAnalyticsResponse> getProjectAnalytics(@PathVariable Long projectId,
+                        HttpServletRequest servletRequest) {
+                return ApiResponse.<ProjectAnalyticsResponse>builder()
+                                .message("Lấy phân tích project thành công")
+                                .data(projectService.getProjectAnalytics(projectId))
                                 .meta(buildMetaInfo(servletRequest))
                                 .build();
         }

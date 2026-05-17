@@ -7,6 +7,7 @@ import com.devloopsx.chronelis.dto.response.common.PaginationMeta;
 import com.devloopsx.chronelis.dto.response.common.PaginationResponse;
 import com.devloopsx.chronelis.dto.response.task.MyWorkResponse;
 import com.devloopsx.chronelis.dto.response.task.MyWorkScheduleItemResponse;
+import com.devloopsx.chronelis.dto.response.task.TaskAnalyticsResponse;
 import com.devloopsx.chronelis.dto.response.task.TaskResponse;
 import com.devloopsx.chronelis.exception.ApplicationException;
 import com.devloopsx.chronelis.exception.ErrorCode;
@@ -599,6 +600,71 @@ public class TaskServiceImpl implements TaskService {
                 .upcomingSchedules(upcomingSchedules)
                 .generatedAt(LocalDateTime.now())
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public TaskAnalyticsResponse getTaskAnalytics() {
+        User currentUser = securityUtils.getAuthenticatedUser();
+        List<Long> workspaceIds = workspaceMemberRepository.findByUserUserId(currentUser.getUserId())
+                .stream().map(m -> m.getWorkspace().getId()).distinct().toList();
+
+        if (workspaceIds.isEmpty()) {
+            return TaskAnalyticsResponse.builder()
+                    .trend(buildEmptyTrend(14))
+                    .estimatedByPriority(List.of())
+                    .totalAssigned(0).totalCompleted(0).build();
+        }
+
+        LocalDateTime since = LocalDateTime.now().minusDays(14);
+        String userId = currentUser.getUserId();
+
+        Map<String, Integer> createdMap = new TreeMap<>();
+        Map<String, Integer> completedMap = new TreeMap<>();
+        for (Object[] row : taskRepository.countCreatedByDayForUser(userId, workspaceIds, since)) {
+            createdMap.put(row[0].toString(), ((Number) row[1]).intValue());
+        }
+        for (Object[] row : taskRepository.countCompletedByDayForUser(userId, workspaceIds, since)) {
+            completedMap.put(row[0].toString(), ((Number) row[1]).intValue());
+        }
+
+        List<TaskAnalyticsResponse.DailyTrendPoint> trend = new ArrayList<>();
+        for (int i = 13; i >= 0; i--) {
+            String date = LocalDate.now().minusDays(i).toString();
+            trend.add(TaskAnalyticsResponse.DailyTrendPoint.builder()
+                    .date(date)
+                    .created(createdMap.getOrDefault(date, 0))
+                    .completed(completedMap.getOrDefault(date, 0))
+                    .build());
+        }
+
+        List<TaskAnalyticsResponse.PriorityEstimatePoint> estimates = new ArrayList<>();
+        for (Object[] row : taskRepository.sumEstimatedByPriorityForUser(userId, workspaceIds)) {
+            estimates.add(TaskAnalyticsResponse.PriorityEstimatePoint.builder()
+                    .priority(row[0].toString())
+                    .totalMinutes(row[1] != null ? ((Number) row[1]).longValue() : 0L)
+                    .taskCount(((Number) row[2]).longValue())
+                    .build());
+        }
+
+        int totalAssigned = createdMap.values().stream().mapToInt(Integer::intValue).sum();
+        int totalCompleted = completedMap.values().stream().mapToInt(Integer::intValue).sum();
+
+        return TaskAnalyticsResponse.builder()
+                .trend(trend)
+                .estimatedByPriority(estimates)
+                .totalAssigned(totalAssigned)
+                .totalCompleted(totalCompleted)
+                .build();
+    }
+
+    private List<TaskAnalyticsResponse.DailyTrendPoint> buildEmptyTrend(int days) {
+        List<TaskAnalyticsResponse.DailyTrendPoint> trend = new ArrayList<>();
+        for (int i = days - 1; i >= 0; i--) {
+            trend.add(TaskAnalyticsResponse.DailyTrendPoint.builder()
+                    .date(LocalDate.now().minusDays(i).toString()).created(0).completed(0).build());
+        }
+        return trend;
     }
 
     @Override
