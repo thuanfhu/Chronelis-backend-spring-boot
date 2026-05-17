@@ -215,6 +215,7 @@ public class DataInitializer implements ApplicationRunner {
 				new Permission("Get project detail", "/api/v1/projects/{projectId}", "GET", "PROJECT"),
 				new Permission("List projects in workspace", "/api/v1/projects/workspace/{workspaceId}", "GET",
 						"PROJECT"),
+				new Permission("Get project analytics", "/api/v1/projects/{projectId}/analytics", "GET", "PROJECT"),
 
 				// Module Project Access
 				new Permission("List project access", "/api/v1/projects/{projectId}/access", "GET", "PROJECT_ACCESS"),
@@ -244,6 +245,7 @@ public class DataInitializer implements ApplicationRunner {
 				new Permission("Retrieve my work items", "/api/v1/tasks/my-work", "GET", "TASK"),
 				new Permission("Retrieve task dependencies", "/api/v1/tasks/{taskId}/dependencies", "GET", "TASK"),
 				new Permission("Update task dependencies", "/api/v1/tasks/{taskId}/dependencies", "PUT", "TASK"),
+				new Permission("Get task analytics", "/api/v1/tasks/analytics", "GET", "TASK"),
 
 				// Module Task Statuses
 				new Permission("Create task status", "/api/v1/task-statuses", "POST", "TASK_STATUS"),
@@ -396,6 +398,8 @@ public class DataInitializer implements ApplicationRunner {
 				findPermissionOrThrow("/api/v1/tasks/my-work", "GET"),
 				findPermissionOrThrow("/api/v1/tasks/goal/{goalId}", "GET"),
 				findPermissionOrThrow("/api/v1/tasks/{taskId}/dependencies", "GET"),
+				findPermissionOrThrow("/api/v1/tasks/analytics", "GET"),
+				findPermissionOrThrow("/api/v1/projects/{projectId}/analytics", "GET"),
 				findPermissionOrThrow("/api/v1/task-statuses/project/{projectId}", "GET"),
 				findPermissionOrThrow("/api/v1/task-schedules/task/{taskId}", "GET"),
 				findPermissionOrThrow("/api/v1/task-schedules/calendar/project/{projectId}", "GET"),
