@@ -619,6 +619,15 @@ public class DatabaseSeeder implements ApplicationRunner {
             }
         }
 
+        users.stream()
+                .filter(u -> "thuanmobile1111@gmail.com".equalsIgnoreCase(u.getEmail()))
+                .findFirst()
+                .ifPresent(thuan -> {
+                    for (LinkedHashSet<User> set : workspaceMemberSets) {
+                        set.add(thuan);
+                    }
+                });
+
         for (int workspaceIndex = 0; workspaceIndex < workspaces.size(); workspaceIndex++) {
             Workspace workspace = workspaces.get(workspaceIndex);
             LinkedHashSet<User> selectedMembers = workspaceMemberSets.get(workspaceIndex);
@@ -1036,6 +1045,9 @@ public class DatabaseSeeder implements ApplicationRunner {
         if (projectIndex == 0) {
             return ProjectStatusType.ACTIVE;
         }
+        if (projectIndex == 1) {
+            return ProjectStatusType.COMPLETED;
+        }
         if (projectIndex == projectCount - 1 && random.nextDouble() < 0.25) {
             return ProjectStatusType.ARCHIVED;
         }
@@ -1294,6 +1306,20 @@ public class DatabaseSeeder implements ApplicationRunner {
                         taskTypes,
                         collaborationOrder,
                         boardPositionByStatusId));
+            }
+        }
+
+        List<User> allAssignedUsers = membershipSeed.membersByWorkspaceId().values().stream()
+                .flatMap(List::stream).distinct().toList();
+        User thuan = allAssignedUsers.stream()
+                .filter(u -> "thuanmobile1111@gmail.com".equalsIgnoreCase(u.getEmail()))
+                .findFirst().orElse(null);
+                
+        if (thuan != null) {
+            for (Task task : tasks) {
+                if (random.nextDouble() < 0.3) {
+                    task.setAssignee(thuan);
+                }
             }
         }
 
@@ -2360,10 +2386,20 @@ public class DatabaseSeeder implements ApplicationRunner {
             LocalDateTime now,
             LocalDateTime createdAt,
             ProjectStatusType status) {
+        if (status == ProjectStatusType.COMPLETED) {
+            // Fix 3: Ensure some projects are completed very recently for 7-day completion trend charts
+            LocalDateTime lowerBound = now.minusDays(6);
+            LocalDateTime upperBound = now.minusHours(2);
+            if (lowerBound.isBefore(createdAt)) {
+                lowerBound = createdAt.plusHours(1);
+            }
+            return randomDateTimeBetween(random, lowerBound, upperBound);
+        }
+
         LocalDateTime lowerBound = createdAt.plusDays(5);
         LocalDateTime upperBound = switch (status) {
             case ACTIVE -> now.minusDays(1);
-            case COMPLETED -> now.minusDays(10);
+            case COMPLETED -> now.minusDays(2); // Fallback
             case ARCHIVED -> now.minusDays(20);
         };
 
