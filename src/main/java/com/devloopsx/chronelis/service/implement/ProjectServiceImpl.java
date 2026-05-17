@@ -12,6 +12,7 @@ import com.devloopsx.chronelis.dto.request.project.UpdateProjectRequest;
 import com.devloopsx.chronelis.dto.request.project.UpdateProjectStatusRequest;
 import com.devloopsx.chronelis.dto.response.common.PaginationMeta;
 import com.devloopsx.chronelis.dto.response.common.PaginationResponse;
+import com.devloopsx.chronelis.dto.response.project.ProjectAnalyticsResponse;
 import com.devloopsx.chronelis.dto.response.project.ProjectResponse;
 import com.devloopsx.chronelis.exception.ApplicationException;
 import com.devloopsx.chronelis.exception.ErrorCode;
@@ -33,8 +34,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -332,5 +337,47 @@ public class ProjectServiceImpl implements ProjectService {
                         grant.setUpdatedAt(now);
                         projectAccessGrantRepository.save(grant);
                 }
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public ProjectAnalyticsResponse getProjectAnalytics(Long projectId) {
+                collaborationAccessService.ensureCurrentUserCanAccessProject(projectId);
+
+                LocalDateTime since = LocalDateTime.now().minusDays(30);
+
+                Map<String, Integer> createdMap = new HashMap<>();
+                Map<String, Integer> completedMap = new HashMap<>();
+                for (Object[] row : taskRepository.countCreatedByDayForProject(projectId, since)) {
+                        createdMap.put(row[0].toString(), ((Number) row[1]).intValue());
+                }
+                for (Object[] row : taskRepository.countCompletedByDayForProject(projectId, since)) {
+                        completedMap.put(row[0].toString(), ((Number) row[1]).intValue());
+                }
+
+                List<ProjectAnalyticsResponse.DailyTrendPoint> trend = new ArrayList<>();
+                int cumulative = 0;
+                for (int i = 29; i >= 0; i--) {
+                        String date = LocalDate.now().minusDays(i).toString();
+                        int created = createdMap.getOrDefault(date, 0);
+                        cumulative += created;
+                        trend.add(ProjectAnalyticsResponse.DailyTrendPoint.builder()
+                                        .date(date)
+                                        .created(created)
+                                        .completed(completedMap.getOrDefault(date, 0))
+                                        .cumulative(cumulative)
+                                        .build());
+                }
+
+                long total = taskRepository.countByProjectId(projectId);
+                long completed = taskRepository.countByProjectIdAndIsCompletedTrue(projectId);
+                double rate = total > 0 ? Math.round((double) completed / total * 1000.0) / 10.0 : 0.0;
+
+                return ProjectAnalyticsResponse.builder()
+                                .trend(trend)
+                                .totalTasks((int) total)
+                                .completedTasks((int) completed)
+                                .completionRate(rate)
+                                .build();
         }
 }

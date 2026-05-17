@@ -45,6 +45,7 @@ public class DatabaseSeeder implements ApplicationRunner {
     WorkspaceTeamRepository workspaceTeamRepository;
     WorkspaceTeamMemberRepository workspaceTeamMemberRepository;
     ProjectRepository projectRepository;
+    ProjectAccessGrantRepository projectAccessGrantRepository;
     GoalRepository goalRepository;
     TaskStatusRepository taskStatusRepository;
     TaskTypeRepository taskTypeRepository;
@@ -277,6 +278,7 @@ public class DatabaseSeeder implements ApplicationRunner {
         taskTypeRepository.deleteAllInBatch();
         taskStatusRepository.deleteAllInBatch();
         goalRepository.deleteAllInBatch();
+        projectAccessGrantRepository.deleteAllInBatch();
         projectRepository.deleteAllInBatch();
         workspaceTeamMemberRepository.deleteAllInBatch();
         workspaceTeamRepository.deleteAllInBatch();
@@ -301,10 +303,11 @@ public class DatabaseSeeder implements ApplicationRunner {
         log.info(">>> SEED STEP: projects and goals");
         List<Project> projects = seedProjects(random, now, workspaces, membershipSeed, teamSeed);
         Map<Long, List<Project>> projectsByWorkspaceId = groupProjectsByWorkspace(projects);
+        seedProjectAccessGrants(random, now, projects, membershipSeed);
 
         Map<Long, List<TaskStatus>> statusesByProjectId = seedTaskStatuses(projects);
         Map<Long, List<Goal>> goalsByProjectId = seedGoals(random, now, projects, membershipSeed, teamSeed);
-        Map<Long, List<TaskType>> taskTypesByProjectId = seedTaskTypes(random, now, projects, goalsByProjectId);
+        Map<Long, List<TaskType>> taskTypesByProjectId = new LinkedHashMap<>();
 
         log.info(">>> SEED STEP: tasks and schedules");
         TaskSeedResult taskSeed = seedTasks(
@@ -509,6 +512,15 @@ public class DatabaseSeeder implements ApplicationRunner {
         ownerCandidates.sort(Comparator.comparing(user -> nullableLower(user.getEmail())));
         Collections.shuffle(ownerCandidates, random);
 
+        // Pin thuanmobile1111@gmail.com as owner of the first workspace
+        ownerCandidates.stream()
+                .filter(u -> "thuanmobile1111@gmail.com".equalsIgnoreCase(u.getEmail()))
+                .findFirst()
+                .ifPresent(pinned -> {
+                    ownerCandidates.remove(pinned);
+                    ownerCandidates.add(0, pinned);
+                });
+
         for (int index = 0; index < WORKSPACE_NAMES.length; index++) {
             User owner = ownerCandidates.get(index % ownerCandidates.size());
             LocalDateTime createdAt = now.minusDays(310L - (index * 8L) + random.nextInt(10));
@@ -606,6 +618,15 @@ public class DatabaseSeeder implements ApplicationRunner {
                 assignedMembershipCountByUserId.put(userId, assignedMembership);
             }
         }
+
+        users.stream()
+                .filter(u -> "thuanmobile1111@gmail.com".equalsIgnoreCase(u.getEmail()))
+                .findFirst()
+                .ifPresent(thuan -> {
+                    for (LinkedHashSet<User> set : workspaceMemberSets) {
+                        set.add(thuan);
+                    }
+                });
 
         for (int workspaceIndex = 0; workspaceIndex < workspaces.size(); workspaceIndex++) {
             Workspace workspace = workspaces.get(workspaceIndex);
@@ -796,12 +817,16 @@ public class DatabaseSeeder implements ApplicationRunner {
 
                 String name = buildProjectName(workspace, workspaceIndex, projectIndex);
                 String description = buildProjectDescription(random, workspace, name);
+                ProjectVisibilityType visibility = random.nextDouble() < 0.20
+                        ? ProjectVisibilityType.PRIVATE
+                        : ProjectVisibilityType.PUBLIC;
 
                 projects.add(Project.builder()
                         .workspace(workspace)
                         .name(limitLength(name, 150))
                         .description(limitLength(description, 2000))
                         .status(status)
+                        .visibility(visibility)
                         .createdBy(creator)
                         .managerUser(managerUser)
                         .managerTeam(managerTeam)
@@ -820,6 +845,110 @@ public class DatabaseSeeder implements ApplicationRunner {
             grouped.computeIfAbsent(project.getWorkspace().getId(), key -> new ArrayList<>()).add(project);
         }
         return grouped;
+    }
+
+    private void seedProjectAccessGrants(
+            Random random,
+            LocalDateTime now,
+            List<Project> projects,
+            MembershipSeedResult membershipSeed) {
+        List<ProjectAccessGrant> grants = new ArrayList<>();
+
+        for (Project project : projects) {
+            User workspaceOwner = project.getWorkspace().getOwner();
+            List<User> workspaceMembers = membershipSeed.membersByWorkspaceId()
+                    .getOrDefault(project.getWorkspace().getId(), List.of());
+            Set<String> grantedUserIds = new HashSet<>();
+            Set<Long> grantedTeamIds = new HashSet<>();
+
+            if (project.getVisibility() == ProjectVisibilityType.PRIVATE) {
+                // Grant MANAGER to managerUser (must not be workspace owner)
+                User managerUser = project.getManagerUser();
+                if (managerUser != null
+                        && !managerUser.getUserId().equals(workspaceOwner.getUserId())
+                        && !grantedUserIds.contains(managerUser.getUserId())) {
+                    grants.add(buildAccessGrant(project, ProjectAccessSubjectType.USER,
+                            managerUser, null, ProjectAccessRoleType.MANAGER, workspaceOwner, now, random));
+                    grantedUserIds.add(managerUser.getUserId());
+                }
+
+                // Grant CONTRIBUTOR or VIEWER to 2–4 additional workspace members
+                List<User> candidates = new ArrayList<>(workspaceMembers);
+                Collections.shuffle(candidates, random);
+                int grantCount = Math.min(2 + random.nextInt(3), candidates.size());
+                int granted = 0;
+                for (User member : candidates) {
+                    if (granted >= grantCount) {
+                        break;
+                    }
+                    if (member.getUserId().equals(workspaceOwner.getUserId())) {
+                        continue;
+                    }
+                    if (grantedUserIds.contains(member.getUserId())) {
+                        continue;
+                    }
+                    ProjectAccessRoleType role = random.nextDouble() < 0.5
+                            ? ProjectAccessRoleType.CONTRIBUTOR
+                            : ProjectAccessRoleType.VIEWER;
+                    grants.add(buildAccessGrant(project, ProjectAccessSubjectType.USER,
+                            member, null, role, workspaceOwner, now, random));
+                    grantedUserIds.add(member.getUserId());
+                    granted++;
+                }
+
+                // Team grant: CONTRIBUTOR for managerTeam (if present)
+                WorkspaceTeam managerTeam = project.getManagerTeam();
+                if (managerTeam != null
+                        && !grantedTeamIds.contains(managerTeam.getId())
+                        && random.nextDouble() < 0.75) {
+                    grants.add(buildAccessGrant(project, ProjectAccessSubjectType.TEAM,
+                            null, managerTeam, ProjectAccessRoleType.CONTRIBUTOR, workspaceOwner, now, random));
+                    grantedTeamIds.add(managerTeam.getId());
+                }
+            } else {
+                // PUBLIC: optionally elevate managerUser from CONTRIBUTOR to MANAGER
+                User managerUser = project.getManagerUser();
+                if (managerUser != null
+                        && !managerUser.getUserId().equals(workspaceOwner.getUserId())
+                        && !grantedUserIds.contains(managerUser.getUserId())
+                        && random.nextDouble() < 0.70) {
+                    grants.add(buildAccessGrant(project, ProjectAccessSubjectType.USER,
+                            managerUser, null, ProjectAccessRoleType.MANAGER, workspaceOwner, now, random));
+                    grantedUserIds.add(managerUser.getUserId());
+                }
+            }
+        }
+
+        projectAccessGrantRepository.saveAll(grants);
+    }
+
+    private ProjectAccessGrant buildAccessGrant(
+            Project project,
+            ProjectAccessSubjectType subjectType,
+            User user,
+            WorkspaceTeam team,
+            ProjectAccessRoleType role,
+            User grantedBy,
+            LocalDateTime now,
+            Random random) {
+        LocalDateTime createdAt = randomDateTimeBetween(
+                random,
+                project.getCreatedAt().plusDays(1),
+                minDateTime(now.minusDays(1), project.getUpdatedAt().plusDays(5)));
+        LocalDateTime updatedAt = randomDateTimeBetween(
+                random,
+                createdAt,
+                minDateTime(now, createdAt.plusDays(14)));
+        return ProjectAccessGrant.builder()
+                .project(project)
+                .subjectType(subjectType)
+                .user(user)
+                .team(team)
+                .role(role)
+                .grantedBy(grantedBy)
+                .createdAt(createdAt)
+                .updatedAt(updatedAt)
+                .build();
     }
 
     private int resolveWorkspaceMemberTarget(int workspaceIndex, int userCount) {
@@ -915,6 +1044,9 @@ public class DatabaseSeeder implements ApplicationRunner {
     private ProjectStatusType resolveProjectStatus(Random random, int projectIndex, int projectCount) {
         if (projectIndex == 0) {
             return ProjectStatusType.ACTIVE;
+        }
+        if (projectIndex == 1) {
+            return ProjectStatusType.COMPLETED;
         }
         if (projectIndex == projectCount - 1 && random.nextDouble() < 0.25) {
             return ProjectStatusType.ARCHIVED;
@@ -1177,6 +1309,20 @@ public class DatabaseSeeder implements ApplicationRunner {
             }
         }
 
+        List<User> allAssignedUsers = membershipSeed.membersByWorkspaceId().values().stream()
+                .flatMap(List::stream).distinct().toList();
+        User thuan = allAssignedUsers.stream()
+                .filter(u -> "thuanmobile1111@gmail.com".equalsIgnoreCase(u.getEmail()))
+                .findFirst().orElse(null);
+                
+        if (thuan != null) {
+            for (Task task : tasks) {
+                if (random.nextDouble() < 0.3) {
+                    task.setAssignee(thuan);
+                }
+            }
+        }
+
         List<Task> savedTasks = taskRepository.saveAll(tasks);
         Map<Long, List<Task>> tasksByProjectId = new LinkedHashMap<>();
         for (Task task : savedTasks) {
@@ -1218,10 +1364,17 @@ public class DatabaseSeeder implements ApplicationRunner {
                 ? UrgencyLevel.HIGH
                 : (random.nextDouble() < 0.25 ? UrgencyLevel.HIGH : UrgencyLevel.LOW);
 
-        LocalDateTime createdAt = randomDateTimeBetween(
-                random,
-                project.getCreatedAt().plusDays(1),
-                minDateTime(now.minusHours(6), project.getUpdatedAt().plusDays(30)));
+        LocalDateTime createdAtEarliest = project.getCreatedAt().plusDays(1);
+        LocalDateTime createdAtLatest = minDateTime(now.minusHours(6), project.getUpdatedAt().plusDays(30));
+        LocalDateTime createdAt;
+        if (project.getStatus() == ProjectStatusType.ACTIVE && random.nextDouble() < 0.45) {
+            LocalDateTime recentFrom = maxDateTime(createdAtEarliest, now.minusDays(30));
+            createdAt = recentFrom.isBefore(createdAtLatest)
+                    ? randomDateTimeBetween(random, recentFrom, createdAtLatest)
+                    : randomDateTimeBetween(random, createdAtEarliest, createdAtLatest);
+        } else {
+            createdAt = randomDateTimeBetween(random, createdAtEarliest, createdAtLatest);
+        }
         LocalDateTime dueDate = resolveTaskDueDate(random, now, createdAt, completed, project.getStatus());
         LocalDateTime completedAt = completed
                 ? resolveTaskCompletedAt(random, now, createdAt, dueDate)
@@ -2233,10 +2386,20 @@ public class DatabaseSeeder implements ApplicationRunner {
             LocalDateTime now,
             LocalDateTime createdAt,
             ProjectStatusType status) {
+        if (status == ProjectStatusType.COMPLETED) {
+            // Fix 3: Ensure some projects are completed very recently for 7-day completion trend charts
+            LocalDateTime lowerBound = now.minusDays(6);
+            LocalDateTime upperBound = now.minusHours(2);
+            if (lowerBound.isBefore(createdAt)) {
+                lowerBound = createdAt.plusHours(1);
+            }
+            return randomDateTimeBetween(random, lowerBound, upperBound);
+        }
+
         LocalDateTime lowerBound = createdAt.plusDays(5);
         LocalDateTime upperBound = switch (status) {
             case ACTIVE -> now.minusDays(1);
-            case COMPLETED -> now.minusDays(10);
+            case COMPLETED -> now.minusDays(2); // Fallback
             case ARCHIVED -> now.minusDays(20);
         };
 

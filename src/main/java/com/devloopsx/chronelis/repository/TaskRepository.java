@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -91,4 +92,49 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
         @Query("UPDATE Task t SET t.createdBy = :replacementUser WHERE t.createdBy.userId = :sourceUserId")
         int reassignCreatedBy(@Param("sourceUserId") String sourceUserId,
                         @Param("replacementUser") com.devloopsx.chronelis.domain.User replacementUser);
+
+        long countByProjectId(Long projectId);
+
+        long countByProjectIdAndIsCompletedTrue(@Param("projectId") Long projectId);
+
+        @Query(value = "SELECT DATE(created_at) as day, COUNT(*) as cnt FROM tasks "
+                        + "WHERE assignee_id = :userId "
+                        + "AND project_id IN (SELECT id FROM projects WHERE workspace_id IN :workspaceIds) "
+                        + "AND created_at >= :since "
+                        + "GROUP BY DATE(created_at) ORDER BY DATE(created_at)",
+                        nativeQuery = true)
+        List<Object[]> countCreatedByDayForUser(@Param("userId") String userId,
+                        @Param("workspaceIds") List<Long> workspaceIds,
+                        @Param("since") LocalDateTime since);
+
+        @Query(value = "SELECT DATE(completed_at) as day, COUNT(*) as cnt FROM tasks "
+                        + "WHERE assignee_id = :userId "
+                        + "AND project_id IN (SELECT id FROM projects WHERE workspace_id IN :workspaceIds) "
+                        + "AND is_completed = 1 AND completed_at >= :since "
+                        + "GROUP BY DATE(completed_at) ORDER BY DATE(completed_at)",
+                        nativeQuery = true)
+        List<Object[]> countCompletedByDayForUser(@Param("userId") String userId,
+                        @Param("workspaceIds") List<Long> workspaceIds,
+                        @Param("since") LocalDateTime since);
+
+        @Query("SELECT t.priority, SUM(t.estimatedMinutes), COUNT(t) FROM Task t "
+                        + "WHERE t.assignee.userId = :userId "
+                        + "AND t.project.workspace.id IN :workspaceIds "
+                        + "AND t.isCompleted = false GROUP BY t.priority")
+        List<Object[]> sumEstimatedByPriorityForUser(@Param("userId") String userId,
+                        @Param("workspaceIds") List<Long> workspaceIds);
+
+        @Query(value = "SELECT DATE(created_at) as day, COUNT(*) as cnt FROM tasks "
+                        + "WHERE project_id = :projectId AND created_at >= :since "
+                        + "GROUP BY DATE(created_at) ORDER BY DATE(created_at)",
+                        nativeQuery = true)
+        List<Object[]> countCreatedByDayForProject(@Param("projectId") Long projectId,
+                        @Param("since") LocalDateTime since);
+
+        @Query(value = "SELECT DATE(completed_at) as day, COUNT(*) as cnt FROM tasks "
+                        + "WHERE project_id = :projectId AND is_completed = 1 AND completed_at >= :since "
+                        + "GROUP BY DATE(completed_at) ORDER BY DATE(completed_at)",
+                        nativeQuery = true)
+        List<Object[]> countCompletedByDayForProject(@Param("projectId") Long projectId,
+                        @Param("since") LocalDateTime since);
 }

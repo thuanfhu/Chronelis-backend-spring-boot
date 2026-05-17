@@ -4,6 +4,7 @@ import com.devloopsx.chronelis.dto.request.task.*;
 import com.devloopsx.chronelis.dto.response.common.ApiResponse;
 import com.devloopsx.chronelis.dto.response.common.PaginationResponse;
 import com.devloopsx.chronelis.dto.response.task.MyWorkResponse;
+import com.devloopsx.chronelis.dto.response.task.TaskAnalyticsResponse;
 import com.devloopsx.chronelis.dto.response.task.TaskDependencyDetailsResponse;
 import com.devloopsx.chronelis.dto.response.task.TaskResponse;
 import com.devloopsx.chronelis.service.TaskDependencyService;
@@ -61,6 +62,15 @@ public class TaskController {
                 return ApiResponse.<MyWorkResponse>builder()
                                 .message("Lấy trung tâm công việc cá nhân thành công")
                                 .data(taskService.getMyWork())
+                                .meta(buildMetaInfo(servletRequest))
+                                .build();
+        }
+
+        @GetMapping("/analytics")
+        ApiResponse<TaskAnalyticsResponse> getTaskAnalytics(HttpServletRequest servletRequest) {
+                return ApiResponse.<TaskAnalyticsResponse>builder()
+                                .message("Lấy phân tích task thành công")
+                                .data(taskService.getTaskAnalytics())
                                 .meta(buildMetaInfo(servletRequest))
                                 .build();
         }
