@@ -24,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -48,6 +49,11 @@ public class TaskTypeServiceImpl implements TaskTypeService {
                 Project project = collaborationAccessService.requireProject(request.getProjectId());
                 Workspace workspace = project.getWorkspace();
 
+                if (!workspace.getId().equals(request.getWorkspaceId())) {
+                        throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
+                                        "Workspace không khớp với project được chọn");
+                }
+
                 if (taskTypeRepository.existsByProjectIdAndNameIgnoreCase(request.getProjectId(), request.getName())) {
                         throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
                                         "Task type với tên này đã tồn tại trong project");
@@ -63,6 +69,9 @@ public class TaskTypeServiceImpl implements TaskTypeService {
                 }
 
                 TaskType taskType = taskTypeMapper.toEntity(request);
+                taskType.setName(request.getName().trim());
+                taskType.setColor(resolveColor(request.getColor()));
+                taskType.setIcon(resolveIcon(request.getIcon()));
                 LocalDateTime now = LocalDateTime.now();
                 taskType.setWorkspace(workspace);
                 taskType.setProject(project);
@@ -91,8 +100,18 @@ public class TaskTypeServiceImpl implements TaskTypeService {
                                                 "Task type không tồn tại"));
                 collaborationAccessService.ensureCurrentUserCanManageProjectWork(taskType.getProject().getId());
 
+                if (request.getName() != null && !StringUtils.hasText(request.getName())) {
+                        throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
+                                        "Tên task type không được để trống");
+                }
+
+                if (Boolean.TRUE.equals(request.getClearGoal()) && request.getGoalId() != null) {
+                        throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
+                                        "Không được gửi đồng thời goalId và clearGoal=true");
+                }
+
                 if (request.getName() != null && taskTypeRepository.existsByProjectIdAndNameIgnoreCaseAndIdNot(
-                                taskType.getProject().getId(), request.getName(), taskTypeId)) {
+                                taskType.getProject().getId(), request.getName().trim(), taskTypeId)) {
                         throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
                                         "Task type với tên này đã tồn tại trong project");
                 }
@@ -104,9 +123,20 @@ public class TaskTypeServiceImpl implements TaskTypeService {
                                                 "Goal không thuộc project của task type");
                         }
                         taskType.setGoal(goal);
+                } else if (Boolean.TRUE.equals(request.getClearGoal())) {
+                        taskType.setGoal(null);
                 }
 
                 taskTypeMapper.updateEntity(taskType, request);
+                if (request.getName() != null) {
+                        taskType.setName(request.getName().trim());
+                }
+                if (request.getColor() != null) {
+                        taskType.setColor(resolveColor(request.getColor()));
+                }
+                if (request.getIcon() != null) {
+                        taskType.setIcon(resolveIcon(request.getIcon()));
+                }
                 taskType.setUpdatedAt(LocalDateTime.now());
                 TaskType updated = taskTypeRepository.save(taskType);
 
@@ -161,5 +191,13 @@ public class TaskTypeServiceImpl implements TaskTypeService {
 
                 realtimeEventPublisherService.publishProjectEvent(workspaceId, projectId,
                                 "taskType.deleted", taskTypeId);
+        }
+
+        private String resolveColor(String color) {
+                return StringUtils.hasText(color) ? color.trim().toUpperCase() : "#3B82F6";
+        }
+
+        private String resolveIcon(String icon) {
+                return StringUtils.hasText(icon) ? icon.trim() : "tag";
         }
 }

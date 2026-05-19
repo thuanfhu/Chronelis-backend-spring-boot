@@ -145,7 +145,7 @@ Một số API admin hỗ trợ `SpringFilter DSL`, ví dụ:
 | ID     | Method | URL                                                      | Auth     | Request                            | Response data                           | Ghi chú                       |
 | ------ | ------ | -------------------------------------------------------- | -------- | ---------------------------------- | --------------------------------------- | ----------------------------- |
 | WS-001 | POST   | `/api/v1/workspaces`                                     | `[AUTH]` | `CreateWorkspaceRequest`           | `WorkspaceResponse`                     | tạo workspace                 |
-| WS-002 | PATCH  | `/api/v1/workspaces/{workspaceId}`                       | `[AUTH]` | `UpdateWorkspaceRequest`           | `WorkspaceResponse`                     | owner/admin workspace         |
+| WS-002 | PATCH  | `/api/v1/workspaces/{workspaceId}`                       | `[AUTH]` | `UpdateWorkspaceRequest`           | `WorkspaceResponse`                     | owner workspace               |
 | WS-003 | GET    | `/api/v1/workspaces/{workspaceId}`                       | `[AUTH]` | path `workspaceId`                 | `WorkspaceResponse`                     | member workspace mới xem được |
 | WS-004 | GET    | `/api/v1/workspaces`                                     | `[AUTH]` | query `page`, `size`, `sort`       | `PaginationResponse<WorkspaceResponse>` | workspace nhìn thấy được      |
 | WS-005 | POST   | `/api/v1/workspaces/{workspaceId}/members`               | `[AUTH]` | `AddWorkspaceMemberRequest`        | `WorkspaceMemberResponse`               | owner only                    |
@@ -181,12 +181,13 @@ Một số API admin hỗ trợ `SpringFilter DSL`, ví dụ:
 
 | ID       | Method | URL                                        | Auth     | Request                      | Response data                         | Ghi chú                                          |
 | -------- | ------ | ------------------------------------------ | -------- | ---------------------------- | ------------------------------------- | ------------------------------------------------ |
-| PROJ-001 | POST   | `/api/v1/projects`                         | `[AUTH]` | `CreateProjectRequest`       | `ProjectResponse`                     | owner/admin workspace; set manager yêu cầu owner |
-| PROJ-002 | PATCH  | `/api/v1/projects/{projectId}`             | `[AUTH]` | `UpdateProjectRequest`       | `ProjectResponse`                     | manager project/owner/admin                      |
+| PROJ-001 | POST   | `/api/v1/projects`                         | `[AUTH]` | `CreateProjectRequest`       | `ProjectResponse`                     | owner workspace; set manager yêu cầu owner |
+| PROJ-002 | PATCH  | `/api/v1/projects/{projectId}`             | `[AUTH]` | `UpdateProjectRequest`       | `ProjectResponse`                     | project manager hoặc owner workspace       |
 | PROJ-003 | PATCH  | `/api/v1/projects/{projectId}/status`      | `[AUTH]` | `UpdateProjectStatusRequest` | `ProjectResponse`                     | đổi trạng thái project                           |
 | PROJ-004 | GET    | `/api/v1/projects/{projectId}`             | `[AUTH]` | path `projectId`             | `ProjectResponse`                     | member workspace                                 |
 | PROJ-005 | GET    | `/api/v1/projects/workspace/{workspaceId}` | `[AUTH]` | query `page`, `size`, `sort` | `PaginationResponse<ProjectResponse>` | project theo workspace                           |
 | PROJ-006 | DELETE | `/api/v1/projects/{projectId}`             | `[AUTH]` | path `projectId`             | `null`                                | xóa project                                      |
+| PROJ-007 | GET    | `/api/v1/projects/{projectId}/analytics`   | `[AUTH]` | path `projectId`             | `ProjectAnalyticsResponse`            | thống kê trend/completion của project            |
 
 ## 3.9. Module Goals
 
@@ -235,6 +236,7 @@ Một số API admin hỗ trợ `SpringFilter DSL`, ví dụ:
 | TASK-011 | GET    | `/api/v1/tasks/my-work`               | `[AUTH]` | không có body                   | `MyWorkResponse`                   | execution hub cá nhân              |
 | TASK-012 | GET    | `/api/v1/tasks/{taskId}/dependencies` | `[AUTH]` | path `taskId`                   | `TaskDependencyDetailsResponse`    | dependency + blocker của task      |
 | TASK-013 | PUT    | `/api/v1/tasks/{taskId}/dependencies` | `[AUTH]` | `UpdateTaskDependenciesRequest` | `TaskDependencyDetailsResponse`    | ghi đè toàn bộ danh sách phụ thuộc |
+| TASK-014 | GET    | `/api/v1/tasks/analytics`             | `[AUTH]` | không có body                   | `TaskAnalyticsResponse`            | thống kê task cá nhân hiện tại     |
 
 ## 3.13. Module Task Schedules
 
@@ -271,24 +273,33 @@ Một số API admin hỗ trợ `SpringFilter DSL`, ví dụ:
 | ------- | ------ | ----------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------ |
 | ACT-001 | GET    | `/api/v1/activity-logs/workspace/{workspaceId}` | `[AUTH]` | query `actorId`, `actionType`, `targetType`, `fromDateTime`, `toDateTime`, `page`, `size`, `sort` | `PaginationResponse<ActivityLogResponse>` | audit log theo workspace |
 
-## 3.17. Module Project Assistant (AI)
+## 3.17. Module Project Access
 
-| ID         | Method | URL                                                      | Auth     | Request                          | Response data                     | Ghi chú                           |
-| ---------- | ------ | -------------------------------------------------------- | -------- | -------------------------------- | --------------------------------- | --------------------------------- |
-| ASSIST-001 | GET    | `/api/v1/project-assistant/status`                       | `[AUTH]` | không có body                    | `ProjectAssistantStatusResponse`  | kiểm tra AI đã được cấu hình chưa |
-| ASSIST-002 | POST   | `/api/v1/project-assistant/projects/{projectId}/preview` | `[AUTH]` | `ProjectAssistantPreviewRequest` | `ProjectAssistantPreviewResponse` | preview kế hoạch AI cho project   |
-| ASSIST-003 | POST   | `/api/v1/project-assistant/projects/{projectId}/apply`   | `[AUTH]` | `ProjectAssistantApplyRequest`   | `ProjectAssistantApplyResponse`   | áp dụng kế hoạch AI vào project   |
+| ID       | Method | URL                                           | Auth     | Request                      | Response data                    | Ghi chú                                      |
+| -------- | ------ | --------------------------------------------- | -------- | ---------------------------- | -------------------------------- | -------------------------------------------- |
+| PACC-001 | GET    | `/api/v1/projects/{projectId}/access`         | `[AUTH]` | path `projectId`             | `List<ProjectAccessResponse>`    | danh sách grant của project                  |
+| PACC-002 | GET    | `/api/v1/projects/{projectId}/access/me`      | `[AUTH]` | path `projectId`             | `EffectiveProjectAccessResponse` | quyền hiệu lực của user hiện tại             |
+| PACC-003 | POST   | `/api/v1/projects/{projectId}/access`         | `[AUTH]` | `UpsertProjectAccessRequest` | `ProjectAccessResponse`          | cấp/cập nhật quyền user hoặc team            |
+| PACC-004 | PATCH  | `/api/v1/projects/{projectId}/access/{accessId}` | `[AUTH]` | `UpdateProjectAccessRequest` | `ProjectAccessResponse`          | đổi role của grant                           |
+| PACC-005 | DELETE | `/api/v1/projects/{projectId}/access/{accessId}` | `[AUTH]` | path `projectId`, `accessId` | `null`                           | thu hồi grant                                |
 
-## 3.18. Module Storage AWS S3
+## 3.18. Module Pomodoro
 
-| ID     | Method | URL                                                 | Auth     | Request                               | Response data          | Ghi chú              |
-| ------ | ------ | --------------------------------------------------- | -------- | ------------------------------------- | ---------------------- | -------------------- |
-| S3-001 | POST   | `/api/v1/storage/aws-s3/upload/single`              | `[AUTH]` | `SingleUploadFileRequest` form-data   | `SingleFileResponse`   | upload 1 file        |
-| S3-002 | POST   | `/api/v1/storage/aws-s3/upload/multiple`            | `[AUTH]` | `MultipleUploadFileRequest` form-data | `MultipleFileResponse` | upload nhiều file    |
-| S3-003 | DELETE | `/api/v1/storage/aws-s3/delete/single?filePath=...` | `[AUTH]` | query `filePath`                      | `String/null`          | xóa 1 file           |
-| S3-004 | DELETE | `/api/v1/storage/aws-s3/delete/multiple`            | `[AUTH]` | `MultipleDeleteFileRequest`           | `String/null`          | xóa nhiều file       |
-| S3-005 | PUT    | `/api/v1/storage/aws-s3/move/single`                | `[AUTH]` | `SingleMoveFileRequest`               | `String`               | di chuyển 1 file     |
-| S3-006 | PUT    | `/api/v1/storage/aws-s3/move/multiple`              | `[AUTH]` | `MultipleMoveFileRequest`             | `String`               | di chuyển nhiều file |
+| ID       | Method | URL                               | Auth     | Request                          | Response data            | Ghi chú                       |
+| -------- | ------ | --------------------------------- | -------- | -------------------------------- | ------------------------ | ----------------------------- |
+| POMO-001 | POST   | `/api/v1/pomodoro/tasks/{taskId}` | `[AUTH]` | `SavePomodoroSessionRequest`     | `PomodoroSessionResponse` | lưu một phiên focus đã hoàn tất |
+| POMO-002 | GET    | `/api/v1/pomodoro/tasks/{taskId}` | `[AUTH]` | path `taskId`                    | `List<PomodoroSessionResponse>` | lịch sử Pomodoro của user hiện tại trên task |
+
+## 3.19. Module Storage Azure Blob
+
+| ID       | Method | URL                                                        | Auth     | Request                               | Response data          | Ghi chú              |
+| -------- | ------ | ---------------------------------------------------------- | -------- | ------------------------------------- | ---------------------- | -------------------- |
+| AZBL-001 | POST   | `/api/v1/storage/azure-blob/upload/single`                 | `[AUTH]` | `SingleUploadFileRequest` form-data   | `SingleFileResponse`   | upload 1 file        |
+| AZBL-002 | POST   | `/api/v1/storage/azure-blob/upload/multiple`               | `[AUTH]` | `MultipleUploadFileRequest` form-data | `MultipleFileResponse` | upload nhiều file    |
+| AZBL-003 | DELETE | `/api/v1/storage/azure-blob/delete/single?filePath=...`    | `[AUTH]` | query `filePath`                      | `String/null`          | xóa 1 file           |
+| AZBL-004 | DELETE | `/api/v1/storage/azure-blob/delete/multiple`               | `[AUTH]` | `MultipleDeleteFileRequest`           | `String/null`          | xóa nhiều file       |
+| AZBL-005 | PUT    | `/api/v1/storage/azure-blob/move/single`                   | `[AUTH]` | `SingleMoveFileRequest`               | `String`               | di chuyển 1 file     |
+| AZBL-006 | PUT    | `/api/v1/storage/azure-blob/move/multiple`                 | `[AUTH]` | `MultipleMoveFileRequest`             | `String`               | di chuyển nhiều file |
 
 ## 4. Chi tiết request DTO
 
@@ -431,20 +442,20 @@ Ghi chú: phải có `email` hoặc `phoneNumber`.
 | Field    | Type                      | Bắt buộc | Mô tả                                     |
 | -------- | ------------------------- | -------- | ----------------------------------------- |
 | `userId` | `string`                  | có       | có thể là UUID hoặc email để resolve user |
-| `role`   | `WorkspaceMemberRoleType` | có       | `ADMIN` hoặc `MEMBER`; không cho `OWNER`  |
+| `role`   | `WorkspaceMemberRoleType` | có       | `OWNER` hoặc `MEMBER`; endpoint chỉ owner workspace được gọi |
 
 ### UpdateWorkspaceMemberRoleRequest
 
 | Field  | Type                      | Bắt buộc | Mô tả                       |
 | ------ | ------------------------- | -------- | --------------------------- |
-| `role` | `WorkspaceMemberRoleType` | có       | role mới; không cho `OWNER` |
+| `role` | `WorkspaceMemberRoleType` | có       | `OWNER` hoặc `MEMBER`; không được hạ cấp `OWNER` cuối cùng |
 
 ### CreateWorkspaceInviteRequest
 
 | Field          | Type                      | Bắt buộc | Mô tả                                |
 | -------------- | ------------------------- | -------- | ------------------------------------ |
 | `workspaceId`  | `long`                    | có       | workspace cần tạo invite             |
-| `roleToAssign` | `WorkspaceMemberRoleType` | không    | mặc định `MEMBER`; không cho `OWNER` |
+| `roleToAssign` | `WorkspaceMemberRoleType` | không    | `OWNER` hoặc `MEMBER`; mặc định `MEMBER` |
 | `maxUses`      | `int`                     | không    | số lượt dùng tối đa                  |
 | `expiresAt`    | `datetime`                | không    | thời điểm hết hạn                    |
 
@@ -477,6 +488,7 @@ Ghi chú: phải có `email` hoặc `phoneNumber`.
 | `workspaceId`   | `long`   | có       | workspace chứa project  |
 | `name`          | `string` | có       | tên project, tối đa 150 |
 | `description`   | `string` | không    | mô tả project           |
+| `visibility`    | `ProjectVisibilityType` | không | `PUBLIC` hoặc `PRIVATE`, mặc định `PUBLIC` |
 | `managerUserId` | `string` | không    | manager user            |
 | `managerTeamId` | `long`   | không    | manager team            |
 
@@ -487,6 +499,7 @@ Ghi chú: phải có `email` hoặc `phoneNumber`.
 | `name`          | `string`            | không    | tên project              |
 | `description`   | `string`            | không    | mô tả                    |
 | `status`        | `ProjectStatusType` | không    | trạng thái project       |
+| `visibility`    | `ProjectVisibilityType` | không | `PUBLIC` hoặc `PRIVATE` |
 | `managerUserId` | `string`            | không    | gán hoặc bỏ manager user |
 | `managerTeamId` | `long`              | không    | gán hoặc bỏ manager team |
 
@@ -548,8 +561,8 @@ Ghi chú: `managerUserId` rỗng có ý nghĩa bỏ manager user; `managerTeamId
 | `goalId`      | `long`   | không    | goal liên kết          |
 | `name`        | `string` | có       | tên loại task          |
 | `description` | `string` | không    | mô tả                  |
-| `color`       | `string` | không    | mã màu hiển thị        |
-| `icon`        | `string` | không    | tên icon               |
+| `color`       | `string` | không    | mã màu `#RRGGBB`, mặc định `#3B82F6` |
+| `icon`        | `string` | không    | mã icon frontend, mặc định `tag` |
 
 ### UpdateTaskTypeRequest
 
@@ -558,8 +571,19 @@ Ghi chú: `managerUserId` rỗng có ý nghĩa bỏ manager user; `managerTeamId
 | `name`        | `string` | không    | tên loại task |
 | `description` | `string` | không    | mô tả         |
 | `goalId`      | `long`   | không    | goal liên kết |
-| `color`       | `string` | không    | mã màu        |
-| `icon`        | `string` | không    | tên icon      |
+| `clearGoal`   | `boolean` | không   | `true` để bỏ scope goal |
+| `color`       | `string` | không    | mã màu `#RRGGBB` |
+| `icon`        | `string` | không    | mã icon frontend |
+
+Ghi chú: không được gửi đồng thời `goalId` và `clearGoal=true`. Backend sẽ kiểm `workspaceId` khớp project khi tạo task type.
+
+### SavePomodoroSessionRequest
+
+| Field             | Type       | Bắt buộc | Mô tả                                              |
+| ----------------- | ---------- | -------- | -------------------------------------------------- |
+| `durationMinutes` | `int`      | có       | số phút focus thực tế, range `1..240`              |
+| `startedAt`       | `datetime` | không    | thời điểm bắt đầu; backend tự suy ra nếu bỏ trống  |
+| `endedAt`         | `datetime` | không    | thời điểm kết thúc; mặc định thời điểm server nhận |
 
 ### CreateTaskRequest
 
@@ -629,19 +653,26 @@ Ghi chú: không được gửi đồng thời `goalId` và `clearGoal=true`.
 
 Ghi chú: đây là thao tác ghi đè (replace-all) — danh sách gửi lên sẽ trở thành toàn bộ dependency của task sau request.
 
-## 4.7. Project Assistant request DTOs
+## 4.7. Project Access request DTOs
 
-### ProjectAssistantPreviewRequest
+### UpsertProjectAccessRequest
 
-| Field    | Type     | Bắt buộc | Mô tả                                  |
-| -------- | -------- | -------- | -------------------------------------- |
-| `prompt` | `string` | có       | prompt người dùng gửi cho AI assistant |
+| Field         | Type                       | Bắt buộc | Mô tả                                                    |
+| ------------- | -------------------------- | -------- | -------------------------------------------------------- |
+| `subjectType` | `ProjectAccessSubjectType` | có       | `USER` hoặc `TEAM`                                       |
+| `userId`      | `string`                   | tùy loại | UUID user khi `subjectType=USER`                         |
+| `teamId`      | `long`                     | tùy loại | id team khi `subjectType=TEAM`                           |
+| `role`        | `ProjectAccessRoleType`    | có       | `VIEWER`, `CONTRIBUTOR`, `MANAGER`                       |
 
-### ProjectAssistantApplyRequest
+Ghi chú: request chỉ được gửi một trong hai khóa `userId` hoặc `teamId` theo đúng `subjectType`.
 
-| Field      | Type     | Bắt buộc | Mô tả                                                |
-| ---------- | -------- | -------- | ---------------------------------------------------- |
-| `planJson` | `string` | có       | JSON kế hoạch từ bước preview để áp dụng vào project |
+### UpdateProjectAccessRequest
+
+| Field  | Type                    | Bắt buộc | Mô tả                              |
+| ------ | ----------------------- | -------- | ---------------------------------- |
+| `role` | `ProjectAccessRoleType` | có       | role mới cho grant hiện có         |
+
+## 4.8. Task schedule / comment request DTOs
 
 ### CreateTaskScheduleRequest / UpdateTaskScheduleRequest
 
@@ -665,7 +696,7 @@ Ghi chú: đây là thao tác ghi đè (replace-all) — danh sách gửi lên s
 | --------- | -------- | -------- | ------------ |
 | `content` | `string` | có       | nội dung mới |
 
-## 4.7. Storage request DTOs
+## 4.9. Storage request DTOs
 
 ### SingleUploadFileRequest
 
@@ -861,6 +892,7 @@ Giống `RoleSecureResponse`, có thêm:
 | `name`            | `string`              | tên project            |
 | `description`     | `string`              | mô tả                  |
 | `status`          | `ProjectStatusType`   | trạng thái             |
+| `visibility`      | `ProjectVisibilityType` | `PUBLIC` hoặc `PRIVATE` |
 | `createdBy`       | `UserSummaryResponse` | người tạo              |
 | `managerUser`     | `UserSummaryResponse` | manager user           |
 | `managerTeamId`   | `long`                | manager team id        |
@@ -1020,43 +1052,80 @@ Ghi chú: `lastOpenStatus`, `importanceLevel`, `urgencyLevel` tồn tại ở en
 | `upcomingSchedules`      | `MyWorkScheduleItemResponse[]` | lịch sắp tới (tối đa 20 mục)             |
 | `generatedAt`            | `datetime`                     | thời điểm snapshot được tạo              |
 
-## 5.6. Project Assistant response DTOs
+## 5.6. Project Access / Analytics / Pomodoro response DTOs
 
-### ProjectAssistantStatusResponse
+### ProjectAccessResponse
 
-| Field               | Type       | Mô tả                                   |
-| ------------------- | ---------- | --------------------------------------- |
-| `enabled`           | `boolean`  | AI assistant có được bật không          |
-| `configured`        | `boolean`  | API key và provider đã cấu hình chưa    |
-| `ready`             | `boolean`  | `enabled && configured`                 |
-| `provider`          | `string`   | tên AI provider (vd: `openai`)          |
-| `model`             | `string`   | model đang dùng (vd: `gpt-4o-mini`)     |
-| `maxPreviewActions` | `int`      | số hành động tối đa trong 1 lần preview |
-| `supportedActions`  | `string[]` | danh sách action AI hỗ trợ              |
-| `message`           | `string`   | thông báo trạng thái (nullable)         |
+| Field       | Type                    | Mô tả                                 |
+| ----------- | ----------------------- | ------------------------------------- |
+| `id`        | `long`                  | id grant                              |
+| `projectId` | `long`                  | project được cấp quyền                |
+| `subjectType` | `ProjectAccessSubjectType` | loại subject: `USER` hoặc `TEAM` |
+| `user`      | `UserSummaryResponse`   | user được cấp quyền, nullable         |
+| `team`      | `WorkspaceTeamResponse` | team được cấp quyền, nullable         |
+| `role`      | `ProjectAccessRoleType` | `VIEWER`, `CONTRIBUTOR`, `MANAGER`    |
+| `grantedBy` | `UserSummaryResponse`   | người cấp quyền                       |
+| `createdAt` | `datetime`              | thời gian tạo                         |
+| `updatedAt` | `datetime`              | thời gian cập nhật                    |
 
-### ProjectAssistantPreviewResponse
+### EffectiveProjectAccessResponse
 
-| Field         | Type                   | Mô tả                  |
-| ------------- | ---------------------- | ---------------------- |
-| `projectId`   | `long`                 | project được preview   |
-| `provider`    | `string`               | AI provider            |
-| `model`       | `string`               | AI model               |
-| `plan`        | `ProjectAssistantPlan` | kế hoạch AI đề xuất    |
-| `generatedAt` | `datetime`             | thời điểm tạo kế hoạch |
+| Field                         | Type                         | Mô tả                                      |
+| ----------------------------- | ---------------------------- | ------------------------------------------ |
+| `projectId`                   | `long`                       | project đang kiểm tra                      |
+| `workspaceId`                 | `long`                       | workspace chứa project                     |
+| `visibility`                  | `ProjectVisibilityType`      | `PUBLIC` hoặc `PRIVATE`                    |
+| `effectiveRole`               | `EffectiveProjectAccessRoleType` | role hiệu lực sau khi gộp owner/direct/team/default |
+| `workspaceOwner`              | `boolean`                    | user hiện tại là owner workspace hay không |
+| `canViewProject`              | `boolean`                    | xem project                                |
+| `canContribute`               | `boolean`                    | tạo/sửa công việc cơ bản                   |
+| `canComment`                  | `boolean`                    | bình luận task                             |
+| `canManageProjectWork`        | `boolean`                    | quản lý công việc ở mức project manager    |
+| `canManageProjectAccess`      | `boolean`                    | quản lý grant của project                  |
+| `canGrantManager`             | `boolean`                    | cấp role `MANAGER`                         |
+| `canRevokeManager`            | `boolean`                    | thu hồi role `MANAGER`                     |
+| `canManageManagerAccess`      | `boolean`                    | quyền tổng hợp cho grant manager           |
+| `canChangeVisibility`         | `boolean`                    | đổi `PUBLIC/PRIVATE`                       |
+| `canDeleteProject`            | `boolean`                    | xóa project                                |
+| `canAssignOthers`             | `boolean`                    | assign task cho người khác                 |
+| `canManageWorkspaceMembers`   | `boolean`                    | quản lý member workspace                   |
+| `canManageWorkspaceTeams`     | `boolean`                    | quản lý team workspace                     |
+| `canManageWorkspaceInvites`   | `boolean`                    | quản lý invite workspace                   |
+| `canManageWorkspaceSettings`  | `boolean`                    | quản lý cấu hình workspace                 |
 
-Ghi chú: `ProjectAssistantPlan` chứa danh sách `actions` kiểu `ProjectAssistantAction[]`, mỗi action có `actionType`, `payload` tùy theo loại.
+### ProjectAnalyticsResponse
 
-### ProjectAssistantApplyResponse
+| Field            | Type                | Mô tả                                    |
+| ---------------- | ------------------- | ---------------------------------------- |
+| `trend`          | `DailyTrendPoint[]` | số task tạo/hoàn tất theo ngày           |
+| `completionRate` | `decimal`           | tỷ lệ hoàn thành                         |
+| `totalTasks`     | `long`              | tổng task trong project                  |
+| `completedTasks` | `long`              | số task đã hoàn thành                    |
 
-| Field            | Type                                | Mô tả                           |
-| ---------------- | ----------------------------------- | ------------------------------- |
-| `projectId`      | `long`                              | project được áp dụng kế hoạch   |
-| `requestedCount` | `int`                               | tổng số action được yêu cầu     |
-| `appliedCount`   | `int`                               | số action đã áp dụng thành công |
-| `results`        | `ProjectAssistantExecutionResult[]` | chi tiết kết quả từng action    |
-| `warnings`       | `string[]`                          | danh sách cảnh báo (nếu có)     |
-| `appliedAt`      | `datetime`                          | thời điểm áp dụng               |
+`DailyTrendPoint` của project gồm `date`, `created`, `completed`, `cumulative`.
+
+### TaskAnalyticsResponse
+
+| Field                | Type                    | Mô tả                                |
+| -------------------- | ----------------------- | ------------------------------------ |
+| `trend`              | `DailyTrendPoint[]`     | task cá nhân tạo/hoàn tất theo ngày  |
+| `estimatedByPriority` | `PriorityEstimatePoint[]` | tổng estimate theo mức ưu tiên    |
+| `totalAssigned`      | `long`                  | tổng task đang gán cho user hiện tại |
+| `totalCompleted`     | `long`                  | tổng task đã hoàn thành              |
+
+`DailyTrendPoint` của task gồm `date`, `created`, `completed`. `PriorityEstimatePoint` gồm `priority`, `totalMinutes`, `taskCount`.
+
+### PomodoroSessionResponse
+
+| Field             | Type       | Mô tả                         |
+| ----------------- | ---------- | ----------------------------- |
+| `id`              | `long`     | id phiên Pomodoro             |
+| `taskId`          | `long`     | task liên quan                |
+| `user`            | `UserSummaryResponse` | user hoàn tất phiên |
+| `durationMinutes` | `int`      | số phút focus                 |
+| `startedAt`       | `datetime` | thời điểm bắt đầu             |
+| `endedAt`         | `datetime` | thời điểm kết thúc            |
+| `createdAt`       | `datetime` | thời điểm lưu phiên           |
 
 ## 5.7. Notification / Activity / Storage response DTOs
 
@@ -1110,8 +1179,30 @@ Ghi chú: `ProjectAssistantPlan` chứa danh sách `actions` kiểu `ProjectAssi
 ### WorkspaceMemberRoleType
 
 - `OWNER`
-- `ADMIN`
 - `MEMBER`
+
+### ProjectVisibilityType
+
+- `PUBLIC`
+- `PRIVATE`
+
+### ProjectAccessSubjectType
+
+- `USER`
+- `TEAM`
+
+### ProjectAccessRoleType
+
+- `VIEWER`
+- `CONTRIBUTOR`
+- `MANAGER`
+
+### EffectiveProjectAccessRoleType
+
+- `NO_ACCESS`
+- `VIEWER`
+- `CONTRIBUTOR`
+- `MANAGER`
 
 ### ProjectStatusType
 
@@ -1365,7 +1456,7 @@ Ghi chú: backend có thể tự chuyển task sang cột closed đầu tiên c�
 
 ## 7.13. Upload ảnh cho task notes
 
-**POST** `/api/v1/storage/aws-s3/upload/single`
+**POST** `/api/v1/storage/azure-blob/upload/single`
 
 Form-data:
 
@@ -1377,7 +1468,7 @@ Response data mẫu:
 ```json
 {
     "fileName": "diagram.png",
-    "fileUrl": "https://bucket.s3.amazonaws.com/task-notes/101/diagram.png"
+    "fileUrl": "https://<account>.blob.core.windows.net/<container>/task-notes/101/diagram.png"
 }
 ```
 
@@ -1420,7 +1511,7 @@ Response data mẫu:
 
 1. Hầu hết API ngoài nhóm auth đều cần cả JWT hợp lệ và permission mapping hợp lệ trong DB.
 2. `OWNER` không thể được gán qua invite hoặc thêm member trực tiếp.
-3. Chỉnh manager của project/goal yêu cầu owner workspace, không chỉ admin workspace.
+3. Chỉnh manager của project/goal yêu cầu owner workspace.
 4. `AddWorkspaceMemberRequest.userId` có thể là email để service resolve user.
 5. `clearGoal=true` là contract chính thức để bỏ liên kết goal khỏi task.
 6. Tạo project sẽ tự sinh 3 cột mặc định: `To do`, `In Progress`, `Done`.

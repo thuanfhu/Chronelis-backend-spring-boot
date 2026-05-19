@@ -47,6 +47,7 @@ Mục tiêu là phục vụ đồng thời hai nhu cầu:
 9. `08_GHI_CHU_DOI_CHIEU_CODE_VA_RUI_RO.md`: các lưu ý, ràng buộc, mismatch và risk log.
 10. `09_TAI_LIEU_THAM_KHAO_DE_XUAT.md`: nhóm tài liệu nên khảo sát và trích dẫn khi viết đề cương/báo cáo.
 11. `API_DESCRIPTION.md`: mô tả API theo style Postman, bám DTO và controller hiện tại.
+12. `../../Chronelis-frontend-reactjs/docs/FRONTEND_GUIDE.md`: tài liệu onboarding frontend theo route, page, component, state, API và realtime.
 
 ## 4. Tài liệu nào tương ứng với yêu cầu của thầy
 
@@ -78,6 +79,7 @@ Mục tiêu là phục vụ đồng thời hai nhu cầu:
 - Đọc `03_MO_HINH_DU_LIEU_ENTITY_QUAN_HE.md`
 - Đọc `07_FRONTEND_SU_DUNG_API_NHU_THE_NAO.md`
 - Đọc `API_DESCRIPTION.md`
+- Đọc `../../Chronelis-frontend-reactjs/docs/FRONTEND_GUIDE.md` nếu cần onboarding chi tiết cho frontend.
 
 ## 5. Thứ tự đọc khuyến nghị
 
@@ -85,7 +87,7 @@ Mục tiêu là phục vụ đồng thời hai nhu cầu:
 2. Đọc `02` để nắm quy trình người dùng và logic kinh doanh.
 3. Đọc `03` và `04` để hiểu data model, kiến trúc, realtime và tích hợp FE/BE.
 4. Đọc `05` và `06` để ráp thành đề cương nộp cho thầy.
-5. Đọc `07`, `08`, `API_DESCRIPTION` khi cần chi tiết kỹ thuật.
+5. Đọc `07`, `08`, `API_DESCRIPTION` và frontend guide khi cần chi tiết kỹ thuật.
 
 ## 6. Ghi chú phạm vi
 

@@ -13,7 +13,7 @@ flowchart LR
     A -->|STOMP WebSocket| C[Realtime Gateway /ws]
     B --> D[(MySQL)]
     B --> E[(Redis)]
-    B --> F[AWS S3]
+    B --> F[Azure Blob Storage]
     B --> G[SMTP / Email Templates]
     C --> A
 ```
@@ -40,7 +40,7 @@ Backend đi theo luồng:
 - `domain`: entity JPA.
 - `dto/request`, `dto/response`: hợp đồng API.
 - `mapper`: MapStruct mapper.
-- `configuration`: security, websocket, seed, mail, S3.
+- `configuration`: security, websocket, seed, mail, Azure Blob.
 - `exception`: error code và global handler.
 
 ## 3. Kiến trúc frontend
@@ -160,7 +160,7 @@ Các link email đang align với frontend route:
 
 ### 7.2. File storage
 
-Frontend màn notes upload ảnh lên backend qua S3 API. Backend xử lý upload/delete/move file ở AWS S3 và trả URL để nhúng trực tiếp vào HTML notes.
+Frontend màn notes upload ảnh lên backend qua Azure Blob API. Backend xử lý upload/delete/move file ở Azure Blob Storage và trả URL để nhúng trực tiếp vào HTML notes.
 
 ## 8. Tích hợp frontend với backend theo kiểu dữ liệu
 
@@ -210,4 +210,4 @@ Từ góc nhìn đề tài thực tập tốt nghiệp, kiến trúc hiện tạ
 
 ## 11. Kết luận kiến trúc
 
-Chronelis đang được xây theo hướng một hệ thống cộng tác công việc hiện đại: frontend React chịu trách nhiệm trải nghiệm người dùng và đồng bộ state, backend Spring Boot xử lý nghiệp vụ và bảo mật, WebSocket đảm nhận realtime, còn email/S3 mở rộng giá trị vận hành. Đây là nền tảng tốt để viết phần phương pháp nghiên cứu, kiến trúc và triển khai trong đề cương cũng như báo cáo thực tập tốt nghiệp.
+Chronelis đang được xây theo hướng một hệ thống cộng tác công việc hiện đại: frontend React chịu trách nhiệm trải nghiệm người dùng và đồng bộ state, backend Spring Boot xử lý nghiệp vụ và bảo mật, WebSocket đảm nhận realtime, còn email/Azure Blob Storage mở rộng giá trị vận hành. Đây là nền tảng tốt để viết phần phương pháp nghiên cứu, kiến trúc và triển khai trong đề cương cũng như báo cáo thực tập tốt nghiệp.

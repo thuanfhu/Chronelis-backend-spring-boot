@@ -60,6 +60,9 @@ spring:
 chronelis:
     frontend:
         base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
+    ai:
+        gemini:
+            api-key: ${GEMINI_API_KEY:}
     account:
         base-password: ${ACCOUNT_BASE_PASSWORD:base_pass}
     allowed-init: ${ALLOWED_INIT:true}
@@ -79,6 +82,7 @@ azure:
         account-key: ${AZURE_STORAGE_ACCOUNT_KEY}
         container-name: ${AZURE_STORAGE_CONTAINER_NAME}
         endpoint: ${AZURE_STORAGE_ENDPOINT}
+        public-endpoint: ${AZURE_STORAGE_PUBLIC_ENDPOINT:${AZURE_STORAGE_ENDPOINT}}
 
 file:
     allowedTypes: ${FILE_ALLOWED_TYPES:image/jpeg,image/png,image/jpg,audio/mpeg}

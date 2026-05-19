@@ -323,7 +323,14 @@ public class DataInitializer implements ApplicationRunner {
 				new Permission("Validate invite code", "/api/v1/workspace-invites/validate/{inviteCode}", "GET",
 						"WORKSPACE_INVITE"),
 				new Permission("Join workspace by invite code", "/api/v1/workspace-invites/join", "POST",
-						"WORKSPACE_INVITE"));
+						"WORKSPACE_INVITE"),
+
+				// Module AI
+				new Permission("Generate AI content", "/api/v1/ai/generate", "POST", "AI"),
+
+				// Module Pomodoro
+				new Permission("Save Pomodoro session", "/api/v1/pomodoro/tasks/{taskId}", "POST", "POMODORO"),
+				new Permission("Get Pomodoro sessions", "/api/v1/pomodoro/tasks/{taskId}", "GET", "POMODORO"));
 	}
 
 	private Map<RoleType, List<Permission>> getDefaultRoles() {
@@ -425,7 +432,12 @@ public class DataInitializer implements ApplicationRunner {
 				// Workspace invites — validate + join (any authenticated user can use an invite
 				// link)
 				findPermissionOrThrow("/api/v1/workspace-invites/validate/{inviteCode}", "GET"),
-				findPermissionOrThrow("/api/v1/workspace-invites/join", "POST"));
+				findPermissionOrThrow("/api/v1/workspace-invites/join", "POST"),
+				
+				// AI & Pomodoro
+				findPermissionOrThrow("/api/v1/ai/generate", "POST"),
+				findPermissionOrThrow("/api/v1/pomodoro/tasks/{taskId}", "POST"),
+				findPermissionOrThrow("/api/v1/pomodoro/tasks/{taskId}", "GET"));
 
 		// CUSTOMER permissions - Read + personal collaboration capabilities
 		List<Permission> customerRolePermissions = combinePermissions(

@@ -10,6 +10,7 @@ import org.springframework.data.redis.connection.jedis.JedisClientConfiguration;
 import org.springframework.data.redis.connection.jedis.JedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+import org.springframework.util.StringUtils;
 import redis.clients.jedis.DefaultJedisClientConfig;
 import redis.clients.jedis.HostAndPort;
 import redis.clients.jedis.JedisPoolConfig;
@@ -69,7 +70,9 @@ public class RedisConfiguration {
 		RedisStandaloneConfiguration redisConfig = new RedisStandaloneConfiguration();
 		redisConfig.setHostName(redisHost);
 		redisConfig.setPort(redisPort);
-		redisConfig.setPassword(redisPassword);
+		if (StringUtils.hasText(redisPassword)) {
+			redisConfig.setPassword(redisPassword);
+		}
 
 		JedisClientConfiguration.JedisClientConfigurationBuilder jedisClientConfiguration = JedisClientConfiguration
 				.builder();
@@ -103,8 +106,14 @@ public class RedisConfiguration {
 
 	@Bean
 	public UnifiedJedis unifiedJedis() {
-		redis.clients.jedis.JedisClientConfig config = DefaultJedisClientConfig.builder().user(redisUsername)
-				.password(redisPassword).build();
+		DefaultJedisClientConfig.Builder builder = DefaultJedisClientConfig.builder();
+		if (StringUtils.hasText(redisUsername)) {
+			builder.user(redisUsername);
+		}
+		if (StringUtils.hasText(redisPassword)) {
+			builder.password(redisPassword);
+		}
+		redis.clients.jedis.JedisClientConfig config = builder.build();
 
 		UnifiedJedis jedis = new UnifiedJedis(new HostAndPort(redisHost, redisPort), config);
 

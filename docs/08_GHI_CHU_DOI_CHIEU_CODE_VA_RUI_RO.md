@@ -20,7 +20,8 @@ Backend không authorize theo role cứng cho hầu hết API. Sau khi qua JWT, 
 Có hai lớp quyền:
 
 - system role: `ADMIN`, `USER`
-- workspace role: `OWNER`, `ADMIN`, `MEMBER`
+- workspace role: `OWNER`, `MEMBER`
+- project access role: `MANAGER`, `CONTRIBUTOR`, `VIEWER`
 
 Nếu không phân biệt rõ, tài liệu rất dễ mô tả sai.
 
@@ -77,7 +78,7 @@ Tác động:
 
 Không chỉ tạo invite, thêm member hay tạo team, mà cả việc set/chỉnh `managerUserId` hoặc `managerTeamId` cho project/goal cũng yêu cầu owner workspace.
 
-Điều này cần được nhấn mạnh trong tài liệu vì nếu chỉ đọc UI có thể hiểu nhầm admin workspace cũng set manager được.
+Điều này cần được nhấn mạnh trong tài liệu vì workspace không còn role `ADMIN`; phân quyền chi tiết nằm ở project access grant.
 
 ### 3.5. Xóa dữ liệu là hard delete
 

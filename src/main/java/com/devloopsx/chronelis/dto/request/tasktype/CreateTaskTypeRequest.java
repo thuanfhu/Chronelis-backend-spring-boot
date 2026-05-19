@@ -2,6 +2,7 @@ package com.devloopsx.chronelis.dto.request.tasktype;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -27,7 +28,7 @@ public class CreateTaskTypeRequest {
     @Size(max = 2000, message = "INVALID_REQUEST_DATA")
     String description;
 
-    @Size(max = 20, message = "INVALID_REQUEST_DATA")
+    @Pattern(regexp = "^#[0-9A-Fa-f]{6}$", message = "INVALID_REQUEST_DATA")
     String color;
 
     @Size(max = 50, message = "INVALID_REQUEST_DATA")

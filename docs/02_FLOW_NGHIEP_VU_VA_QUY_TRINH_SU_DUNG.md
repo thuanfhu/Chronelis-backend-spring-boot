@@ -37,7 +37,7 @@
 
 1. Owner thêm thành viên bằng `POST /workspaces/{workspaceId}/members`.
 2. `userId` có thể là UUID hoặc email, service sẽ resolve người dùng.
-3. Role được phép thêm là `ADMIN` hoặc `MEMBER`, không cho `OWNER`.
+3. Role theo enum hiện tại là `OWNER` hoặc `MEMBER`; endpoint này chỉ owner workspace được gọi.
 4. Khi thêm thành viên thành công:
     - ghi activity log
     - phát realtime event `workspace.member.added`
@@ -46,8 +46,8 @@
 ### 2.3. Cập nhật role thành viên
 
 1. Chỉ owner mới đổi role được.
-2. Không cho đổi owner sang role khác.
-3. Không cho gán role `OWNER` qua endpoint cập nhật.
+2. Có thể đổi giữa `OWNER` và `MEMBER` qua endpoint cập nhật role.
+3. Backend không cho hạ cấp `OWNER` cuối cùng của workspace để tránh workspace mất chủ sở hữu.
 
 ## 3. Flow team và cộng tác nội bộ trong workspace
 
@@ -78,7 +78,7 @@ Team dùng để gom nhiều thành viên nhằm phục vụ phân công manager
     - `maxUses`
     - `expiresAt`
 3. Nếu không truyền role thì mặc định là `MEMBER`.
-4. Backend chặn tuyệt đối việc tạo invite với role `OWNER`.
+4. Code hiện tại nhận `OWNER` hoặc `MEMBER` cho `roleToAssign`; nếu không truyền role thì mặc định `MEMBER`.
 
 ### 4.2. Validate và join bằng invite
 
@@ -92,9 +92,10 @@ Team dùng để gom nhiều thành viên nhằm phục vụ phân công manager
 
 ### 5.1. Tạo project
 
-1. Owner hoặc admin workspace được tạo project.
-2. Nếu request có `managerUserId` hoặc `managerTeamId`, backend yêu cầu người tạo phải là owner workspace.
-3. Project mới được tạo tự động 3 cột task status mặc định:
+1. Chỉ owner workspace được tạo project.
+2. Nếu request có `managerUserId` hoặc `managerTeamId`, backend vẫn yêu cầu người tạo là owner workspace.
+3. Project mới có `visibility` mặc định là `PUBLIC` nếu request không truyền.
+4. Project mới được tạo tự động 3 cột task status mặc định:
     - `To do`
     - `In Progress`
     - `Done`
@@ -104,9 +105,9 @@ Team dùng để gom nhiều thành viên nhằm phục vụ phân công manager
 Một user được xem là có quyền quản lý project nếu thuộc một trong các trường hợp sau:
 
 - là owner workspace
-- là admin workspace
-- là manager user của project
-- là thành viên của manager team của project
+- có effective project role `MANAGER` từ grant trực tiếp
+- thuộc team có project access grant role `MANAGER`
+- được gán làm manager user/team của project và backend đã sync assignment đó thành project access grant
 
 ## 6. Flow goal trong project
 
@@ -179,7 +180,7 @@ Lưu ý quan trọng: nếu muốn bỏ liên kết goal, frontend phải dùng 
 
 - Ghi chú được lưu trực tiếp vào field `tasks.notes_html`.
 - Không có bảng `notes` riêng.
-- Frontend dùng TipTap editor và có thể upload ảnh vào notes thông qua S3.
+- Frontend dùng TipTap editor và có thể upload ảnh vào notes thông qua Azure Blob Storage.
 
 ### 8.2. Task comments
 
@@ -197,7 +198,7 @@ Lưu ý quan trọng: nếu muốn bỏ liên kết goal, frontend phải dùng 
 
 ### 8.4. Pomodoro
 
-Pomodoro là màn hình frontend giúp người dùng tập trung theo chu kỳ `focus / short break / long break` và bám theo `estimatedMinutes` của task. Đây là tính năng UI-side nhưng dữ liệu task vẫn lấy từ API task.
+Pomodoro là màn hình frontend giúp người dùng tập trung theo chu kỳ `focus / short break / long break` và bám theo `estimatedMinutes` của task. Khi hoàn tất một phiên focus, frontend gọi `POST /api/v1/pomodoro/tasks/{taskId}` để lưu `durationMinutes`; lịch sử phiên có thể đọc bằng `GET /api/v1/pomodoro/tasks/{taskId}`.
 
 ## 9. Flow notification và activity log
 
