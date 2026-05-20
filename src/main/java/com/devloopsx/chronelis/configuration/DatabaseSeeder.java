@@ -52,6 +52,7 @@ public class DatabaseSeeder implements ApplicationRunner {
     TaskRepository taskRepository;
     TaskScheduleRepository taskScheduleRepository;
     TaskCommentRepository taskCommentRepository;
+    PomodoroSessionRepository pomodoroSessionRepository;
     WorkspaceInviteRepository workspaceInviteRepository;
     NotificationRepository notificationRepository;
     ActivityLogRepository activityLogRepository;
@@ -274,6 +275,7 @@ public class DatabaseSeeder implements ApplicationRunner {
         notificationRepository.deleteAllInBatch();
         taskCommentRepository.deleteAllInBatch();
         taskScheduleRepository.deleteAllInBatch();
+        pomodoroSessionRepository.deleteAllInBatch();
         taskRepository.deleteAllInBatch();
         taskTypeRepository.deleteAllInBatch();
         taskStatusRepository.deleteAllInBatch();
@@ -311,11 +313,14 @@ public class DatabaseSeeder implements ApplicationRunner {
 
         log.info(">>> SEED STEP: tasks and schedules");
         TaskSeedResult taskSeed = seedTasks(
-                random, now, projects, goalsByProjectId, statusesByProjectId, taskTypesByProjectId, membershipSeed);
+                random, now, projects, goalsByProjectId, statusesByProjectId, taskTypesByProjectId, membershipSeed, teamSeed);
         ScheduleSeedResult scheduleSeed = seedTaskSchedules(random, now, taskSeed.tasks());
 
         log.info(">>> SEED STEP: comments");
         CommentSeedResult commentSeed = seedTaskComments(random, now, taskSeed.tasks(), membershipSeed);
+
+        log.info(">>> SEED STEP: pomodoro sessions");
+        seedPomodoroSessions(random, now, taskSeed.tasks(), membershipSeed, scheduleSeed);
 
         log.info(">>> SEED STEP: invites and notifications");
         List<WorkspaceInvite> invites = seedWorkspaceInvites(random, now, workspaces, membershipSeed);
@@ -1259,7 +1264,8 @@ public class DatabaseSeeder implements ApplicationRunner {
             Map<Long, List<Goal>> goalsByProjectId,
             Map<Long, List<TaskStatus>> statusesByProjectId,
             Map<Long, List<TaskType>> taskTypesByProjectId,
-            MembershipSeedResult membershipSeed) {
+            MembershipSeedResult membershipSeed,
+            TeamSeedResult teamSeed) {
         List<Task> tasks = new ArrayList<>();
         Map<Long, Integer> boardPositionByStatusId = new HashMap<>();
 
@@ -1271,8 +1277,35 @@ public class DatabaseSeeder implements ApplicationRunner {
 
             List<Goal> goals = goalsByProjectId.getOrDefault(project.getId(), List.of());
             List<TaskType> taskTypes = taskTypesByProjectId.getOrDefault(project.getId(), List.of());
-            List<User> members = membershipSeed.membersByWorkspaceId().getOrDefault(project.getWorkspace().getId(),
-                    List.of());
+            
+            List<User> workspaceMembers = membershipSeed.membersByWorkspaceId().getOrDefault(project.getWorkspace().getId(), List.of());
+            List<User> members;
+            
+            if (project.getVisibility() == ProjectVisibilityType.PRIVATE) {
+                Set<User> allowedUsers = new HashSet<>();
+                allowedUsers.add(project.getWorkspace().getOwner());
+                if (project.getManagerUser() != null) {
+                    allowedUsers.add(project.getManagerUser());
+                }
+                
+                List<ProjectAccessGrant> grants = projectAccessGrantRepository.findAll().stream()
+                        .filter(g -> g.getProject().getId().equals(project.getId()))
+                        .toList();
+                        
+                for (ProjectAccessGrant grant : grants) {
+                    if (grant.getUser() != null) {
+                        allowedUsers.add(grant.getUser());
+                    }
+                    if (grant.getTeam() != null) {
+                        List<User> teamMembers = teamSeed.membersByTeamId().getOrDefault(grant.getTeam().getId(), List.of());
+                        allowedUsers.addAll(teamMembers);
+                    }
+                }
+                members = new ArrayList<>(allowedUsers);
+            } else {
+                members = new ArrayList<>(workspaceMembers);
+            }
+
             if (members.isEmpty()) {
                 members = List.of(project.getCreatedBy());
             }
@@ -1280,10 +1313,11 @@ public class DatabaseSeeder implements ApplicationRunner {
             List<User> collaborationOrder = new ArrayList<>(members);
             collaborationOrder.sort(Comparator.comparing(user -> nullableLower(user.getEmail())));
 
+            List<Task> projectTasks = new ArrayList<>();
             for (Goal goal : goals) {
                 int goalTaskCount = 5 + random.nextInt(3);
                 for (int index = 0; index < goalTaskCount; index++) {
-                    tasks.add(buildTaskEntity(
+                    projectTasks.add(buildTaskEntity(
                             random,
                             now,
                             project,
@@ -1297,7 +1331,7 @@ public class DatabaseSeeder implements ApplicationRunner {
 
             int noGoalTaskCount = 1 + random.nextInt(2);
             for (int index = 0; index < noGoalTaskCount; index++) {
-                tasks.add(buildTaskEntity(
+                projectTasks.add(buildTaskEntity(
                         random,
                         now,
                         project,
@@ -1307,6 +1341,15 @@ public class DatabaseSeeder implements ApplicationRunner {
                         collaborationOrder,
                         boardPositionByStatusId));
             }
+
+            // Distribute assignees evenly for this project
+            int assigneeCursor = 0;
+            for (Task task : projectTasks) {
+                User assignee = collaborationOrder.get(assigneeCursor % collaborationOrder.size());
+                task.setAssignee(assignee);
+                assigneeCursor++;
+            }
+            tasks.addAll(projectTasks);
         }
 
         List<User> allAssignedUsers = membershipSeed.membersByWorkspaceId().values().stream()
@@ -1648,9 +1691,20 @@ public class DatabaseSeeder implements ApplicationRunner {
                 continue;
             }
 
-            List<User> participants = buildCommentParticipants(random, task,
-                    membershipSeed.membersByWorkspaceId().getOrDefault(task.getProject().getWorkspace().getId(),
-                            List.of()));
+            List<User> participants;
+            if (task.getProject().getVisibility() == ProjectVisibilityType.PRIVATE) {
+                Set<User> allowed = new HashSet<>();
+                allowed.add(task.getProject().getWorkspace().getOwner());
+                allowed.add(task.getCreatedBy());
+                if (task.getAssignee() != null) {
+                    allowed.add(task.getAssignee());
+                }
+                participants = new ArrayList<>(allowed);
+            } else {
+                participants = buildCommentParticipants(random, task,
+                        membershipSeed.membersByWorkspaceId().getOrDefault(task.getProject().getWorkspace().getId(),
+                                List.of()));
+            }
 
             LocalDateTime cursor = maxDateTime(task.getCreatedAt().plusHours(2), now.minusDays(180));
             for (int index = 0; index < commentCount; index++) {
@@ -1749,6 +1803,70 @@ public class DatabaseSeeder implements ApplicationRunner {
         }
 
         return new CommentSeedResult(allComments, commentsByTaskId);
+    }
+
+    private void seedPomodoroSessions(
+            Random random,
+            LocalDateTime now,
+            List<Task> tasks,
+            MembershipSeedResult membershipSeed,
+            ScheduleSeedResult scheduleSeed) {
+        List<PomodoroSession> sessions = new ArrayList<>();
+
+        for (Task task : tasks) {
+            if (random.nextDouble() > 0.4) {
+                continue;
+            }
+
+            User user = task.getAssignee();
+            if (user == null) {
+                user = task.getCreatedBy();
+            }
+
+            int sessionCount = 1 + random.nextInt(4);
+            List<TaskSchedule> taskSchedules = scheduleSeed.schedulesByTaskId().getOrDefault(task.getId(), List.of());
+
+            for (int i = 0; i < sessionCount; i++) {
+                LocalDateTime createdAt;
+                
+                if (!taskSchedules.isEmpty()) {
+                    TaskSchedule schedule = taskSchedules.get(random.nextInt(taskSchedules.size()));
+                    LocalDateTime start = schedule.getScheduledStart();
+                    LocalDateTime end = schedule.getScheduledEnd();
+                    long minutes = ChronoUnit.MINUTES.between(start, end);
+                    
+                    if (minutes > 25) {
+                        createdAt = start.plusMinutes(random.nextInt((int) minutes - 25));
+                    } else {
+                        createdAt = start;
+                    }
+                } else {
+                    LocalDateTime endLimit = task.getCompletedAt() != null ? task.getCompletedAt() : now;
+                    long minutesBetween = ChronoUnit.MINUTES.between(task.getCreatedAt(), endLimit);
+                    
+                    if (minutesBetween > 30) {
+                        long randomMinutes = 15 + random.nextLong(minutesBetween - 15);
+                        createdAt = task.getCreatedAt().plusMinutes(randomMinutes);
+                    } else {
+                        createdAt = task.getCreatedAt().plusMinutes(5 + random.nextInt(10));
+                    }
+                }
+
+                if (createdAt.isAfter(now)) {
+                    createdAt = now.minusMinutes(1);
+                }
+
+                sessions.add(PomodoroSession.builder()
+                        .task(task)
+                        .user(user)
+                        .durationMinutes(25)
+                        .createdAt(createdAt)
+                        .build());
+            }
+        }
+
+        pomodoroSessionRepository.saveAll(sessions);
+        log.info(">>> Seeded {} pomodoro sessions", sessions.size());
     }
 
     private List<WorkspaceInvite> seedWorkspaceInvites(
@@ -2540,26 +2658,14 @@ public class DatabaseSeeder implements ApplicationRunner {
                 yield statuses.get(4);
             }
             case COMPLETED -> {
-                if (roll < 5)
-                    yield statuses.get(0);
-                if (roll < 12)
-                    yield statuses.get(1);
-                if (roll < 25)
-                    yield statuses.get(2);
-                if (roll < 35)
-                    yield statuses.get(3);
-                yield statuses.get(4);
+                if (roll < 90)
+                    yield statuses.get(4); // Done
+                yield statuses.get(0); // Backlog (Cancelled)
             }
             case ARCHIVED -> {
-                if (roll < 12)
-                    yield statuses.get(0);
-                if (roll < 25)
-                    yield statuses.get(1);
-                if (roll < 38)
-                    yield statuses.get(2);
-                if (roll < 48)
-                    yield statuses.get(3);
-                yield statuses.get(4);
+                if (roll < 95)
+                    yield statuses.get(4); // Done
+                yield statuses.get(0); // Backlog (Cancelled)
             }
         };
     }

@@ -117,7 +117,7 @@ Xây dựng hệ thống hỗ trợ cộng tác nhóm và quản lý tiến đ�
 
 - Pomodoro page cho từng task.
 - Ghi chú HTML bằng editor TipTap.
-- Upload ảnh vào ghi chú task qua AWS S3.
+- Upload ảnh vào ghi chú task qua Azure Blob Storage.
 
 ### 7.5. Nhóm chức năng quản trị hệ thống
 
@@ -136,7 +136,7 @@ Xây dựng hệ thống hỗ trợ cộng tác nhóm và quản lý tiến đ�
 - Liquibase.
 - Redis cho blacklist token.
 - WebSocket STOMP.
-- AWS S3.
+- Azure Blob Storage.
 - Thymeleaf mail templates.
 
 ### 8.2. Frontend

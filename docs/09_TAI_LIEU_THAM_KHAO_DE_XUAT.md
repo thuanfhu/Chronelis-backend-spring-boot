@@ -51,7 +51,7 @@ File này tổng hợp các nhóm tài liệu nên khảo sát và trích dẫn 
 ### 3.4. Rich text và file storage
 
 - TipTap documentation.
-- AWS S3 official documentation.
+- Azure Blob Storage official documentation.
 
 ## 4. Nhóm chủ đề học thuật nên tìm tài liệu liên quan
 
@@ -108,7 +108,7 @@ Sử dụng tài liệu kỹ thuật chính thống để giải thích vì sao 
 - Spring Boot cho backend
 - JWT + refresh cookie cho auth
 - STOMP/WebSocket cho realtime
-- S3 cho lưu trữ file
+- Azure Blob Storage cho lưu trữ file
 
 ## 7. Gợi ý cách ghi tài liệu tham khảo
 

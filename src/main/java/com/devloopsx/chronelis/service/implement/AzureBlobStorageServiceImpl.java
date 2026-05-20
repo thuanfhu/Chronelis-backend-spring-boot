@@ -33,6 +33,10 @@ public class AzureBlobStorageServiceImpl implements AzureBlobStorageService {
   @Value("${azure.storage.container-name}")
   String defaultFolderName;
 
+  @NonFinal
+  @Value("${azure.storage.public-endpoint:${azure.storage.endpoint}}")
+  String publicEndpoint;
+
   @Override
   public String uploadSingleFile(MultipartFile file, String folderName) {
     fileUtils.validateFile(file);
@@ -48,7 +52,7 @@ public class AzureBlobStorageServiceImpl implements AzureBlobStorageService {
     try {
       BlobClient blobClient = blobContainerClient.getBlobClient(key);
       blobClient.upload(file.getInputStream(), file.getSize(), true);
-      return blobClient.getBlobUrl();
+      return toPublicBlobUrl(blobClient.getBlobUrl());
     } catch (BlobStorageException e) {
       if (e.getStatusCode() == 404) {
         throw new ApplicationException(
@@ -111,7 +115,7 @@ public class AzureBlobStorageServiceImpl implements AzureBlobStorageService {
         );
       }
 
-      return blobClient.getBlobUrl();
+      return toPublicBlobUrl(blobClient.getBlobUrl());
     } catch (BlobStorageException e) {
       if (e.getStatusCode() == 404) {
         throw new ApplicationException(
@@ -208,10 +212,14 @@ public class AzureBlobStorageServiceImpl implements AzureBlobStorageService {
 
   @Override
   public String extractFilePathFromBlobUrl(String blobUrl) {
-    String endpoint = blobContainerClient.getBlobContainerUrl();
-    String containerPrefix = endpoint.endsWith("/") ? endpoint : endpoint + "/";
-    if (blobUrl.startsWith(containerPrefix)) {
-      return blobUrl.substring(containerPrefix.length());
+    String internalPrefix = withTrailingSlash(blobContainerClient.getBlobContainerUrl());
+    if (blobUrl.startsWith(internalPrefix)) {
+      return blobUrl.substring(internalPrefix.length());
+    }
+
+    String publicPrefix = withTrailingSlash(buildPublicContainerUrl());
+    if (blobUrl.startsWith(publicPrefix)) {
+      return blobUrl.substring(publicPrefix.length());
     }
     return null;
   }
@@ -240,5 +248,28 @@ public class AzureBlobStorageServiceImpl implements AzureBlobStorageService {
       return serviceMessage;
     }
     return exception.getMessage();
+  }
+
+  private String toPublicBlobUrl(String internalBlobUrl) {
+    String internalPrefix = withTrailingSlash(blobContainerClient.getBlobContainerUrl());
+    if (!internalBlobUrl.startsWith(internalPrefix)) {
+      return internalBlobUrl;
+    }
+    return withTrailingSlash(buildPublicContainerUrl()) + internalBlobUrl.substring(internalPrefix.length());
+  }
+
+  private String buildPublicContainerUrl() {
+    String resolvedPublicEndpoint = StringUtils.hasText(publicEndpoint)
+      ? publicEndpoint.trim()
+      : blobContainerClient.getBlobContainerUrl();
+    return withoutTrailingSlash(resolvedPublicEndpoint) + "/" + blobContainerClient.getBlobContainerName();
+  }
+
+  private String withTrailingSlash(String value) {
+    return value.endsWith("/") ? value : value + "/";
+  }
+
+  private String withoutTrailingSlash(String value) {
+    return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
   }
 }
