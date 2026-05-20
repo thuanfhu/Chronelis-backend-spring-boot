@@ -34,7 +34,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws").setAllowedOrigins(
-                "http://localhost:5173", "https://chronelis.vercel.app", "https://chronelis.io.vn/");
+                "http://localhost:5173", "https://chronelis.vercel.app", "https://chronelis.io.vn/",
+                "https://www.chronelis.io.vn/");
     }
 
     @Override
