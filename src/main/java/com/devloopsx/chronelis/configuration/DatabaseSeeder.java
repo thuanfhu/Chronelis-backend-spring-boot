@@ -56,6 +56,7 @@ public class DatabaseSeeder implements ApplicationRunner {
     WorkspaceInviteRepository workspaceInviteRepository;
     NotificationRepository notificationRepository;
     ActivityLogRepository activityLogRepository;
+    TaskDependencyRepository taskDependencyRepository;
 
     @NonFinal
     @Value("${chronelis.allowed-init}")
@@ -192,7 +193,11 @@ public class DatabaseSeeder implements ApplicationRunner {
             new TaskTypeTemplate("Improvement", "Refactor or optimization", "#059669", "wrench"),
             new TaskTypeTemplate("Documentation", "Knowledge base and runbook", "#D97706", "book"),
             new TaskTypeTemplate("Research", "Discovery and validation", "#7C3AED", "search"),
-            new TaskTypeTemplate("Operations", "Operational follow-up work", "#475569", "settings"));
+            new TaskTypeTemplate("Operations", "Operational follow-up work", "#475569", "settings"),
+            new TaskTypeTemplate("Design", "UI/UX Mockups and assets", "#EC4899", "palette"),
+            new TaskTypeTemplate("Review", "Code and architecture review", "#8B5CF6", "eye"),
+            new TaskTypeTemplate("Testing", "QA and automated tests", "#10B981", "check-circle"),
+            new TaskTypeTemplate("Deployment", "Release to environments", "#F59E0B", "rocket"));
 
     static final String[] TASK_ACTIONS = {
             "Implement", "Stabilize", "Review", "Optimize", "Finalize", "Audit",
@@ -276,6 +281,7 @@ public class DatabaseSeeder implements ApplicationRunner {
         taskCommentRepository.deleteAllInBatch();
         taskScheduleRepository.deleteAllInBatch();
         pomodoroSessionRepository.deleteAllInBatch();
+        taskDependencyRepository.deleteAllInBatch();
         taskRepository.deleteAllInBatch();
         taskTypeRepository.deleteAllInBatch();
         taskStatusRepository.deleteAllInBatch();
@@ -309,11 +315,15 @@ public class DatabaseSeeder implements ApplicationRunner {
 
         Map<Long, List<TaskStatus>> statusesByProjectId = seedTaskStatuses(projects);
         Map<Long, List<Goal>> goalsByProjectId = seedGoals(random, now, projects, membershipSeed, teamSeed);
-        Map<Long, List<TaskType>> taskTypesByProjectId = new LinkedHashMap<>();
+        Map<Long, List<TaskType>> taskTypesByProjectId = seedTaskTypes(random, now, projects, goalsByProjectId);
 
         log.info(">>> SEED STEP: tasks and schedules");
         TaskSeedResult taskSeed = seedTasks(
                 random, now, projects, goalsByProjectId, statusesByProjectId, taskTypesByProjectId, membershipSeed, teamSeed);
+        
+        log.info(">>> SEED STEP: task dependencies");
+        List<TaskDependency> taskDependencies = seedTaskDependencies(random, now, taskSeed.tasks());
+
         ScheduleSeedResult scheduleSeed = seedTaskSchedules(random, now, taskSeed.tasks());
 
         log.info(">>> SEED STEP: comments");
@@ -354,6 +364,7 @@ public class DatabaseSeeder implements ApplicationRunner {
                 statusCount,
                 taskTypeCount,
                 taskSeed.tasks().size(),
+                taskDependencies.size(),
                 scheduleSeed.schedules().size(),
                 commentSeed.comments().size(),
                 invites.size(),
@@ -3117,6 +3128,75 @@ public class DatabaseSeeder implements ApplicationRunner {
             return null;
         }
         return value.length() > maxLength ? value.substring(0, maxLength) : value;
+    }
+
+    private List<TaskDependency> seedTaskDependencies(Random random, LocalDateTime now, List<Task> tasks) {
+        List<TaskDependency> dependencies = new ArrayList<>();
+        Map<Long, List<Task>> tasksByProjectId = tasks.stream().collect(java.util.stream.Collectors.groupingBy(t -> t.getProject().getId()));
+
+        for (Map.Entry<Long, List<Task>> entry : tasksByProjectId.entrySet()) {
+            List<Task> projectTasks = entry.getValue();
+            
+            // Group by phase
+            List<Task> planningTasks = new ArrayList<>();
+            List<Task> designTasks = new ArrayList<>();
+            List<Task> implTasks = new ArrayList<>();
+            List<Task> testTasks = new ArrayList<>();
+            List<Task> deployTasks = new ArrayList<>();
+
+            for (Task t : projectTasks) {
+                String type = t.getTaskType().getName();
+                String name = t.getTitle().toLowerCase();
+                
+                if (type.equals("Research") || name.contains("plan") || name.contains("discovery")) {
+                    planningTasks.add(t);
+                } else if (type.equals("Design") || name.contains("mockup") || name.contains("ui/ux")) {
+                    designTasks.add(t);
+                } else if (type.equals("Feature") || type.equals("Bug") || type.equals("Improvement")) {
+                    implTasks.add(t);
+                } else if (type.equals("Testing") || type.equals("Review") || name.contains("qa")) {
+                    testTasks.add(t);
+                } else if (type.equals("Deployment") || type.equals("Operations") || name.contains("release")) {
+                    deployTasks.add(t);
+                } else {
+                    implTasks.add(t); // fallback
+                }
+            }
+
+            // Create dependencies between phases
+            createDependenciesBetweenPhases(random, now, dependencies, designTasks, planningTasks, 0.7); // 70% design depends on planning
+            createDependenciesBetweenPhases(random, now, dependencies, implTasks, designTasks, 0.6);   // 60% impl depends on design
+            createDependenciesBetweenPhases(random, now, dependencies, testTasks, implTasks, 0.8);     // 80% test depends on impl
+            createDependenciesBetweenPhases(random, now, dependencies, deployTasks, testTasks, 0.9);   // 90% deploy depends on test
+        }
+
+        taskDependencyRepository.saveAll(dependencies);
+        return dependencies;
+    }
+
+    private void createDependenciesBetweenPhases(Random random, LocalDateTime now, List<TaskDependency> dependencies, 
+                                                List<Task> dependents, List<Task> dependees, double probability) {
+        if (dependees.isEmpty() || dependents.isEmpty()) return;
+        
+        for (Task dependent : dependents) {
+            if (random.nextDouble() <= probability) {
+                // Pick a random dependee
+                Task dependee = dependees.get(random.nextInt(dependees.size()));
+                
+                // Avoid cycle and duplicate
+                if (!dependent.getId().equals(dependee.getId()) && 
+                    !taskDependencyRepository.existsByTaskIdAndDependsOnTaskId(dependent.getId(), dependee.getId())) {
+                    
+                    TaskDependency dep = TaskDependency.builder()
+                            .task(dependent)
+                            .dependsOnTask(dependee)
+                            .createdAt(now)
+                            .updatedAt(now)
+                            .build();
+                    dependencies.add(dep);
+                }
+            }
+        }
     }
 
     private record ProjectPlan(
