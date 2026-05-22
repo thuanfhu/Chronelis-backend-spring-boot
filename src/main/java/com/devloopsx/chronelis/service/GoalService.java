@@ -7,15 +7,15 @@ import com.devloopsx.chronelis.dto.response.goal.GoalResponse;
 import org.springframework.data.domain.Pageable;
 
 public interface GoalService {
-    GoalResponse createGoal(CreateGoalRequest request);
+  GoalResponse createGoal(CreateGoalRequest request);
 
-    GoalResponse updateGoal(Long goalId, UpdateGoalRequest request);
+  GoalResponse updateGoal(Long goalId, UpdateGoalRequest request);
 
-    GoalResponse getGoal(Long goalId);
+  GoalResponse getGoal(Long goalId);
 
-    PaginationResponse listGoalsByProject(Long projectId, Pageable pageable);
+  PaginationResponse listGoalsByProject(Long projectId, Pageable pageable);
 
-    void deleteGoal(Long goalId);
+  void deleteGoal(Long goalId);
 
-    void recalculateGoalProgress(Long goalId);
+  void recalculateGoalProgress(Long goalId);
 }

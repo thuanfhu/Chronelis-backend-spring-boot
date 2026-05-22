@@ -12,10 +12,12 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface GoalRepository extends JpaRepository<Goal, Long>, JpaSpecificationExecutor<Goal> {
-    Page<Goal> findByProjectId(Long projectId, Pageable pageable);
+  Page<Goal> findByProjectId(Long projectId, Pageable pageable);
 
-    @Modifying
-    @Query("UPDATE Goal g SET g.createdBy = :replacementUser WHERE g.createdBy.userId = :sourceUserId")
-    int reassignCreatedBy(@Param("sourceUserId") String sourceUserId,
-            @Param("replacementUser") com.devloopsx.chronelis.domain.User replacementUser);
+  @Modifying
+  @Query(
+      "UPDATE Goal g SET g.createdBy = :replacementUser WHERE g.createdBy.userId = :sourceUserId")
+  int reassignCreatedBy(
+      @Param("sourceUserId") String sourceUserId,
+      @Param("replacementUser") com.devloopsx.chronelis.domain.User replacementUser);
 }

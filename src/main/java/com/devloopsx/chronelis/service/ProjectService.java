@@ -9,17 +9,17 @@ import com.devloopsx.chronelis.dto.response.project.ProjectResponse;
 import org.springframework.data.domain.Pageable;
 
 public interface ProjectService {
-    ProjectResponse createProject(CreateProjectRequest request);
+  ProjectResponse createProject(CreateProjectRequest request);
 
-    ProjectResponse updateProject(Long projectId, UpdateProjectRequest request);
+  ProjectResponse updateProject(Long projectId, UpdateProjectRequest request);
 
-    ProjectResponse updateProjectStatus(Long projectId, UpdateProjectStatusRequest request);
+  ProjectResponse updateProjectStatus(Long projectId, UpdateProjectStatusRequest request);
 
-    ProjectResponse getProject(Long projectId);
+  ProjectResponse getProject(Long projectId);
 
-    PaginationResponse listProjectsByWorkspace(Long workspaceId, Pageable pageable);
+  PaginationResponse listProjectsByWorkspace(Long workspaceId, Pageable pageable);
 
-    void deleteProject(Long projectId);
+  void deleteProject(Long projectId);
 
-    ProjectAnalyticsResponse getProjectAnalytics(Long projectId);
+  ProjectAnalyticsResponse getProjectAnalytics(Long projectId);
 }

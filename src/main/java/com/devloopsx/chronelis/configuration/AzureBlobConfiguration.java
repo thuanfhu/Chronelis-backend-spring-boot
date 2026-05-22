@@ -26,45 +26,27 @@ public class AzureBlobConfiguration {
 
   @Bean
   public BlobServiceClient blobServiceClient() {
-    String resolvedAccountName = requireNonBlank(
-      accountName,
-      "AZURE_STORAGE_ACCOUNT_NAME"
-    );
-    String resolvedAccountKey = requireNonBlank(
-      accountKey,
-      "AZURE_STORAGE_ACCOUNT_KEY"
-    );
-    String resolvedEndpoint = requireNonBlank(
-      endpoint,
-      "AZURE_STORAGE_ENDPOINT"
-    );
+    String resolvedAccountName = requireNonBlank(accountName, "AZURE_STORAGE_ACCOUNT_NAME");
+    String resolvedAccountKey = requireNonBlank(accountKey, "AZURE_STORAGE_ACCOUNT_KEY");
+    String resolvedEndpoint = requireNonBlank(endpoint, "AZURE_STORAGE_ENDPOINT");
 
-    StorageSharedKeyCredential credential = new StorageSharedKeyCredential(
-      resolvedAccountName,
-      resolvedAccountKey
-    );
+    StorageSharedKeyCredential credential =
+        new StorageSharedKeyCredential(resolvedAccountName, resolvedAccountKey);
     return new BlobServiceClientBuilder()
-      .endpoint(resolvedEndpoint)
-      .credential(credential)
-      .buildClient();
+        .endpoint(resolvedEndpoint)
+        .credential(credential)
+        .buildClient();
   }
 
   @Bean
-  public BlobContainerClient blobContainerClient(
-    BlobServiceClient blobServiceClient
-  ) {
-    String resolvedContainerName = requireNonBlank(
-      containerName,
-      "AZURE_STORAGE_CONTAINER_NAME"
-    );
+  public BlobContainerClient blobContainerClient(BlobServiceClient blobServiceClient) {
+    String resolvedContainerName = requireNonBlank(containerName, "AZURE_STORAGE_CONTAINER_NAME");
     return blobServiceClient.getBlobContainerClient(resolvedContainerName);
   }
 
   private String requireNonBlank(String value, String envKey) {
     if (!StringUtils.hasText(value)) {
-      throw new IllegalStateException(
-        "Missing required Azure Blob configuration: " + envKey
-      );
+      throw new IllegalStateException("Missing required Azure Blob configuration: " + envKey);
     }
     return value.trim();
   }

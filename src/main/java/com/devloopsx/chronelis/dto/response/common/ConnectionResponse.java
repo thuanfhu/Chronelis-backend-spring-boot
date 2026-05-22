@@ -13,6 +13,6 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class ConnectionResponse {
-	String clientSessionId;
-	String message;
+  String clientSessionId;
+  String message;
 }

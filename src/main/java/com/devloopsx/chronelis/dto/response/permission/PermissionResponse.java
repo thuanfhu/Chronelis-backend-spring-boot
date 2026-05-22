@@ -14,9 +14,9 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class PermissionResponse extends AuditResponse {
-	String permissionId;
-	String name;
-	String apiPath;
-	String httpMethod;
-	String module;
+  String permissionId;
+  String name;
+  String apiPath;
+  String httpMethod;
+  String module;
 }

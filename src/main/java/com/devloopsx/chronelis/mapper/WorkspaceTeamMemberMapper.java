@@ -7,6 +7,6 @@ import org.mapstruct.Mapping;
 
 @Mapper(componentModel = "spring", uses = UserSummaryMapper.class)
 public interface WorkspaceTeamMemberMapper {
-    @Mapping(target = "teamId", source = "team.id")
-    WorkspaceTeamMemberResponse toResponse(WorkspaceTeamMember member);
+  @Mapping(target = "teamId", source = "team.id")
+  WorkspaceTeamMemberResponse toResponse(WorkspaceTeamMember member);
 }

@@ -6,17 +6,9 @@ import org.springframework.web.multipart.MultipartFile;
 public interface AzureBlobStorageService {
   String uploadSingleFile(MultipartFile file, String folderName);
 
-  String uploadFile(
-    byte[] content,
-    String fileName,
-    String folderName,
-    String contentType
-  );
+  String uploadFile(byte[] content, String fileName, String folderName, String contentType);
 
-  List<String> uploadMultipleFiles(
-    List<MultipartFile> files,
-    String folderName
-  );
+  List<String> uploadMultipleFiles(List<MultipartFile> files, String folderName);
 
   void deleteSingleFile(String filePath);
 

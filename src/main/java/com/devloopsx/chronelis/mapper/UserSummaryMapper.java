@@ -6,5 +6,5 @@ import org.mapstruct.Mapper;
 
 @Mapper(componentModel = "spring")
 public interface UserSummaryMapper {
-    UserSummaryResponse toSummary(User user);
+  UserSummaryResponse toSummary(User user);
 }

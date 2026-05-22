@@ -18,190 +18,223 @@ import com.devloopsx.chronelis.service.ProjectAccessService;
 import com.devloopsx.chronelis.service.ProjectPermissionService;
 import com.devloopsx.chronelis.service.cache.CacheInvalidationService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
-
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ProjectAccessServiceImpl implements ProjectAccessService {
-    ProjectAccessGrantRepository projectAccessGrantRepository;
-    UserRepository userRepository;
-    WorkspaceTeamMemberRepository workspaceTeamMemberRepository;
-    ProjectAccessMapper projectAccessMapper;
-    CollaborationAccessService collaborationAccessService;
-    ProjectPermissionService projectPermissionService;
-    SecurityUtils securityUtils;
-    CacheInvalidationService cacheInvalidationService;
+  ProjectAccessGrantRepository projectAccessGrantRepository;
+  UserRepository userRepository;
+  WorkspaceTeamMemberRepository workspaceTeamMemberRepository;
+  ProjectAccessMapper projectAccessMapper;
+  CollaborationAccessService collaborationAccessService;
+  ProjectPermissionService projectPermissionService;
+  SecurityUtils securityUtils;
+  CacheInvalidationService cacheInvalidationService;
 
-    @Override
-    public List<ProjectAccessResponse> listProjectAccess(Long projectId) {
-        collaborationAccessService.ensureCurrentUserCanManageProjectAccess(projectId);
-        return projectAccessGrantRepository.findByProjectIdOrderByCreatedAtAsc(projectId).stream()
-                .map(projectAccessMapper::toResponse)
-                .toList();
+  @Override
+  public List<ProjectAccessResponse> listProjectAccess(Long projectId) {
+    collaborationAccessService.ensureCurrentUserCanManageProjectAccess(projectId);
+    return projectAccessGrantRepository.findByProjectIdOrderByCreatedAtAsc(projectId).stream()
+        .map(projectAccessMapper::toResponse)
+        .toList();
+  }
+
+  @Override
+  @Transactional
+  public ProjectAccessResponse upsertProjectAccess(
+      Long projectId, UpsertProjectAccessRequest request) {
+    Project project = collaborationAccessService.requireProject(projectId);
+    EffectiveProjectAccessResponse actorAccess =
+        projectPermissionService.resolveCurrentUserAccess(project);
+    ensureCanManageRequestedRole(actorAccess, request.getRole());
+
+    validateSubjectRequest(project, request);
+    ProjectAccessGrant projectAccess = resolveExistingGrant(projectId, request);
+    LocalDateTime now = LocalDateTime.now();
+
+    if (projectAccess != null) {
+      throw new ApplicationException(
+          ErrorCode.INVALID_REQUEST_DATA, "Project access grant already exists");
     }
 
-    @Override
-    @Transactional
-    public ProjectAccessResponse upsertProjectAccess(Long projectId, UpsertProjectAccessRequest request) {
-        Project project = collaborationAccessService.requireProject(projectId);
-        EffectiveProjectAccessResponse actorAccess = projectPermissionService.resolveCurrentUserAccess(project);
-        ensureCanManageRequestedRole(actorAccess, request.getRole());
+    projectAccess =
+        ProjectAccessGrant.builder()
+            .project(project)
+            .subjectType(request.getSubjectType())
+            .role(request.getRole())
+            .grantedBy(securityUtils.getAuthenticatedUser())
+            .createdAt(now)
+            .updatedAt(now)
+            .build();
 
-        validateSubjectRequest(project, request);
-        ProjectAccessGrant projectAccess = resolveExistingGrant(projectId, request);
-        LocalDateTime now = LocalDateTime.now();
+    applySubject(projectAccess, project, request);
+    ProjectAccessResponse response =
+        projectAccessMapper.toResponse(projectAccessGrantRepository.save(projectAccess));
+    invalidateProjectAccessMutation(project, affectedUserIds(projectAccess));
+    return response;
+  }
 
-        if (projectAccess != null) {
-            throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
-                    "Project access grant already exists");
-        }
+  @Override
+  @Transactional
+  public ProjectAccessResponse updateProjectAccess(
+      Long projectId, Long accessId, UpdateProjectAccessRequest request) {
+    Project project = collaborationAccessService.requireProject(projectId);
+    EffectiveProjectAccessResponse actorAccess =
+        projectPermissionService.resolveCurrentUserAccess(project);
+    ensureCanManageRequestedRole(actorAccess, request.getRole());
 
-        projectAccess = ProjectAccessGrant.builder()
-                .project(project)
-                .subjectType(request.getSubjectType())
-                .role(request.getRole())
-                .grantedBy(securityUtils.getAuthenticatedUser())
-                .createdAt(now)
-                .updatedAt(now)
-                .build();
+    ProjectAccessGrant projectAccess =
+        projectAccessGrantRepository
+            .findByIdAndProjectId(accessId, projectId)
+            .orElseThrow(
+                () ->
+                    new ApplicationException(
+                        ErrorCode.RESOURCE_NOT_FOUND, "Quyền truy cập project không tồn tại"));
+    ensureCanManageExistingGrant(actorAccess, projectAccess);
 
-        applySubject(projectAccess, project, request);
-        ProjectAccessResponse response = projectAccessMapper.toResponse(projectAccessGrantRepository.save(projectAccess));
-        invalidateProjectAccessMutation(project, affectedUserIds(projectAccess));
-        return response;
+    projectAccess.setRole(request.getRole());
+    projectAccess.setUpdatedAt(LocalDateTime.now());
+    ProjectAccessResponse response =
+        projectAccessMapper.toResponse(projectAccessGrantRepository.save(projectAccess));
+    invalidateProjectAccessMutation(project, affectedUserIds(projectAccess));
+    return response;
+  }
+
+  @Override
+  @Transactional
+  public void revokeProjectAccess(Long projectId, Long accessId) {
+    Project project = collaborationAccessService.requireProject(projectId);
+    EffectiveProjectAccessResponse actorAccess =
+        projectPermissionService.resolveCurrentUserAccess(project);
+    if (!actorAccess.isCanManageProjectAccess()) {
+      throw new ApplicationException(
+          ErrorCode.UNAUTHORIZED_ACCESS, "Bạn không có quyền thu hồi quyền truy cập project này");
     }
 
-    @Override
-    @Transactional
-    public ProjectAccessResponse updateProjectAccess(Long projectId, Long accessId, UpdateProjectAccessRequest request) {
-        Project project = collaborationAccessService.requireProject(projectId);
-        EffectiveProjectAccessResponse actorAccess = projectPermissionService.resolveCurrentUserAccess(project);
-        ensureCanManageRequestedRole(actorAccess, request.getRole());
+    ProjectAccessGrant projectAccess =
+        projectAccessGrantRepository
+            .findByIdAndProjectId(accessId, projectId)
+            .orElseThrow(
+                () ->
+                    new ApplicationException(
+                        ErrorCode.RESOURCE_NOT_FOUND, "Quyền truy cập project không tồn tại"));
+    ensureCanManageExistingGrant(actorAccess, projectAccess);
+    Set<String> affectedUserIds = affectedUserIds(projectAccess);
+    projectAccessGrantRepository.delete(projectAccess);
+    invalidateProjectAccessMutation(project, affectedUserIds);
+  }
 
-        ProjectAccessGrant projectAccess = projectAccessGrantRepository.findByIdAndProjectId(accessId, projectId)
-                .orElseThrow(() -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND,
-                        "Quyền truy cập project không tồn tại"));
-        ensureCanManageExistingGrant(actorAccess, projectAccess);
+  @Override
+  public EffectiveProjectAccessResponse getCurrentUserEffectiveAccess(Long projectId) {
+    return projectPermissionService.resolveCurrentUserAccess(projectId);
+  }
 
-        projectAccess.setRole(request.getRole());
-        projectAccess.setUpdatedAt(LocalDateTime.now());
-        ProjectAccessResponse response = projectAccessMapper.toResponse(projectAccessGrantRepository.save(projectAccess));
-        invalidateProjectAccessMutation(project, affectedUserIds(projectAccess));
-        return response;
+  private ProjectAccessGrant resolveExistingGrant(
+      Long projectId, UpsertProjectAccessRequest request) {
+    if (request.getSubjectType() == ProjectAccessSubjectType.USER) {
+      return projectAccessGrantRepository
+          .findByProjectIdAndUserUserId(projectId, request.getUserId())
+          .orElse(null);
+    }
+    return projectAccessGrantRepository
+        .findByProjectIdAndTeamId(projectId, request.getTeamId())
+        .orElse(null);
+  }
+
+  private void applySubject(
+      ProjectAccessGrant projectAccess, Project project, UpsertProjectAccessRequest request) {
+    if (request.getSubjectType() == ProjectAccessSubjectType.USER) {
+      User user =
+          userRepository
+              .findById(request.getUserId())
+              .orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
+      projectAccess.setSubjectType(ProjectAccessSubjectType.USER);
+      projectAccess.setUser(user);
+      projectAccess.setTeam(null);
+      return;
     }
 
-    @Override
-    @Transactional
-    public void revokeProjectAccess(Long projectId, Long accessId) {
-        Project project = collaborationAccessService.requireProject(projectId);
-        EffectiveProjectAccessResponse actorAccess = projectPermissionService.resolveCurrentUserAccess(project);
-        if (!actorAccess.isCanManageProjectAccess()) {
-            throw new ApplicationException(ErrorCode.UNAUTHORIZED_ACCESS,
-                    "Bạn không có quyền thu hồi quyền truy cập project này");
-        }
+    WorkspaceTeam team = collaborationAccessService.requireWorkspaceTeam(request.getTeamId());
+    if (!team.getWorkspace().getId().equals(project.getWorkspace().getId())) {
+      throw new ApplicationException(
+          ErrorCode.INVALID_REQUEST_DATA,
+          "Team được cấp quyền phải thuộc cùng workspace với project");
+    }
+    projectAccess.setSubjectType(ProjectAccessSubjectType.TEAM);
+    projectAccess.setUser(null);
+    projectAccess.setTeam(team);
+  }
 
-        ProjectAccessGrant projectAccess = projectAccessGrantRepository.findByIdAndProjectId(accessId, projectId)
-                .orElseThrow(() -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND,
-                        "Quyền truy cập project không tồn tại"));
-        ensureCanManageExistingGrant(actorAccess, projectAccess);
-        Set<String> affectedUserIds = affectedUserIds(projectAccess);
-        projectAccessGrantRepository.delete(projectAccess);
-        invalidateProjectAccessMutation(project, affectedUserIds);
+  private void validateSubjectRequest(Project project, UpsertProjectAccessRequest request) {
+    if (request.getSubjectType() == ProjectAccessSubjectType.USER) {
+      if (request.getUserId() == null
+          || request.getUserId().isBlank()
+          || request.getTeamId() != null) {
+        throw new ApplicationException(
+            ErrorCode.INVALID_REQUEST_DATA, "Quyền theo user cần userId và không được có teamId");
+      }
+      collaborationAccessService.ensureAssigneeBelongsWorkspace(
+          request.getUserId(), project.getWorkspace().getId());
+      return;
     }
 
-    @Override
-    public EffectiveProjectAccessResponse getCurrentUserEffectiveAccess(Long projectId) {
-        return projectPermissionService.resolveCurrentUserAccess(projectId);
+    if (request.getTeamId() == null || request.getUserId() != null) {
+      throw new ApplicationException(
+          ErrorCode.INVALID_REQUEST_DATA, "Quyền theo team cần teamId và không được có userId");
+    }
+  }
+
+  private void ensureCanManageRequestedRole(
+      EffectiveProjectAccessResponse actorAccess, ProjectAccessRoleType role) {
+    if (!actorAccess.isCanManageProjectAccess()) {
+      throw new ApplicationException(
+          ErrorCode.UNAUTHORIZED_ACCESS, "Bạn không có quyền quản lý quyền truy cập project này");
+    }
+    if (role == ProjectAccessRoleType.MANAGER && !actorAccess.isCanManageManagerAccess()) {
+      throw new ApplicationException(
+          ErrorCode.UNAUTHORIZED_ACCESS, "Chỉ owner workspace mới có quyền cấp quyền MANAGER");
+    }
+  }
+
+  private void ensureCanManageExistingGrant(
+      EffectiveProjectAccessResponse actorAccess, ProjectAccessGrant projectAccess) {
+    if (projectAccess.getRole() == ProjectAccessRoleType.MANAGER
+        && !actorAccess.isCanManageManagerAccess()) {
+      throw new ApplicationException(
+          ErrorCode.UNAUTHORIZED_ACCESS, "Chỉ owner workspace mới có quyền thay đổi quyền MANAGER");
+    }
+  }
+
+  private Set<String> affectedUserIds(ProjectAccessGrant projectAccess) {
+    if (projectAccess.getSubjectType() == ProjectAccessSubjectType.USER
+        && projectAccess.getUser() != null) {
+      return Set.of(projectAccess.getUser().getUserId());
     }
 
-    private ProjectAccessGrant resolveExistingGrant(Long projectId, UpsertProjectAccessRequest request) {
-        if (request.getSubjectType() == ProjectAccessSubjectType.USER) {
-            return projectAccessGrantRepository.findByProjectIdAndUserUserId(projectId, request.getUserId()).orElse(null);
-        }
-        return projectAccessGrantRepository.findByProjectIdAndTeamId(projectId, request.getTeamId()).orElse(null);
+    if (projectAccess.getSubjectType() == ProjectAccessSubjectType.TEAM
+        && projectAccess.getTeam() != null) {
+      return workspaceTeamMemberRepository
+          .findByTeamIdOrderByJoinedAtAsc(projectAccess.getTeam().getId())
+          .stream()
+          .map(member -> member.getUser().getUserId())
+          .collect(Collectors.toSet());
     }
 
-    private void applySubject(ProjectAccessGrant projectAccess, Project project, UpsertProjectAccessRequest request) {
-        if (request.getSubjectType() == ProjectAccessSubjectType.USER) {
-            User user = userRepository.findById(request.getUserId())
-                    .orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
-            projectAccess.setSubjectType(ProjectAccessSubjectType.USER);
-            projectAccess.setUser(user);
-            projectAccess.setTeam(null);
-            return;
-        }
+    return Set.of();
+  }
 
-        WorkspaceTeam team = collaborationAccessService.requireWorkspaceTeam(request.getTeamId());
-        if (!team.getWorkspace().getId().equals(project.getWorkspace().getId())) {
-            throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
-                    "Team được cấp quyền phải thuộc cùng workspace với project");
-        }
-        projectAccess.setSubjectType(ProjectAccessSubjectType.TEAM);
-        projectAccess.setUser(null);
-        projectAccess.setTeam(team);
-    }
-
-    private void validateSubjectRequest(Project project, UpsertProjectAccessRequest request) {
-        if (request.getSubjectType() == ProjectAccessSubjectType.USER) {
-            if (request.getUserId() == null || request.getUserId().isBlank() || request.getTeamId() != null) {
-                throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
-                        "Quyền theo user cần userId và không được có teamId");
-            }
-            collaborationAccessService.ensureAssigneeBelongsWorkspace(request.getUserId(), project.getWorkspace().getId());
-            return;
-        }
-
-        if (request.getTeamId() == null || request.getUserId() != null) {
-            throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
-                    "Quyền theo team cần teamId và không được có userId");
-        }
-    }
-
-    private void ensureCanManageRequestedRole(EffectiveProjectAccessResponse actorAccess, ProjectAccessRoleType role) {
-        if (!actorAccess.isCanManageProjectAccess()) {
-            throw new ApplicationException(ErrorCode.UNAUTHORIZED_ACCESS,
-                    "Bạn không có quyền quản lý quyền truy cập project này");
-        }
-        if (role == ProjectAccessRoleType.MANAGER && !actorAccess.isCanManageManagerAccess()) {
-            throw new ApplicationException(ErrorCode.UNAUTHORIZED_ACCESS,
-                    "Chỉ owner workspace mới có quyền cấp quyền MANAGER");
-        }
-    }
-
-    private void ensureCanManageExistingGrant(EffectiveProjectAccessResponse actorAccess, ProjectAccessGrant projectAccess) {
-        if (projectAccess.getRole() == ProjectAccessRoleType.MANAGER && !actorAccess.isCanManageManagerAccess()) {
-            throw new ApplicationException(ErrorCode.UNAUTHORIZED_ACCESS,
-                    "Chỉ owner workspace mới có quyền thay đổi quyền MANAGER");
-        }
-    }
-
-    private Set<String> affectedUserIds(ProjectAccessGrant projectAccess) {
-        if (projectAccess.getSubjectType() == ProjectAccessSubjectType.USER && projectAccess.getUser() != null) {
-            return Set.of(projectAccess.getUser().getUserId());
-        }
-
-        if (projectAccess.getSubjectType() == ProjectAccessSubjectType.TEAM && projectAccess.getTeam() != null) {
-            return workspaceTeamMemberRepository.findByTeamIdOrderByJoinedAtAsc(projectAccess.getTeam().getId())
-                    .stream()
-                    .map(member -> member.getUser().getUserId())
-                    .collect(Collectors.toSet());
-        }
-
-        return Set.of();
-    }
-
-    private void invalidateProjectAccessMutation(Project project, Set<String> affectedUserIds) {
-        cacheInvalidationService.invalidateWorkspaceAccessAfterCommit(project.getWorkspace().getId());
-        cacheInvalidationService.invalidateUserWorkAfterCommit(affectedUserIds);
-    }
+  private void invalidateProjectAccessMutation(Project project, Set<String> affectedUserIds) {
+    cacheInvalidationService.invalidateWorkspaceAccessAfterCommit(project.getWorkspace().getId());
+    cacheInvalidationService.invalidateUserWorkAfterCommit(affectedUserIds);
+  }
 }

@@ -10,6 +10,6 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class JoinByInviteRequest {
-    @NotBlank(message = "INVALID_REQUEST_DATA")
-    String inviteCode;
+  @NotBlank(message = "INVALID_REQUEST_DATA")
+  String inviteCode;
 }

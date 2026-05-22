@@ -12,13 +12,13 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpsertProjectAccessRequest {
-    @NotNull(message = "INVALID_REQUEST_DATA")
-    ProjectAccessSubjectType subjectType;
+  @NotNull(message = "INVALID_REQUEST_DATA")
+  ProjectAccessSubjectType subjectType;
 
-    String userId;
+  String userId;
 
-    Long teamId;
+  Long teamId;
 
-    @NotNull(message = "INVALID_REQUEST_DATA")
-    ProjectAccessRoleType role;
+  @NotNull(message = "INVALID_REQUEST_DATA")
+  ProjectAccessRoleType role;
 }

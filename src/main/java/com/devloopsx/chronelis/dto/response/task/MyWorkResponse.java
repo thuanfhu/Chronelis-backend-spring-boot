@@ -16,18 +16,16 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class MyWorkResponse {
-    Integer assignedCount;
-    Integer blockedCount;
-    Integer overdueCount;
-    Integer dueTodayCount;
-    Integer highPriorityCount;
-    Integer upcomingScheduledCount;
+  Integer assignedCount;
+  Integer blockedCount;
+  Integer overdueCount;
+  Integer dueTodayCount;
+  Integer highPriorityCount;
+  Integer upcomingScheduledCount;
 
-    @Builder.Default
-    List<TaskResponse> assignedTasks = new ArrayList<>();
+  @Builder.Default List<TaskResponse> assignedTasks = new ArrayList<>();
 
-    @Builder.Default
-    List<MyWorkScheduleItemResponse> upcomingSchedules = new ArrayList<>();
+  @Builder.Default List<MyWorkScheduleItemResponse> upcomingSchedules = new ArrayList<>();
 
-    LocalDateTime generatedAt;
+  LocalDateTime generatedAt;
 }

@@ -12,18 +12,18 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CreateTaskStatusRequest {
-    @NotNull(message = "INVALID_REQUEST_DATA")
-    Long projectId;
+  @NotNull(message = "INVALID_REQUEST_DATA")
+  Long projectId;
 
-    @NotBlank(message = "INVALID_REQUEST_DATA")
-    @Size(max = 100, message = "INVALID_REQUEST_DATA")
-    String name;
+  @NotBlank(message = "INVALID_REQUEST_DATA")
+  @Size(max = 100, message = "INVALID_REQUEST_DATA")
+  String name;
 
-    @NotBlank(message = "INVALID_REQUEST_DATA")
-    @Size(max = 50, message = "INVALID_REQUEST_DATA")
-    String code;
+  @NotBlank(message = "INVALID_REQUEST_DATA")
+  @Size(max = 50, message = "INVALID_REQUEST_DATA")
+  String code;
 
-    Integer position;
+  Integer position;
 
-    Boolean isClosed;
+  Boolean isClosed;
 }

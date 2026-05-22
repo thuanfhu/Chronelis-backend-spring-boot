@@ -15,13 +15,13 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class TaskDependencyTaskResponse {
-    Long id;
-    Long projectId;
-    Long goalId;
-    String title;
-    String statusName;
-    String statusCode;
-    TaskPriorityType priority;
-    LocalDateTime dueDate;
-    Boolean completed;
+  Long id;
+  Long projectId;
+  Long goalId;
+  String title;
+  String statusName;
+  String statusCode;
+  TaskPriorityType priority;
+  LocalDateTime dueDate;
+  Boolean completed;
 }

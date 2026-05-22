@@ -7,6 +7,6 @@ import org.mapstruct.Mapping;
 
 @Mapper(componentModel = "spring", uses = UserSummaryMapper.class)
 public interface ActivityLogMapper {
-    @Mapping(target = "workspaceId", source = "workspace.id")
-    ActivityLogResponse toResponse(ActivityLog activityLog);
+  @Mapping(target = "workspaceId", source = "workspace.id")
+  ActivityLogResponse toResponse(ActivityLog activityLog);
 }

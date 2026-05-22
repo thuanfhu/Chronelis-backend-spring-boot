@@ -11,6 +11,6 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpdateProjectAccessRequest {
-    @NotNull(message = "INVALID_REQUEST_DATA")
-    ProjectAccessRoleType role;
+  @NotNull(message = "INVALID_REQUEST_DATA")
+  ProjectAccessRoleType role;
 }

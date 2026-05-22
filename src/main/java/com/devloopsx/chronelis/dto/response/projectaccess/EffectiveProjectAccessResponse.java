@@ -11,24 +11,24 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class EffectiveProjectAccessResponse {
-    Long projectId;
-    Long workspaceId;
-    ProjectVisibilityType visibility;
-    EffectiveProjectAccessRoleType effectiveRole;
-    boolean workspaceOwner;
-    boolean canViewProject;
-    boolean canContribute;
-    boolean canComment;
-    boolean canManageProjectWork;
-    boolean canManageProjectAccess;
-    boolean canGrantManager;
-    boolean canRevokeManager;
-    boolean canManageManagerAccess;
-    boolean canChangeVisibility;
-    boolean canDeleteProject;
-    boolean canAssignOthers;
-    boolean canManageWorkspaceMembers;
-    boolean canManageWorkspaceTeams;
-    boolean canManageWorkspaceInvites;
-    boolean canManageWorkspaceSettings;
+  Long projectId;
+  Long workspaceId;
+  ProjectVisibilityType visibility;
+  EffectiveProjectAccessRoleType effectiveRole;
+  boolean workspaceOwner;
+  boolean canViewProject;
+  boolean canContribute;
+  boolean canComment;
+  boolean canManageProjectWork;
+  boolean canManageProjectAccess;
+  boolean canGrantManager;
+  boolean canRevokeManager;
+  boolean canManageManagerAccess;
+  boolean canChangeVisibility;
+  boolean canDeleteProject;
+  boolean canAssignOthers;
+  boolean canManageWorkspaceMembers;
+  boolean canManageWorkspaceTeams;
+  boolean canManageWorkspaceInvites;
+  boolean canManageWorkspaceSettings;
 }

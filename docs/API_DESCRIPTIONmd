@@ -1,0 +1,2042 @@
+# API DESCRIPTION
+
+## Common Conventions
+
+| Ký hiệu    | Ý nghĩa                                                  |
+| ---------- | -------------------------------------------------------- |
+| `[PUBLIC]` | Endpoint công khai, **không** cần `Authorization` header |
+| `[AUTH]`   | Cần `Authorization: Bearer <access_token>`               |
+
+**Base URL**: `/api/v1`
+
+**Response wrapper chuẩn**:
+
+```json
+{
+  "success": true,
+  "message": "Mô tả kết quả",
+  "data": {},
+  "meta": {
+    "timestamp": "2026-05-22T10:00:00Z",
+    "instance": "/api/v1/..."
+  }
+}
+```
+
+**Response lỗi**:
+
+```json
+{
+  "success": false,
+  "errors": [
+    {
+      "code": 1002,
+      "message": "Thông tin đăng nhập không hợp lệ"
+    }
+  ],
+  "meta": {
+    "timestamp": "2026-05-22T10:00:00Z",
+    "instance": "/api/v1/..."
+  }
+}
+```
+
+**Pagination request params**:
+
+```text
+?page=1&size=10&sort=createdAt,desc
+```
+
+**Lưu ý**: Backend đang bật `one-indexed-parameters`, nên trang đầu tiên là `page=1`.
+
+**SpringFilter DSL** dùng ở các endpoint có `@Filter`, ví dụ:
+
+```text
+?filter=email:'user@gmail.com'
+```
+
+**Date-time format**: các field `LocalDateTime` dùng ISO-8601, ví dụ `2026-05-22T09:30:00`.
+
+---
+
+## Module 1: AUTH (9 APIs)
+
+---
+
+### API-001: Đăng ký tài khoản [PUBLIC]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/auth/register`
+
+**Request body**:
+
+```json
+{
+  "email": "user@gmail.com",
+  "phoneNumber": "0912345678",
+  "password": "Chronelis123@",
+  "confirmPassword": "Chronelis123@",
+  "firstName": "Nguyen",
+  "lastName": "An"
+}
+```
+
+**Response**: `data = null`.
+
+**Lỗi thường gặp**: `EMAIL_INVALID`, `EMAIL_PROVIDER_INVALID`, `PHONE_NUMBER_VN_INVALID`, `PASSWORD_INVALID_FORMAT`, `EMAIL_EXISTED`, `PHONE_NUMBER_EXISTED`.
+
+---
+
+### API-002: Xác thực email kích hoạt tài khoản [PUBLIC]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/auth/verify-active-account`
+
+**Request body**:
+
+```json
+{
+  "token": "<jwt-token-trong-email>"
+}
+```
+
+**Response**: `AuthenticationResponse` gồm `accessToken`, `userSecured`; backend set `refresh_token` HttpOnly cookie.
+
+---
+
+### API-003: Gửi lại email xác thực [PUBLIC]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/auth/resend-verify`
+
+**Request body**:
+
+```json
+{
+  "email": "user@gmail.com"
+}
+```
+
+**Response**: `data = null`.
+
+---
+
+### API-004: Đăng nhập [PUBLIC]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/auth/login`
+
+**Request body** (dùng `email` hoặc `phoneNumber`, không dùng cả hai):
+
+```json
+{
+  "email": "user@gmail.com",
+  "password": "Chronelis123@"
+}
+```
+
+**Response**: `AuthenticationResponse`; backend set `refresh_token` HttpOnly cookie.
+
+**Lỗi thường gặp**: `EMAIL_OR_PHONE_REQUIRED`, `ONLY_EMAIL_OR_PHONE`, `USER_NOT_FOUND`, `PASSWORD_MISMATCH`, `NOT_VERIFIED_ACCOUNT`.
+
+---
+
+### API-005: Đăng xuất [AUTH]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/auth/logout`
+
+**Request body**: không có.
+
+**Response**: `data = null`; backend xóa `refresh_token` cookie và blacklist access token trong Redis.
+
+---
+
+### API-006: Lấy thông tin tài khoản hiện tại [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/auth/account`
+
+**Response**: `UserSecureResponse`.
+
+---
+
+### API-007: Lấy access token mới từ refresh token [PUBLIC]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/auth/refresh`
+- **Cookie bắt buộc**: `refresh_token=<refresh-token>`
+
+**Response**: `AuthenticationResponse`; backend gia hạn cookie nếu refresh token hợp lệ.
+
+---
+
+### API-008: Quên mật khẩu [PUBLIC]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/auth/forgot-password`
+
+**Request body**:
+
+```json
+{
+  "email": "user@gmail.com"
+}
+```
+
+**Response**: `data = null`.
+
+---
+
+### API-009: Đặt lại mật khẩu [PUBLIC]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/auth/reset-password`
+
+**Request body**:
+
+```json
+{
+  "token": "<jwt-token-trong-email>",
+  "newPassword": "NewPassword123@",
+  "confirmPassword": "NewPassword123@"
+}
+```
+
+**Response**: `data = null`.
+
+---
+
+## Module 2: USERS (10 APIs)
+
+---
+
+### API-010: Cập nhật hồ sơ cá nhân [AUTH]
+
+- **Method**: `PATCH`
+- **URL**: `/api/v1/users/update-profile`
+
+**Request body**:
+
+```json
+{
+  "firstName": "Nguyen",
+  "lastName": "An",
+  "nickname": "nguyenan",
+  "avatarUrl": "https://cdn.example.com/avatar.jpg",
+  "biography": "Quản lý sản phẩm",
+  "city": "Ho Chi Minh",
+  "nationality": "Vietnamese"
+}
+```
+
+**Response**: `UserSecureResponse`.
+
+---
+
+### API-011: Đổi mật khẩu [AUTH]
+
+- **Method**: `PUT`
+- **URL**: `/api/v1/users/update-password`
+
+**Request body**:
+
+```json
+{
+  "currentPassword": "Chronelis123@",
+  "newPassword": "NewPassword123@",
+  "confirmPassword": "NewPassword123@"
+}
+```
+
+**Response**: `UserSecureResponse`.
+
+---
+
+### API-012: Yêu cầu đổi email [AUTH]
+
+- **Method**: `PUT`
+- **URL**: `/api/v1/users/update-email`
+
+**Request body**:
+
+```json
+{
+  "newEmail": "newuser@gmail.com"
+}
+```
+
+**Response**: `data = null`.
+
+---
+
+### API-013: Xác thực token đổi email [AUTH]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/users/verify-change-email`
+
+**Request body**:
+
+```json
+{
+  "token": "<jwt-token-trong-email>"
+}
+```
+
+**Response**: `UserSecureResponse`.
+
+---
+
+### API-014: Lấy danh sách người dùng [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/users?page=1&size=20&filter=email:'user@gmail.com'`
+
+**Response**: `PaginationResponse<UserSecureResponse>`.
+
+---
+
+### API-015: Lấy thông tin user theo ID [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/users/{userId}`
+
+**Response**: `UserSecureResponse`.
+
+---
+
+### API-016: Cập nhật user bởi admin [AUTH]
+
+- **Method**: `PATCH`
+- **URL**: `/api/v1/users/{userId}`
+
+**Request body**:
+
+```json
+{
+  "firstName": "Nguyen",
+  "lastName": "B",
+  "email": "newadmin@gmail.com",
+  "phoneNumber": "0987654321",
+  "nickname": "adminb",
+  "avatarUrl": "https://cdn.example.com/avatar.jpg",
+  "biography": "Admin Chronelis",
+  "city": "Ha Noi",
+  "nationality": "Vietnamese",
+  "isVerified": true,
+  "roleIds": ["role-uuid-1"]
+}
+```
+
+**Response**: `UserResponse`.
+
+---
+
+### API-017: Xóa user [AUTH]
+
+- **Method**: `DELETE`
+- **URL**: `/api/v1/users/{userId}`
+
+**Response**: `data = null`.
+
+---
+
+### API-018: Xóa vai trò khỏi user [AUTH]
+
+- **Method**: `DELETE`
+- **URL**: `/api/v1/users/{userId}/roles`
+
+**Request body**:
+
+```json
+{
+  "roleIds": ["role-uuid-1", "role-uuid-2"]
+}
+```
+
+**Response**: `data = null`.
+
+---
+
+### API-019: Yêu cầu nâng cấp sang STAFF [AUTH]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/users/staff-requests`
+
+**Request body**: không có.
+
+**Response**: `UserSecureResponse`.
+
+---
+
+## Module 3: ROLES (6 APIs)
+
+---
+
+### API-020: Tạo vai trò [AUTH]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/roles`
+
+**Request body**:
+
+```json
+{
+  "name": "PROJECT_ADMIN",
+  "description": "Quản trị dự án",
+  "active": true,
+  "permissionIds": ["permission-uuid-1"]
+}
+```
+
+**Response**: `RoleResponse`.
+
+---
+
+### API-021: Lấy vai trò theo ID [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/roles/{roleId}`
+
+**Response**: `RoleResponse`.
+
+---
+
+### API-022: Lấy danh sách vai trò [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/roles?page=1&size=20`
+
+**Response**: `PaginationResponse<RoleResponse>`.
+
+---
+
+### API-023: Cập nhật vai trò [AUTH]
+
+- **Method**: `PATCH`
+- **URL**: `/api/v1/roles/{roleId}`
+
+**Request body**:
+
+```json
+{
+  "name": "PROJECT_ADMIN_V2",
+  "description": "Quản trị dự án nâng cao",
+  "active": true,
+  "permissionIds": ["permission-uuid-1", "permission-uuid-2"]
+}
+```
+
+**Response**: `RoleResponse`.
+
+---
+
+### API-024: Xóa permission khỏi vai trò [AUTH]
+
+- **Method**: `DELETE`
+- **URL**: `/api/v1/roles/{roleId}/permissions`
+
+**Request body**:
+
+```json
+{
+  "permissionIds": ["permission-uuid-1"]
+}
+```
+
+**Response**: `data = null`.
+
+---
+
+### API-025: Xóa vai trò [AUTH]
+
+- **Method**: `DELETE`
+- **URL**: `/api/v1/roles/{roleId}`
+
+**Response**: `data = null`.
+
+---
+
+## Module 4: PERMISSIONS (8 APIs)
+
+---
+
+### API-026: Tạo module permission [AUTH]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/permissions/module`
+
+**Request body**:
+
+```json
+{
+  "moduleName": "TASKS",
+  "permissionIds": ["permission-uuid-1", "permission-uuid-2"]
+}
+```
+
+**Response**: `List<PermissionResponse>`.
+
+---
+
+### API-027: Xóa module permission theo tên [AUTH]
+
+- **Method**: `DELETE`
+- **URL**: `/api/v1/permissions/module/{name}`
+
+**Response**: `data = null`.
+
+---
+
+### API-028: Lấy danh sách tên module permission [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/permissions/modules`
+
+**Response**:
+
+```json
+["AUTH", "USERS", "ROLES", "PERMISSIONS", "WORKSPACES", "PROJECTS", "TASKS"]
+```
+
+---
+
+### API-029: Tạo permission [AUTH]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/permissions`
+
+**Request body**:
+
+```json
+{
+  "name": "Xem task",
+  "apiPath": "/api/v1/tasks/{taskId}",
+  "httpMethod": "GET",
+  "module": "TASKS"
+}
+```
+
+**Response**: `PermissionResponse`.
+
+---
+
+### API-030: Cập nhật permission [AUTH]
+
+- **Method**: `PATCH`
+- **URL**: `/api/v1/permissions/{permissionId}`
+
+**Request body**:
+
+```json
+{
+  "name": "Xem task chi tiết",
+  "apiPath": "/api/v1/tasks/{taskId}",
+  "httpMethod": "GET",
+  "module": "TASKS"
+}
+```
+
+**Response**: `PermissionResponse`.
+
+---
+
+### API-031: Lấy permission theo ID [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/permissions/{permissionId}`
+
+**Response**: `PermissionResponse`.
+
+---
+
+### API-032: Lấy danh sách permission [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/permissions?page=1&size=20&filter=module:'TASKS'`
+
+**Response**: `PaginationResponse<PermissionResponse>`.
+
+---
+
+### API-033: Xóa permission [AUTH]
+
+- **Method**: `DELETE`
+- **URL**: `/api/v1/permissions/{permissionId}`
+
+**Response**: `data = null`.
+
+---
+
+## Module 5: STORAGE - Azure Blob Storage (6 APIs)
+
+---
+
+### API-034: Upload một file [AUTH]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/storage/azure-blob/upload/single`
+- **Content-Type**: `multipart/form-data`
+
+**Form data**:
+
+```text
+file: <binary>
+folderName: "task-notes"
+```
+
+**Response**: `SingleFileResponse` gồm `fileName`, `fileUrl`.
+
+---
+
+### API-035: Upload nhiều file [AUTH]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/storage/azure-blob/upload/multiple`
+- **Content-Type**: `multipart/form-data`
+
+**Form data**:
+
+```text
+files: <binary file 1>
+files: <binary file 2>
+folderName: "task-notes"
+```
+
+**Response**: `MultipleFileResponse`.
+
+---
+
+### API-036: Xóa một file [AUTH]
+
+- **Method**: `DELETE`
+- **URL**: `/api/v1/storage/azure-blob/delete/single?filePath=task-notes/file.png`
+
+**Response**: `data = null`.
+
+---
+
+### API-037: Xóa nhiều file [AUTH]
+
+- **Method**: `DELETE`
+- **URL**: `/api/v1/storage/azure-blob/delete/multiple`
+
+**Request body**:
+
+```json
+{
+  "filePaths": ["task-notes/a.png", "task-notes/b.png"]
+}
+```
+
+**Response**: `data = null`.
+
+---
+
+### API-038: Di chuyển một file [AUTH]
+
+- **Method**: `PUT`
+- **URL**: `/api/v1/storage/azure-blob/move/single`
+- **Content-Type**: `multipart/form-data` hoặc form request.
+
+**Form data**:
+
+```text
+sourceKey: "task-notes/a.png"
+destinationFolder: "archive"
+```
+
+**Response**: `String`.
+
+---
+
+### API-039: Di chuyển nhiều file [AUTH]
+
+- **Method**: `PUT`
+- **URL**: `/api/v1/storage/azure-blob/move/multiple`
+
+**Request body**:
+
+```json
+{
+  "sourceKeys": ["task-notes/a.png", "task-notes/b.png"],
+  "destinationFolder": "archive"
+}
+```
+
+**Response**: `String`.
+
+---
+
+## Module 6: WORKSPACES (9 APIs)
+
+---
+
+### API-040: Tạo workspace [AUTH]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/workspaces`
+
+**Request body**:
+
+```json
+{
+  "name": "Growth Team"
+}
+```
+
+**Response**: `WorkspaceResponse`.
+
+---
+
+### API-041: Cập nhật workspace [AUTH]
+
+- **Method**: `PATCH`
+- **URL**: `/api/v1/workspaces/{workspaceId}`
+
+**Request body**:
+
+```json
+{
+  "name": "Growth Team Vietnam"
+}
+```
+
+**Response**: `WorkspaceResponse`.
+
+---
+
+### API-042: Lấy chi tiết workspace [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/workspaces/{workspaceId}`
+
+**Response**: `WorkspaceResponse`.
+
+---
+
+### API-043: Lấy danh sách workspace user nhìn thấy [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/workspaces?page=1&size=10&sort=createdAt,desc`
+
+**Response**: `PaginationResponse<WorkspaceResponse>`.
+
+---
+
+### API-044: Thêm thành viên workspace [AUTH]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/workspaces/{workspaceId}/members`
+
+**Request body**:
+
+```json
+{
+  "userId": "user-uuid",
+  "role": "MEMBER"
+}
+```
+
+**Response**: `WorkspaceMemberResponse`.
+
+---
+
+### API-045: Lấy danh sách thành viên workspace [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/workspaces/{workspaceId}/members`
+
+**Response**: `List<WorkspaceMemberResponse>`.
+
+---
+
+### API-046: Cập nhật vai trò thành viên workspace [AUTH]
+
+- **Method**: `PATCH`
+- **URL**: `/api/v1/workspaces/{workspaceId}/members/{userId}/role`
+
+**Request body**:
+
+```json
+{
+  "role": "MEMBER"
+}
+```
+
+**Response**: `WorkspaceMemberResponse`.
+
+---
+
+### API-047: Xóa thành viên khỏi workspace [AUTH]
+
+- **Method**: `DELETE`
+- **URL**: `/api/v1/workspaces/{workspaceId}/members/{userId}`
+
+**Response**: `data = null`.
+
+---
+
+### API-048: Xóa workspace [AUTH]
+
+- **Method**: `DELETE`
+- **URL**: `/api/v1/workspaces/{workspaceId}`
+
+**Response**: `data = null`.
+
+---
+
+## Module 7: WORKSPACE INVITES (5 APIs)
+
+---
+
+### API-049: Tạo lời mời workspace [AUTH]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/workspace-invites`
+
+**Request body**:
+
+```json
+{
+  "workspaceId": 1,
+  "roleToAssign": "MEMBER",
+  "maxUses": 10,
+  "expiresAt": "2026-06-01T00:00:00"
+}
+```
+
+**Response**: `WorkspaceInviteResponse`.
+
+---
+
+### API-050: Lấy danh sách lời mời đang hoạt động [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/workspace-invites/workspace/{workspaceId}`
+
+**Response**: `List<WorkspaceInviteResponse>`.
+
+---
+
+### API-051: Thu hồi lời mời [AUTH]
+
+- **Method**: `PATCH`
+- **URL**: `/api/v1/workspace-invites/{inviteId}/revoke`
+
+**Response**: `data = null`.
+
+---
+
+### API-052: Kiểm tra mã mời [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/workspace-invites/validate/{inviteCode}`
+
+**Response**: `WorkspaceInviteResponse`.
+
+---
+
+### API-053: Tham gia workspace bằng mã mời [AUTH]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/workspace-invites/join`
+
+**Request body**:
+
+```json
+{
+  "inviteCode": "ABCD-1234"
+}
+```
+
+**Response**: `data = null`.
+
+---
+
+## Module 8: WORKSPACE TEAMS (8 APIs)
+
+---
+
+### API-054: Tạo team trong workspace [AUTH]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/workspace-teams`
+
+**Request body**:
+
+```json
+{
+  "workspaceId": 1,
+  "name": "Product Team",
+  "description": "Nhóm sản phẩm"
+}
+```
+
+**Response**: `WorkspaceTeamResponse`.
+
+---
+
+### API-055: Cập nhật team [AUTH]
+
+- **Method**: `PATCH`
+- **URL**: `/api/v1/workspace-teams/{teamId}`
+
+**Request body**:
+
+```json
+{
+  "name": "Product Team A",
+  "description": "Nhóm sản phẩm khu vực A"
+}
+```
+
+**Response**: `WorkspaceTeamResponse`.
+
+---
+
+### API-056: Lấy chi tiết team [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/workspace-teams/{teamId}`
+
+**Response**: `WorkspaceTeamResponse`.
+
+---
+
+### API-057: Lấy danh sách team theo workspace [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/workspace-teams/workspace/{workspaceId}`
+
+**Response**: `List<WorkspaceTeamResponse>`.
+
+---
+
+### API-058: Xóa team [AUTH]
+
+- **Method**: `DELETE`
+- **URL**: `/api/v1/workspace-teams/{teamId}`
+
+**Response**: `data = null`.
+
+---
+
+### API-059: Thêm thành viên vào team [AUTH]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/workspace-teams/{teamId}/members`
+
+**Request body**:
+
+```json
+{
+  "userId": "user-uuid"
+}
+```
+
+**Response**: `WorkspaceTeamMemberResponse`.
+
+---
+
+### API-060: Xóa thành viên khỏi team [AUTH]
+
+- **Method**: `DELETE`
+- **URL**: `/api/v1/workspace-teams/{teamId}/members/{userId}`
+
+**Response**: `data = null`.
+
+---
+
+### API-061: Lấy danh sách thành viên team [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/workspace-teams/{teamId}/members`
+
+**Response**: `List<WorkspaceTeamMemberResponse>`.
+
+---
+
+## Module 9: PROJECTS (7 APIs)
+
+---
+
+### API-062: Tạo project [AUTH]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/projects`
+
+**Request body**:
+
+```json
+{
+  "workspaceId": 1,
+  "name": "Chronelis Launch",
+  "description": "Ra mắt sản phẩm",
+  "visibility": "PUBLIC",
+  "managerUserId": "user-uuid",
+  "managerTeamId": null
+}
+```
+
+**Response**: `ProjectResponse`.
+
+---
+
+### API-063: Cập nhật project [AUTH]
+
+- **Method**: `PATCH`
+- **URL**: `/api/v1/projects/{projectId}`
+
+**Request body**:
+
+```json
+{
+  "name": "Chronelis Launch V2",
+  "description": "Cập nhật phạm vi ra mắt",
+  "status": "ACTIVE",
+  "visibility": "PRIVATE",
+  "managerUserId": "user-uuid",
+  "managerTeamId": null
+}
+```
+
+**Response**: `ProjectResponse`.
+
+---
+
+### API-064: Cập nhật trạng thái project [AUTH]
+
+- **Method**: `PATCH`
+- **URL**: `/api/v1/projects/{projectId}/status`
+
+**Request body**:
+
+```json
+{
+  "status": "COMPLETED"
+}
+```
+
+**Response**: `ProjectResponse`.
+
+---
+
+### API-065: Lấy chi tiết project [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/projects/{projectId}`
+
+**Response**: `ProjectResponse`.
+
+---
+
+### API-066: Lấy danh sách project theo workspace [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/projects/workspace/{workspaceId}?page=1&size=20`
+
+**Response**: `PaginationResponse<ProjectResponse>`.
+
+---
+
+### API-067: Xóa project [AUTH]
+
+- **Method**: `DELETE`
+- **URL**: `/api/v1/projects/{projectId}`
+
+**Response**: `data = null`.
+
+---
+
+### API-068: Lấy analytics project [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/projects/{projectId}/analytics`
+
+**Response**: `ProjectAnalyticsResponse` gồm `trend`, `completionRate`, `totalTasks`, `completedTasks`.
+
+---
+
+## Module 10: PROJECT ACCESS (5 APIs)
+
+---
+
+### API-069: Lấy danh sách quyền truy cập project [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/projects/{projectId}/access`
+
+**Response**: `List<ProjectAccessResponse>`.
+
+---
+
+### API-070: Lấy quyền hiệu lực của user hiện tại [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/projects/{projectId}/access/me`
+
+**Response**: `EffectiveProjectAccessResponse`.
+
+---
+
+### API-071: Cấp hoặc cập nhật quyền project [AUTH]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/projects/{projectId}/access`
+
+**Request body**:
+
+```json
+{
+  "subjectType": "USER",
+  "userId": "user-uuid",
+  "teamId": null,
+  "role": "CONTRIBUTOR"
+}
+```
+
+**Response**: `ProjectAccessResponse`.
+
+---
+
+### API-072: Cập nhật vai trò trong quyền project [AUTH]
+
+- **Method**: `PATCH`
+- **URL**: `/api/v1/projects/{projectId}/access/{accessId}`
+
+**Request body**:
+
+```json
+{
+  "role": "VIEWER"
+}
+```
+
+**Response**: `ProjectAccessResponse`.
+
+---
+
+### API-073: Thu hồi quyền project [AUTH]
+
+- **Method**: `DELETE`
+- **URL**: `/api/v1/projects/{projectId}/access/{accessId}`
+
+**Response**: `data = null`.
+
+---
+
+## Module 11: GOALS (5 APIs)
+
+---
+
+### API-074: Tạo goal [AUTH]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/goals`
+
+**Request body**:
+
+```json
+{
+  "projectId": 1,
+  "title": "Ra mắt bản beta",
+  "goalType": "SHORT_TERM",
+  "status": "NOT_STARTED",
+  "progressPercent": 0,
+  "managerUserId": "user-uuid",
+  "managerTeamId": null
+}
+```
+
+**Response**: `GoalResponse`.
+
+---
+
+### API-075: Cập nhật goal [AUTH]
+
+- **Method**: `PATCH`
+- **URL**: `/api/v1/goals/{goalId}`
+
+**Request body**:
+
+```json
+{
+  "title": "Ra mắt bản beta công khai",
+  "goalType": "MEDIUM_TERM",
+  "status": "IN_PROGRESS",
+  "progressPercent": 45,
+  "managerUserId": "user-uuid",
+  "managerTeamId": null
+}
+```
+
+**Response**: `GoalResponse`.
+
+---
+
+### API-076: Lấy chi tiết goal [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/goals/{goalId}`
+
+**Response**: `GoalResponse`.
+
+---
+
+### API-077: Lấy danh sách goal theo project [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/goals/project/{projectId}?page=1&size=20`
+
+**Response**: `PaginationResponse<GoalResponse>`.
+
+---
+
+### API-078: Xóa goal [AUTH]
+
+- **Method**: `DELETE`
+- **URL**: `/api/v1/goals/{goalId}`
+
+**Response**: `data = null`.
+
+---
+
+## Module 12: TASK STATUSES (5 APIs)
+
+---
+
+### API-079: Tạo task status [AUTH]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/task-statuses`
+
+**Request body**:
+
+```json
+{
+  "projectId": 1,
+  "name": "Đang làm",
+  "code": "IN_PROGRESS",
+  "position": 2,
+  "isClosed": false
+}
+```
+
+**Response**: `TaskStatusResponse`.
+
+---
+
+### API-080: Lấy danh sách status theo project [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/task-statuses/project/{projectId}`
+
+**Response**: `List<TaskStatusResponse>`.
+
+---
+
+### API-081: Cập nhật task status [AUTH]
+
+- **Method**: `PATCH`
+- **URL**: `/api/v1/task-statuses/{statusId}`
+
+**Request body**:
+
+```json
+{
+  "name": "Hoàn thành",
+  "code": "DONE",
+  "position": 4,
+  "isClosed": true
+}
+```
+
+**Response**: `TaskStatusResponse`.
+
+---
+
+### API-082: Sắp xếp status trong project [AUTH]
+
+- **Method**: `PATCH`
+- **URL**: `/api/v1/task-statuses/project/{projectId}/reorder`
+
+**Request body**:
+
+```json
+{
+  "statusIdsInOrder": [1, 2, 3, 4]
+}
+```
+
+**Response**: `List<TaskStatusResponse>`.
+
+---
+
+### API-083: Xóa task status [AUTH]
+
+- **Method**: `DELETE`
+- **URL**: `/api/v1/task-statuses/{statusId}`
+
+**Response**: `data = null`.
+
+---
+
+## Module 13: TASK TYPES (5 APIs)
+
+---
+
+### API-084: Tạo task type [AUTH]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/task-types`
+
+**Request body**:
+
+```json
+{
+  "workspaceId": 1,
+  "projectId": 1,
+  "goalId": 1,
+  "name": "Bug",
+  "description": "Lỗi cần xử lý",
+  "color": "#EF4444",
+  "icon": "bug"
+}
+```
+
+**Response**: `TaskTypeResponse`.
+
+---
+
+### API-085: Cập nhật task type [AUTH]
+
+- **Method**: `PATCH`
+- **URL**: `/api/v1/task-types/{taskTypeId}`
+
+**Request body**:
+
+```json
+{
+  "name": "Feature",
+  "description": "Tính năng mới",
+  "goalId": 1,
+  "clearGoal": false,
+  "color": "#3B82F6",
+  "icon": "sparkles"
+}
+```
+
+**Response**: `TaskTypeResponse`.
+
+---
+
+### API-086: Lấy chi tiết task type [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/task-types/{taskTypeId}`
+
+**Response**: `TaskTypeResponse`.
+
+---
+
+### API-087: Lấy danh sách task type theo project [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/task-types/project/{projectId}`
+
+**Response**: `List<TaskTypeResponse>`.
+
+---
+
+### API-088: Xóa task type [AUTH]
+
+- **Method**: `DELETE`
+- **URL**: `/api/v1/task-types/{taskTypeId}`
+
+**Response**: `data = null`.
+
+---
+
+## Module 14: TASKS (14 APIs)
+
+---
+
+### API-089: Tạo task [AUTH]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/tasks`
+
+**Request body**:
+
+```json
+{
+  "projectId": 1,
+  "goalId": 1,
+  "statusId": 1,
+  "title": "Thiết kế onboarding",
+  "description": "Tạo luồng bắt đầu nhanh cho dashboard",
+  "notesHtml": "<p>Ghi chú</p>",
+  "priority": "HIGH",
+  "assigneeId": "user-uuid",
+  "dueDate": "2026-05-30T18:00:00",
+  "estimatedMinutes": 120,
+  "boardPosition": 1,
+  "taskTypeId": 1,
+  "sourceView": "KANBAN"
+}
+```
+
+**Response**: `TaskResponse`.
+
+---
+
+### API-090: Cập nhật task [AUTH]
+
+- **Method**: `PATCH`
+- **URL**: `/api/v1/tasks/{taskId}`
+
+**Request body**:
+
+```json
+{
+  "title": "Thiết kế onboarding dashboard",
+  "description": "Cập nhật nội dung",
+  "notesHtml": "<p>Nội dung mới</p>",
+  "goalId": 1,
+  "clearGoal": false,
+  "priority": "URGENT",
+  "dueDate": "2026-05-31T18:00:00",
+  "estimatedMinutes": 180,
+  "taskTypeId": 1
+}
+```
+
+**Response**: `TaskResponse`.
+
+---
+
+### API-091: Lấy chi tiết task [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/tasks/{taskId}`
+
+**Response**: `TaskResponse`.
+
+---
+
+### API-092: Lấy công việc của user hiện tại [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/tasks/my-work`
+
+**Response**: `MyWorkResponse`.
+
+---
+
+### API-093: Lấy analytics task của user hiện tại [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/tasks/analytics`
+
+**Response**: `TaskAnalyticsResponse`.
+
+---
+
+### API-094: Lấy dependency của task [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/tasks/{taskId}/dependencies`
+
+**Response**: `TaskDependencyDetailsResponse`.
+
+---
+
+### API-095: Cập nhật dependency của task [AUTH]
+
+- **Method**: `PUT`
+- **URL**: `/api/v1/tasks/{taskId}/dependencies`
+
+**Request body**:
+
+```json
+{
+  "dependencyTaskIds": [2, 3],
+  "blockerNote": "Cần hoàn tất thiết kế trước"
+}
+```
+
+**Response**: `TaskDependencyDetailsResponse`.
+
+---
+
+### API-096: Lấy danh sách task theo project [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/tasks/project/{projectId}?page=1&size=50`
+
+**Response**: `PaginationResponse<TaskResponse>`.
+
+---
+
+### API-097: Lấy danh sách task theo goal [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/tasks/goal/{goalId}?page=1&size=50`
+
+**Response**: `PaginationResponse<TaskResponse>`.
+
+---
+
+### API-098: Di chuyển task sang status khác [AUTH]
+
+- **Method**: `PATCH`
+- **URL**: `/api/v1/tasks/{taskId}/move`
+
+**Request body**:
+
+```json
+{
+  "statusId": 2,
+  "targetPosition": 1
+}
+```
+
+**Response**: `TaskResponse`.
+
+---
+
+### API-099: Sắp xếp lại task trong status [AUTH]
+
+- **Method**: `PATCH`
+- **URL**: `/api/v1/tasks/{taskId}/reorder`
+
+**Request body**:
+
+```json
+{
+  "targetPosition": 3
+}
+```
+
+**Response**: `TaskResponse`.
+
+---
+
+### API-100: Gán hoặc bỏ gán người phụ trách task [AUTH]
+
+- **Method**: `PATCH`
+- **URL**: `/api/v1/tasks/{taskId}/assignee`
+
+**Request body**:
+
+```json
+{
+  "assigneeId": "user-uuid"
+}
+```
+
+**Response**: `TaskResponse`.
+
+---
+
+### API-101: Cập nhật trạng thái hoàn thành task [AUTH]
+
+- **Method**: `PATCH`
+- **URL**: `/api/v1/tasks/{taskId}/completion`
+
+**Request body**:
+
+```json
+{
+  "isCompleted": true
+}
+```
+
+**Response**: `TaskResponse`.
+
+---
+
+### API-102: Xóa task [AUTH]
+
+- **Method**: `DELETE`
+- **URL**: `/api/v1/tasks/{taskId}`
+
+**Response**: `data = null`.
+
+---
+
+## Module 15: TASK SCHEDULES (6 APIs)
+
+---
+
+### API-103: Tạo lịch cho task [AUTH]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/task-schedules`
+
+**Request body**:
+
+```json
+{
+  "taskId": 1,
+  "scheduledStart": "2026-05-23T09:00:00",
+  "scheduledEnd": "2026-05-23T11:00:00"
+}
+```
+
+**Response**: `TaskScheduleResponse`.
+
+---
+
+### API-104: Cập nhật lịch task [AUTH]
+
+- **Method**: `PATCH`
+- **URL**: `/api/v1/task-schedules/{scheduleId}`
+
+**Request body**:
+
+```json
+{
+  "scheduledStart": "2026-05-23T10:00:00",
+  "scheduledEnd": "2026-05-23T12:00:00"
+}
+```
+
+**Response**: `TaskScheduleResponse`.
+
+---
+
+### API-105: Xóa lịch task [AUTH]
+
+- **Method**: `DELETE`
+- **URL**: `/api/v1/task-schedules/{scheduleId}`
+
+**Response**: `data = null`.
+
+---
+
+### API-106: Lấy lịch theo task [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/task-schedules/task/{taskId}`
+
+**Response**: `List<TaskScheduleResponse>`.
+
+---
+
+### API-107: Lấy calendar theo project [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/task-schedules/calendar/project/{projectId}?fromDate=2026-05-01&toDate=2026-05-31&page=1&size=100`
+
+**Query params**:
+
+| Param      | Bắt buộc | Ghi chú                |
+| ---------- | -------- | ---------------------- |
+| `fromDate` | ✓        | ISO date `yyyy-MM-dd`  |
+| `toDate`   | ✓        | ISO date `yyyy-MM-dd`  |
+| `page`     |          | one-indexed pagination |
+| `size`     |          | số phần tử mỗi trang   |
+
+**Response**: `PaginationResponse<TaskScheduleResponse>`.
+
+---
+
+### API-108: Lấy calendar theo workspace [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/task-schedules/calendar/workspace/{workspaceId}?fromDate=2026-05-01&toDate=2026-05-31&page=1&size=100`
+
+**Response**: `PaginationResponse<TaskScheduleResponse>`.
+
+---
+
+## Module 16: TASK COMMENTS (4 APIs)
+
+---
+
+### API-109: Tạo comment task [AUTH]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/task-comments`
+
+**Request body**:
+
+```json
+{
+  "taskId": 1,
+  "parentCommentId": null,
+  "content": "Mình đã cập nhật phần thiết kế."
+}
+```
+
+**Response**: `TaskCommentResponse`.
+
+---
+
+### API-110: Cập nhật comment task [AUTH]
+
+- **Method**: `PATCH`
+- **URL**: `/api/v1/task-comments/{commentId}`
+
+**Request body**:
+
+```json
+{
+  "content": "Nội dung comment đã chỉnh sửa."
+}
+```
+
+**Response**: `TaskCommentResponse`.
+
+---
+
+### API-111: Xóa comment task [AUTH]
+
+- **Method**: `DELETE`
+- **URL**: `/api/v1/task-comments/{commentId}`
+
+**Response**: `data = null`.
+
+---
+
+### API-112: Lấy comment theo task [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/task-comments/task/{taskId}`
+
+**Response**: `List<TaskCommentResponse>`.
+
+---
+
+## Module 17: NOTIFICATIONS (4 APIs)
+
+---
+
+### API-113: Lấy danh sách thông báo của user hiện tại [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/notifications?page=1&size=20`
+
+**Response**: `PaginationResponse<NotificationResponse>`.
+
+---
+
+### API-114: Lấy số lượng thông báo chưa đọc [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/notifications/unread-count`
+
+**Response**:
+
+```json
+{
+  "unreadCount": 3
+}
+```
+
+---
+
+### API-115: Đánh dấu một thông báo đã đọc [AUTH]
+
+- **Method**: `PATCH`
+- **URL**: `/api/v1/notifications/{notificationId}/read`
+
+**Response**: `data = null`.
+
+---
+
+### API-116: Đánh dấu tất cả thông báo đã đọc [AUTH]
+
+- **Method**: `PATCH`
+- **URL**: `/api/v1/notifications/read-all`
+
+**Response**: `data = null`.
+
+---
+
+## Module 18: ACTIVITY LOGS (1 API)
+
+---
+
+### API-117: Lấy activity log theo workspace [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/activity-logs/workspace/{workspaceId}?actorId={userId}&actionType=TASK_CREATED&targetType=TASK&fromDateTime=2026-05-01T00:00:00&toDateTime=2026-05-31T23:59:59&page=1&size=20`
+
+**Query params**:
+
+| Param          | Bắt buộc | Ghi chú                   |
+| -------------- | -------- | ------------------------- |
+| `actorId`      |          | lọc theo user thực hiện   |
+| `actionType`   |          | enum `ActivityActionType` |
+| `targetType`   |          | enum `ActivityTargetType` |
+| `fromDateTime` |          | ISO date-time             |
+| `toDateTime`   |          | ISO date-time             |
+| `page`, `size` |          | one-indexed pagination    |
+
+**Response**: `PaginationResponse<ActivityLogResponse>`.
+
+---
+
+## Module 19: POMODORO (2 APIs)
+
+---
+
+### API-118: Lưu phiên Pomodoro cho task [AUTH]
+
+- **Method**: `POST`
+- **URL**: `/api/v1/pomodoro/tasks/{taskId}`
+
+**Request body**:
+
+```json
+{
+  "durationMinutes": 25,
+  "startedAt": "2026-05-22T09:00:00",
+  "endedAt": "2026-05-22T09:25:00"
+}
+```
+
+**Response**: `PomodoroSessionResponse`.
+
+---
+
+### API-119: Lấy lịch sử Pomodoro theo task của user hiện tại [AUTH]
+
+- **Method**: `GET`
+- **URL**: `/api/v1/pomodoro/tasks/{taskId}`
+
+**Response**: `List<PomodoroSessionResponse>`.
+
+---
+
+## Phụ lục A: Endpoint Summary
+
+| API | Method | URL                                                       | Auth   | Module            |
+| --- | ------ | --------------------------------------------------------- | ------ | ----------------- |
+| 001 | POST   | `/api/v1/auth/register`                                   | PUBLIC | AUTH              |
+| 002 | POST   | `/api/v1/auth/verify-active-account`                      | PUBLIC | AUTH              |
+| 003 | POST   | `/api/v1/auth/resend-verify`                              | PUBLIC | AUTH              |
+| 004 | POST   | `/api/v1/auth/login`                                      | PUBLIC | AUTH              |
+| 005 | POST   | `/api/v1/auth/logout`                                     | AUTH   | AUTH              |
+| 006 | GET    | `/api/v1/auth/account`                                    | AUTH   | AUTH              |
+| 007 | GET    | `/api/v1/auth/refresh`                                    | PUBLIC | AUTH              |
+| 008 | POST   | `/api/v1/auth/forgot-password`                            | PUBLIC | AUTH              |
+| 009 | POST   | `/api/v1/auth/reset-password`                             | PUBLIC | AUTH              |
+| 010 | PATCH  | `/api/v1/users/update-profile`                            | AUTH   | USERS             |
+| 011 | PUT    | `/api/v1/users/update-password`                           | AUTH   | USERS             |
+| 012 | PUT    | `/api/v1/users/update-email`                              | AUTH   | USERS             |
+| 013 | POST   | `/api/v1/users/verify-change-email`                       | AUTH   | USERS             |
+| 014 | GET    | `/api/v1/users`                                           | AUTH   | USERS             |
+| 015 | GET    | `/api/v1/users/{userId}`                                  | AUTH   | USERS             |
+| 016 | PATCH  | `/api/v1/users/{userId}`                                  | AUTH   | USERS             |
+| 017 | DELETE | `/api/v1/users/{userId}`                                  | AUTH   | USERS             |
+| 018 | DELETE | `/api/v1/users/{userId}/roles`                            | AUTH   | USERS             |
+| 019 | POST   | `/api/v1/users/staff-requests`                            | AUTH   | USERS             |
+| 020 | POST   | `/api/v1/roles`                                           | AUTH   | ROLES             |
+| 021 | GET    | `/api/v1/roles/{roleId}`                                  | AUTH   | ROLES             |
+| 022 | GET    | `/api/v1/roles`                                           | AUTH   | ROLES             |
+| 023 | PATCH  | `/api/v1/roles/{roleId}`                                  | AUTH   | ROLES             |
+| 024 | DELETE | `/api/v1/roles/{roleId}/permissions`                      | AUTH   | ROLES             |
+| 025 | DELETE | `/api/v1/roles/{roleId}`                                  | AUTH   | ROLES             |
+| 026 | POST   | `/api/v1/permissions/module`                              | AUTH   | PERMISSIONS       |
+| 027 | DELETE | `/api/v1/permissions/module/{name}`                       | AUTH   | PERMISSIONS       |
+| 028 | GET    | `/api/v1/permissions/modules`                             | AUTH   | PERMISSIONS       |
+| 029 | POST   | `/api/v1/permissions`                                     | AUTH   | PERMISSIONS       |
+| 030 | PATCH  | `/api/v1/permissions/{permissionId}`                      | AUTH   | PERMISSIONS       |
+| 031 | GET    | `/api/v1/permissions/{permissionId}`                      | AUTH   | PERMISSIONS       |
+| 032 | GET    | `/api/v1/permissions`                                     | AUTH   | PERMISSIONS       |
+| 033 | DELETE | `/api/v1/permissions/{permissionId}`                      | AUTH   | PERMISSIONS       |
+| 034 | POST   | `/api/v1/storage/azure-blob/upload/single`                | AUTH   | STORAGE           |
+| 035 | POST   | `/api/v1/storage/azure-blob/upload/multiple`              | AUTH   | STORAGE           |
+| 036 | DELETE | `/api/v1/storage/azure-blob/delete/single`                | AUTH   | STORAGE           |
+| 037 | DELETE | `/api/v1/storage/azure-blob/delete/multiple`              | AUTH   | STORAGE           |
+| 038 | PUT    | `/api/v1/storage/azure-blob/move/single`                  | AUTH   | STORAGE           |
+| 039 | PUT    | `/api/v1/storage/azure-blob/move/multiple`                | AUTH   | STORAGE           |
+| 040 | POST   | `/api/v1/workspaces`                                      | AUTH   | WORKSPACES        |
+| 041 | PATCH  | `/api/v1/workspaces/{workspaceId}`                        | AUTH   | WORKSPACES        |
+| 042 | GET    | `/api/v1/workspaces/{workspaceId}`                        | AUTH   | WORKSPACES        |
+| 043 | GET    | `/api/v1/workspaces`                                      | AUTH   | WORKSPACES        |
+| 044 | POST   | `/api/v1/workspaces/{workspaceId}/members`                | AUTH   | WORKSPACES        |
+| 045 | GET    | `/api/v1/workspaces/{workspaceId}/members`                | AUTH   | WORKSPACES        |
+| 046 | PATCH  | `/api/v1/workspaces/{workspaceId}/members/{userId}/role`  | AUTH   | WORKSPACES        |
+| 047 | DELETE | `/api/v1/workspaces/{workspaceId}/members/{userId}`       | AUTH   | WORKSPACES        |
+| 048 | DELETE | `/api/v1/workspaces/{workspaceId}`                        | AUTH   | WORKSPACES        |
+| 049 | POST   | `/api/v1/workspace-invites`                               | AUTH   | WORKSPACE_INVITES |
+| 050 | GET    | `/api/v1/workspace-invites/workspace/{workspaceId}`       | AUTH   | WORKSPACE_INVITES |
+| 051 | PATCH  | `/api/v1/workspace-invites/{inviteId}/revoke`             | AUTH   | WORKSPACE_INVITES |
+| 052 | GET    | `/api/v1/workspace-invites/validate/{inviteCode}`         | AUTH   | WORKSPACE_INVITES |
+| 053 | POST   | `/api/v1/workspace-invites/join`                          | AUTH   | WORKSPACE_INVITES |
+| 054 | POST   | `/api/v1/workspace-teams`                                 | AUTH   | WORKSPACE_TEAMS   |
+| 055 | PATCH  | `/api/v1/workspace-teams/{teamId}`                        | AUTH   | WORKSPACE_TEAMS   |
+| 056 | GET    | `/api/v1/workspace-teams/{teamId}`                        | AUTH   | WORKSPACE_TEAMS   |
+| 057 | GET    | `/api/v1/workspace-teams/workspace/{workspaceId}`         | AUTH   | WORKSPACE_TEAMS   |
+| 058 | DELETE | `/api/v1/workspace-teams/{teamId}`                        | AUTH   | WORKSPACE_TEAMS   |
+| 059 | POST   | `/api/v1/workspace-teams/{teamId}/members`                | AUTH   | WORKSPACE_TEAMS   |
+| 060 | DELETE | `/api/v1/workspace-teams/{teamId}/members/{userId}`       | AUTH   | WORKSPACE_TEAMS   |
+| 061 | GET    | `/api/v1/workspace-teams/{teamId}/members`                | AUTH   | WORKSPACE_TEAMS   |
+| 062 | POST   | `/api/v1/projects`                                        | AUTH   | PROJECTS          |
+| 063 | PATCH  | `/api/v1/projects/{projectId}`                            | AUTH   | PROJECTS          |
+| 064 | PATCH  | `/api/v1/projects/{projectId}/status`                     | AUTH   | PROJECTS          |
+| 065 | GET    | `/api/v1/projects/{projectId}`                            | AUTH   | PROJECTS          |
+| 066 | GET    | `/api/v1/projects/workspace/{workspaceId}`                | AUTH   | PROJECTS          |
+| 067 | DELETE | `/api/v1/projects/{projectId}`                            | AUTH   | PROJECTS          |
+| 068 | GET    | `/api/v1/projects/{projectId}/analytics`                  | AUTH   | PROJECTS          |
+| 069 | GET    | `/api/v1/projects/{projectId}/access`                     | AUTH   | PROJECT_ACCESS    |
+| 070 | GET    | `/api/v1/projects/{projectId}/access/me`                  | AUTH   | PROJECT_ACCESS    |
+| 071 | POST   | `/api/v1/projects/{projectId}/access`                     | AUTH   | PROJECT_ACCESS    |
+| 072 | PATCH  | `/api/v1/projects/{projectId}/access/{accessId}`          | AUTH   | PROJECT_ACCESS    |
+| 073 | DELETE | `/api/v1/projects/{projectId}/access/{accessId}`          | AUTH   | PROJECT_ACCESS    |
+| 074 | POST   | `/api/v1/goals`                                           | AUTH   | GOALS             |
+| 075 | PATCH  | `/api/v1/goals/{goalId}`                                  | AUTH   | GOALS             |
+| 076 | GET    | `/api/v1/goals/{goalId}`                                  | AUTH   | GOALS             |
+| 077 | GET    | `/api/v1/goals/project/{projectId}`                       | AUTH   | GOALS             |
+| 078 | DELETE | `/api/v1/goals/{goalId}`                                  | AUTH   | GOALS             |
+| 079 | POST   | `/api/v1/task-statuses`                                   | AUTH   | TASK_STATUSES     |
+| 080 | GET    | `/api/v1/task-statuses/project/{projectId}`               | AUTH   | TASK_STATUSES     |
+| 081 | PATCH  | `/api/v1/task-statuses/{statusId}`                        | AUTH   | TASK_STATUSES     |
+| 082 | PATCH  | `/api/v1/task-statuses/project/{projectId}/reorder`       | AUTH   | TASK_STATUSES     |
+| 083 | DELETE | `/api/v1/task-statuses/{statusId}`                        | AUTH   | TASK_STATUSES     |
+| 084 | POST   | `/api/v1/task-types`                                      | AUTH   | TASK_TYPES        |
+| 085 | PATCH  | `/api/v1/task-types/{taskTypeId}`                         | AUTH   | TASK_TYPES        |
+| 086 | GET    | `/api/v1/task-types/{taskTypeId}`                         | AUTH   | TASK_TYPES        |
+| 087 | GET    | `/api/v1/task-types/project/{projectId}`                  | AUTH   | TASK_TYPES        |
+| 088 | DELETE | `/api/v1/task-types/{taskTypeId}`                         | AUTH   | TASK_TYPES        |
+| 089 | POST   | `/api/v1/tasks`                                           | AUTH   | TASKS             |
+| 090 | PATCH  | `/api/v1/tasks/{taskId}`                                  | AUTH   | TASKS             |
+| 091 | GET    | `/api/v1/tasks/{taskId}`                                  | AUTH   | TASKS             |
+| 092 | GET    | `/api/v1/tasks/my-work`                                   | AUTH   | TASKS             |
+| 093 | GET    | `/api/v1/tasks/analytics`                                 | AUTH   | TASKS             |
+| 094 | GET    | `/api/v1/tasks/{taskId}/dependencies`                     | AUTH   | TASKS             |
+| 095 | PUT    | `/api/v1/tasks/{taskId}/dependencies`                     | AUTH   | TASKS             |
+| 096 | GET    | `/api/v1/tasks/project/{projectId}`                       | AUTH   | TASKS             |
+| 097 | GET    | `/api/v1/tasks/goal/{goalId}`                             | AUTH   | TASKS             |
+| 098 | PATCH  | `/api/v1/tasks/{taskId}/move`                             | AUTH   | TASKS             |
+| 099 | PATCH  | `/api/v1/tasks/{taskId}/reorder`                          | AUTH   | TASKS             |
+| 100 | PATCH  | `/api/v1/tasks/{taskId}/assignee`                         | AUTH   | TASKS             |
+| 101 | PATCH  | `/api/v1/tasks/{taskId}/completion`                       | AUTH   | TASKS             |
+| 102 | DELETE | `/api/v1/tasks/{taskId}`                                  | AUTH   | TASKS             |
+| 103 | POST   | `/api/v1/task-schedules`                                  | AUTH   | TASK_SCHEDULES    |
+| 104 | PATCH  | `/api/v1/task-schedules/{scheduleId}`                     | AUTH   | TASK_SCHEDULES    |
+| 105 | DELETE | `/api/v1/task-schedules/{scheduleId}`                     | AUTH   | TASK_SCHEDULES    |
+| 106 | GET    | `/api/v1/task-schedules/task/{taskId}`                    | AUTH   | TASK_SCHEDULES    |
+| 107 | GET    | `/api/v1/task-schedules/calendar/project/{projectId}`     | AUTH   | TASK_SCHEDULES    |
+| 108 | GET    | `/api/v1/task-schedules/calendar/workspace/{workspaceId}` | AUTH   | TASK_SCHEDULES    |
+| 109 | POST   | `/api/v1/task-comments`                                   | AUTH   | TASK_COMMENTS     |
+| 110 | PATCH  | `/api/v1/task-comments/{commentId}`                       | AUTH   | TASK_COMMENTS     |
+| 111 | DELETE | `/api/v1/task-comments/{commentId}`                       | AUTH   | TASK_COMMENTS     |
+| 112 | GET    | `/api/v1/task-comments/task/{taskId}`                     | AUTH   | TASK_COMMENTS     |
+| 113 | GET    | `/api/v1/notifications`                                   | AUTH   | NOTIFICATIONS     |
+| 114 | GET    | `/api/v1/notifications/unread-count`                      | AUTH   | NOTIFICATIONS     |
+| 115 | PATCH  | `/api/v1/notifications/{notificationId}/read`             | AUTH   | NOTIFICATIONS     |
+| 116 | PATCH  | `/api/v1/notifications/read-all`                          | AUTH   | NOTIFICATIONS     |
+| 117 | GET    | `/api/v1/activity-logs/workspace/{workspaceId}`           | AUTH   | ACTIVITY_LOGS     |
+| 118 | POST   | `/api/v1/pomodoro/tasks/{taskId}`                         | AUTH   | POMODORO          |
+| 119 | GET    | `/api/v1/pomodoro/tasks/{taskId}`                         | AUTH   | POMODORO          |
+
+---
+
+## Phụ lục B: DTO Quick Reference
+
+### Core response DTOs
+
+- `UserSummaryResponse`: `userId`, `email`, `firstName`, `lastName`.
+- `UserSecureResponse`: thông tin hồ sơ user hiện tại, `rolesSecured`.
+- `UserResponse`: thông tin user cho admin, `roles`.
+- `WorkspaceResponse`: `id`, `name`, `owner`, `createdAt`, `updatedAt`.
+- `WorkspaceMemberResponse`: `id`, `workspaceId`, `user`, `role`, `joinedAt`.
+- `ProjectResponse`: `id`, `workspaceId`, `name`, `description`, `status`, `visibility`, `createdBy`, `managerUser`, `managerTeamId`, `managerTeamName`, timestamps.
+- `GoalResponse`: `id`, `projectId`, `title`, `goalType`, `status`, `progressPercent`, manager fields, timestamps.
+- `TaskResponse`: `id`, `workspaceId`, `projectId`, `goalId`, `status`, `title`, `description`, `notesHtml`, `blockerNote`, `priority`, `taskType`, `sourceView`, `assignee`, `createdBy`, `dueDate`, `estimatedMinutes`, `boardPosition`, `isCompleted`, dependency summary, timestamps.
+- `TaskScheduleResponse`: `id`, `taskId`, `scheduledStart`, `scheduledEnd`, `scheduledDate`, `createdBy`, timestamps.
+- `TaskCommentResponse`: `id`, `taskId`, `parentCommentId`, `user`, `content`, timestamps.
+- `NotificationResponse`: `id`, `type`, `title`, `message`, `referenceType`, `referenceId`, `isRead`, `createdAt`.
+- `ActivityLogResponse`: `id`, `workspaceId`, `actor`, `actionType`, `targetType`, `targetId`, `description`, `createdAt`.
+
+### Pagination DTO
+
+```json
+{
+  "meta": {
+    "currentPage": 1,
+    "pageSize": 20,
+    "totalPages": 3,
+    "totalElements": 42,
+    "hasNext": true,
+    "hasPrevious": false
+  },
+  "content": []
+}
+```
+
+---
+
+## Phụ lục C: Common Error Codes
+
+| ErrorCode key              | Code | Message rút gọn                             |
+| -------------------------- | ---- | ------------------------------------------- |
+| `UNAUTHENTICATED`          | 1002 | Thông tin đăng nhập không hợp lệ            |
+| `UNAUTHORIZED`             | 1003 | Không có quyền truy cập tính năng           |
+| `TOKEN_EXPIRED`            | 1005 | Token truy cập đã hết hạn                   |
+| `INVALID_TOKEN`            | 1006 | Token truy cập không hợp lệ                 |
+| `TOKEN_REVOKED`            | 1007 | Token đã bị thu hồi                         |
+| `NOT_FOUND_ROUTE`          | 1008 | Không tìm thấy tài nguyên                   |
+| `MISSING_TOKEN`            | 1010 | Thiếu token truy cập                        |
+| `INVALID_HTTP_METHOD`      | 1015 | Phương thức HTTP không hợp lệ               |
+| `INVALID_REQUEST_DATA`     | 1016 | Dữ liệu yêu cầu không hợp lệ                |
+| `RESOURCE_NOT_FOUND`       | 1017 | Không tìm thấy tài nguyên                   |
+| `TOO_MANY_REQUESTS`        | 1022 | Gửi quá nhiều yêu cầu                       |
+| `EMAIL_INVALID`            | 1102 | Định dạng email không hợp lệ                |
+| `EMAIL_PROVIDER_INVALID`   | 1103 | Chỉ hỗ trợ Gmail/Yopmail                    |
+| `PASSWORD_INVALID_FORMAT`  | 1105 | Mật khẩu không đúng định dạng               |
+| `PHONE_NUMBER_VN_INVALID`  | 1111 | Số điện thoại Việt Nam không hợp lệ         |
+| `EMAIL_EXISTED`            | 1112 | Email đã tồn tại                            |
+| `NOT_VERIFIED_ACCOUNT`     | 1116 | Tài khoản chưa xác thực                     |
+| `PHONE_NUMBER_EXISTED`     | 1117 | Số điện thoại đã tồn tại                    |
+| `EMAIL_OR_PHONE_REQUIRED`  | 1121 | Cần email hoặc số điện thoại để đăng nhập   |
+| `ONLY_EMAIL_OR_PHONE`      | 1122 | Chỉ dùng một trong email hoặc số điện thoại |
+| `USER_NOT_FOUND`           | 1201 | Không tìm thấy người dùng                   |
+| `ROLE_NOT_FOUND`           | 1304 | Không tìm thấy vai trò                      |
+| `PERMISSION_NOT_FOUND`     | 1407 | Không tìm thấy quyền                        |
+| `FILE_NOT_FOUND`           | 1501 | Không tìm thấy tệp                          |
+| `FILE_TYPE_NOT_ALLOWED`    | 1503 | Loại tệp không được cho phép                |
+| `FILE_TOO_LARGE`           | 1504 | Kích thước tệp vượt quá giới hạn            |
+| `EMPTY_SOURCE_LIST`        | 1517 | Danh sách tệp nguồn không được để trống     |
+| `DESTINATION_FOLDER_EMPTY` | 1518 | Tên thư mục đích không được để trống        |
+
+Nguồn chuẩn: `src/main/java/com/devloopsx/chronelis/exception/ErrorCode.java`.
+
+---
+
+## Phụ lục D: Enum Values
+
+- `WorkspaceMemberRoleType`: `OWNER`, `MEMBER`
+- `ProjectStatusType`: `ACTIVE`, `COMPLETED`, `ARCHIVED`
+- `ProjectVisibilityType`: `PUBLIC`, `PRIVATE`
+- `ProjectAccessSubjectType`: `USER`, `TEAM`
+- `ProjectAccessRoleType`: `VIEWER`, `CONTRIBUTOR`, `MANAGER`
+- `EffectiveProjectAccessRoleType`: `NO_ACCESS`, `VIEWER`, `CONTRIBUTOR`, `MANAGER`
+- `GoalType`: `SHORT_TERM`, `MEDIUM_TERM`, `LONG_TERM`
+- `GoalStatusType`: `NOT_STARTED`, `IN_PROGRESS`, `COMPLETED`, `ON_HOLD`
+- `TaskPriorityType`: `LOW`, `MEDIUM`, `HIGH`, `URGENT`
+- `SourceViewType`: `KANBAN`, `TODO`, `CALENDAR`
+- `NotificationType`: `TASK_ASSIGNED`, `TASK_COMMENTED`, `TASK_RESCHEDULED`, `TASK_STATUS_CHANGED`, `GOAL_UPDATED`, `WORKSPACE_MEMBER_ADDED`, `WORKSPACE_MEMBER_REMOVED`, `TASK_CREATED`, `TASK_UPDATED`, `WORKSPACE_INVITE_USED`
+- `ReferenceType`: `TASK`, `GOAL`, `PROJECT`, `WORKSPACE`, `COMMENT`, `SCHEDULE`, `TASK_TYPE`, `TEAM`, `INVITE`, `CHECK_ITEM`
+- `ActivityActionType`: `WORKSPACE_CREATED`, `WORKSPACE_UPDATED`, `WORKSPACE_DELETED`, `MEMBER_ADDED`, `MEMBER_REMOVED`, `MEMBER_ROLE_UPDATED`, `PROJECT_CREATED`, `PROJECT_UPDATED`, `PROJECT_DELETED`, `GOAL_CREATED`, `GOAL_UPDATED`, `GOAL_DELETED`, `TASK_CREATED`, `TASK_UPDATED`, `TASK_ASSIGNED`, `TASK_UNASSIGNED`, `TASK_RESCHEDULED`, `TASK_DEPENDENCY_UPDATED`, `TASK_MOVED_STATUS`, `TASK_REORDERED`, `TASK_DELETED`, `COMMENT_ADDED`, `COMMENT_UPDATED`, `COMMENT_DELETED`, `TASK_TYPE_CREATED`, `TASK_TYPE_UPDATED`, `TASK_TYPE_DELETED`, `TEAM_CREATED`, `TEAM_UPDATED`, `TEAM_DELETED`, `TEAM_MEMBER_ADDED`, `TEAM_MEMBER_REMOVED`, `INVITE_CREATED`, `INVITE_REVOKED`, `INVITE_USED`, `CHECK_ITEM_CREATED`, `CHECK_ITEM_UPDATED`, `CHECK_ITEM_DELETED`
+- `ActivityTargetType`: `TASK`, `GOAL`, `PROJECT`, `WORKSPACE`, `COMMENT`, `SCHEDULE`, `MEMBER`, `STATUS`, `TASK_TYPE`, `TEAM`, `INVITE`, `CHECK_ITEM`
+- `HttpMethodType`: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`
+
+---
+
+## Phụ lục E: WebSocket Runtime Notes
+
+- STOMP endpoint: `/ws`
+- SockJS fallback: bật trong `WebSocketConfig`.
+- Broker destinations: `/public`, `/private`
+- Application destination prefix: `/app`
+- User destination prefix: `/private`
+- Frontend nên gửi access token trong STOMP connect header nếu màn hình cần nhận event private.
+
+Nguồn chuẩn: `src/main/java/com/devloopsx/chronelis/configuration/WebSocketConfig.java`.

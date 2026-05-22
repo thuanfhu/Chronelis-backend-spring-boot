@@ -14,8 +14,8 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class RoleSecureResponse extends AuditResponse {
-	String roleId;
-	String name;
-	String description;
-	Boolean active;
+  String roleId;
+  String name;
+  String description;
+  Boolean active;
 }

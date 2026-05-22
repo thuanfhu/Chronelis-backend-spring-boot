@@ -15,30 +15,30 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class TaskAnalyticsResponse {
 
-    List<DailyTrendPoint> trend;
-    List<PriorityEstimatePoint> estimatedByPriority;
-    int totalAssigned;
-    int totalCompleted;
+  List<DailyTrendPoint> trend;
+  List<PriorityEstimatePoint> estimatedByPriority;
+  int totalAssigned;
+  int totalCompleted;
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class DailyTrendPoint {
-        String date;
-        int created;
-        int completed;
-    }
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  @Builder
+  @FieldDefaults(level = AccessLevel.PRIVATE)
+  public static class DailyTrendPoint {
+    String date;
+    int created;
+    int completed;
+  }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class PriorityEstimatePoint {
-        String priority;
-        long totalMinutes;
-        long taskCount;
-    }
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  @Builder
+  @FieldDefaults(level = AccessLevel.PRIVATE)
+  public static class PriorityEstimatePoint {
+    String priority;
+    long totalMinutes;
+    long taskCount;
+  }
 }

@@ -44,9 +44,7 @@ public class AzureBlobStorageServiceImpl implements AzureBlobStorageService {
 
     String resolvedFolderName = resolveFolderName(folderName);
 
-    String normalizedFileName = fileUtils.normalizeFileName(
-      file.getOriginalFilename()
-    );
+    String normalizedFileName = fileUtils.normalizeFileName(file.getOriginalFilename());
     String key = resolvedFolderName + "/" + normalizedFileName;
 
     try {
@@ -56,42 +54,29 @@ public class AzureBlobStorageServiceImpl implements AzureBlobStorageService {
     } catch (BlobStorageException e) {
       if (e.getStatusCode() == 404) {
         throw new ApplicationException(
-          ErrorCode.FILE_UPLOAD_FAILED,
-          "Container Azure Blob khong ton tai: " +
-            blobContainerClient.getBlobContainerName()
-        );
+            ErrorCode.FILE_UPLOAD_FAILED,
+            "Container Azure Blob khong ton tai: " + blobContainerClient.getBlobContainerName());
       }
       if (e.getStatusCode() == 403) {
         throw new ApplicationException(
-          ErrorCode.FILE_UPLOAD_FAILED,
-          "Tai khoan Azure Blob khong du quyen upload vao container: " +
-            blobContainerClient.getBlobContainerName()
-        );
+            ErrorCode.FILE_UPLOAD_FAILED,
+            "Tai khoan Azure Blob khong du quyen upload vao container: "
+                + blobContainerClient.getBlobContainerName());
       }
       throw new ApplicationException(
-        ErrorCode.FILE_UPLOAD_FAILED,
-        "Tai tep len Azure Blob that bai: " + resolveAzureMessage(e)
-      );
+          ErrorCode.FILE_UPLOAD_FAILED,
+          "Tai tep len Azure Blob that bai: " + resolveAzureMessage(e));
     } catch (IOException e) {
       throw new ApplicationException(
-        ErrorCode.FILE_UPLOAD_FAILED,
-        "Khong the doc du lieu file: " + e.getMessage()
-      );
+          ErrorCode.FILE_UPLOAD_FAILED, "Khong the doc du lieu file: " + e.getMessage());
     }
   }
 
   @Override
-  public String uploadFile(
-    byte[] content,
-    String fileName,
-    String folderName,
-    String contentType
-  ) {
+  public String uploadFile(byte[] content, String fileName, String folderName, String contentType) {
     if (content == null || content.length == 0) {
       throw new ApplicationException(
-        ErrorCode.FILE_UPLOAD_FAILED,
-        "Khong co du lieu tep de tai len"
-      );
+          ErrorCode.FILE_UPLOAD_FAILED, "Khong co du lieu tep de tai len");
     }
 
     fileUtils.validateFileSize(content.length);
@@ -103,46 +88,33 @@ public class AzureBlobStorageServiceImpl implements AzureBlobStorageService {
 
     try {
       BlobClient blobClient = blobContainerClient.getBlobClient(key);
-      blobClient.upload(
-        new ByteArrayInputStream(content),
-        content.length,
-        true
-      );
+      blobClient.upload(new ByteArrayInputStream(content), content.length, true);
 
       if (StringUtils.hasText(contentType)) {
-        blobClient.setHttpHeaders(
-          new BlobHttpHeaders().setContentType(contentType.trim())
-        );
+        blobClient.setHttpHeaders(new BlobHttpHeaders().setContentType(contentType.trim()));
       }
 
       return toPublicBlobUrl(blobClient.getBlobUrl());
     } catch (BlobStorageException e) {
       if (e.getStatusCode() == 404) {
         throw new ApplicationException(
-          ErrorCode.FILE_UPLOAD_FAILED,
-          "Container Azure Blob khong ton tai: " +
-            blobContainerClient.getBlobContainerName()
-        );
+            ErrorCode.FILE_UPLOAD_FAILED,
+            "Container Azure Blob khong ton tai: " + blobContainerClient.getBlobContainerName());
       }
       if (e.getStatusCode() == 403) {
         throw new ApplicationException(
-          ErrorCode.FILE_UPLOAD_FAILED,
-          "Tai khoan Azure Blob khong du quyen upload vao container: " +
-            blobContainerClient.getBlobContainerName()
-        );
+            ErrorCode.FILE_UPLOAD_FAILED,
+            "Tai khoan Azure Blob khong du quyen upload vao container: "
+                + blobContainerClient.getBlobContainerName());
       }
       throw new ApplicationException(
-        ErrorCode.FILE_UPLOAD_FAILED,
-        "Tai tep len Azure Blob that bai: " + resolveAzureMessage(e)
-      );
+          ErrorCode.FILE_UPLOAD_FAILED,
+          "Tai tep len Azure Blob that bai: " + resolveAzureMessage(e));
     }
   }
 
   @Override
-  public List<String> uploadMultipleFiles(
-    List<MultipartFile> files,
-    String folderName
-  ) {
+  public List<String> uploadMultipleFiles(List<MultipartFile> files, String folderName) {
     List<String> urls = new ArrayList<>();
     String resolvedFolderName = resolveFolderName(folderName);
     for (MultipartFile file : files) {
@@ -175,26 +147,19 @@ public class AzureBlobStorageServiceImpl implements AzureBlobStorageService {
     BlobClient sourceBlobClient = blobContainerClient.getBlobClient(sourceKey);
     if (!sourceBlobClient.exists()) {
       throw new ApplicationException(
-        ErrorCode.FILE_NOT_FOUND,
-        "File nguon khong ton tai: " + sourceKey
-      );
+          ErrorCode.FILE_NOT_FOUND, "File nguon khong ton tai: " + sourceKey);
     }
 
     String fileName = sourceKey.substring(sourceKey.lastIndexOf("/") + 1);
     String destinationKey = destinationFolder + "/" + fileName;
 
-    BlobClient destinationBlobClient = blobContainerClient.getBlobClient(
-      destinationKey
-    );
+    BlobClient destinationBlobClient = blobContainerClient.getBlobClient(destinationKey);
     destinationBlobClient.copyFromUrl(sourceBlobClient.getBlobUrl());
     sourceBlobClient.delete();
   }
 
   @Override
-  public void moveMultipleFiles(
-    List<String> sourceKeys,
-    String destinationFolder
-  ) {
+  public void moveMultipleFiles(List<String> sourceKeys, String destinationFolder) {
     for (String sourceKey : sourceKeys) {
       moveSingleFile(sourceKey, destinationFolder);
     }
@@ -236,9 +201,8 @@ public class AzureBlobStorageServiceImpl implements AzureBlobStorageService {
       blobContainerClient.createIfNotExists();
     } catch (BlobStorageException e) {
       throw new ApplicationException(
-        ErrorCode.FILE_UPLOAD_FAILED,
-        "Khong the khoi tao container Azure Blob: " + resolveAzureMessage(e)
-      );
+          ErrorCode.FILE_UPLOAD_FAILED,
+          "Khong the khoi tao container Azure Blob: " + resolveAzureMessage(e));
     }
   }
 
@@ -255,14 +219,18 @@ public class AzureBlobStorageServiceImpl implements AzureBlobStorageService {
     if (!internalBlobUrl.startsWith(internalPrefix)) {
       return internalBlobUrl;
     }
-    return withTrailingSlash(buildPublicContainerUrl()) + internalBlobUrl.substring(internalPrefix.length());
+    return withTrailingSlash(buildPublicContainerUrl())
+        + internalBlobUrl.substring(internalPrefix.length());
   }
 
   private String buildPublicContainerUrl() {
-    String resolvedPublicEndpoint = StringUtils.hasText(publicEndpoint)
-      ? publicEndpoint.trim()
-      : blobContainerClient.getBlobContainerUrl();
-    return withoutTrailingSlash(resolvedPublicEndpoint) + "/" + blobContainerClient.getBlobContainerName();
+    String resolvedPublicEndpoint =
+        StringUtils.hasText(publicEndpoint)
+            ? publicEndpoint.trim()
+            : blobContainerClient.getBlobContainerUrl();
+    return withoutTrailingSlash(resolvedPublicEndpoint)
+        + "/"
+        + blobContainerClient.getBlobContainerName();
   }
 
   private String withTrailingSlash(String value) {

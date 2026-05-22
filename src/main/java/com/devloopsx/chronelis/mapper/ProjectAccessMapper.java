@@ -11,24 +11,30 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ProjectAccessMapper {
-    UserSummaryMapper userSummaryMapper;
-    WorkspaceTeamMapper workspaceTeamMapper;
+  UserSummaryMapper userSummaryMapper;
+  WorkspaceTeamMapper workspaceTeamMapper;
 
-    public ProjectAccessResponse toResponse(ProjectAccessGrant projectAccess) {
-        if (projectAccess == null) {
-            return null;
-        }
-
-        return ProjectAccessResponse.builder()
-                .id(projectAccess.getId())
-                .projectId(projectAccess.getProject().getId())
-                .subjectType(projectAccess.getSubjectType())
-                .user(projectAccess.getUser() != null ? userSummaryMapper.toSummary(projectAccess.getUser()) : null)
-                .team(projectAccess.getTeam() != null ? workspaceTeamMapper.toResponse(projectAccess.getTeam()) : null)
-                .role(projectAccess.getRole())
-                .grantedBy(userSummaryMapper.toSummary(projectAccess.getGrantedBy()))
-                .createdAt(projectAccess.getCreatedAt())
-                .updatedAt(projectAccess.getUpdatedAt())
-                .build();
+  public ProjectAccessResponse toResponse(ProjectAccessGrant projectAccess) {
+    if (projectAccess == null) {
+      return null;
     }
+
+    return ProjectAccessResponse.builder()
+        .id(projectAccess.getId())
+        .projectId(projectAccess.getProject().getId())
+        .subjectType(projectAccess.getSubjectType())
+        .user(
+            projectAccess.getUser() != null
+                ? userSummaryMapper.toSummary(projectAccess.getUser())
+                : null)
+        .team(
+            projectAccess.getTeam() != null
+                ? workspaceTeamMapper.toResponse(projectAccess.getTeam())
+                : null)
+        .role(projectAccess.getRole())
+        .grantedBy(userSummaryMapper.toSummary(projectAccess.getGrantedBy()))
+        .createdAt(projectAccess.getCreatedAt())
+        .updatedAt(projectAccess.getUpdatedAt())
+        .build();
+  }
 }

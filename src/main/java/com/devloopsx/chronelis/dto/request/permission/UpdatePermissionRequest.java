@@ -10,10 +10,10 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Builder
 public class UpdatePermissionRequest {
-	String name;
-	String apiPath;
-	String httpMethod;
+  String name;
+  String apiPath;
+  String httpMethod;
 
-	@Pattern(regexp = "^(?!\\s*$).+", message = "PERMISSION_MODULE_NAME_INVALID")
-	String module;
+  @Pattern(regexp = "^(?!\\s*$).+", message = "PERMISSION_MODULE_NAME_INVALID")
+  String module;
 }

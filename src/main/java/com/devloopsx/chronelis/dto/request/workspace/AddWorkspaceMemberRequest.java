@@ -12,9 +12,9 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class AddWorkspaceMemberRequest {
-    @NotBlank(message = "INVALID_REQUEST_DATA")
-    String userId;
+  @NotBlank(message = "INVALID_REQUEST_DATA")
+  String userId;
 
-    @NotNull(message = "INVALID_REQUEST_DATA")
-    WorkspaceMemberRoleType role;
+  @NotNull(message = "INVALID_REQUEST_DATA")
+  WorkspaceMemberRoleType role;
 }

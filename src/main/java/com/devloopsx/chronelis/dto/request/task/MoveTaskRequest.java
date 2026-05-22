@@ -10,8 +10,8 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class MoveTaskRequest {
-    @NotNull(message = "INVALID_REQUEST_DATA")
-    Long statusId;
+  @NotNull(message = "INVALID_REQUEST_DATA")
+  Long statusId;
 
-    Integer targetPosition;
+  Integer targetPosition;
 }

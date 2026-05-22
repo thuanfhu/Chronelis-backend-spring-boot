@@ -18,6 +18,8 @@ import com.devloopsx.chronelis.service.cache.AfterCommitExecutor;
 import com.devloopsx.chronelis.service.cache.CacheKeys;
 import com.devloopsx.chronelis.service.cache.RedisCacheService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -26,112 +28,127 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.time.Duration;
-
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class NotificationServiceImpl implements NotificationService {
-    NotificationRepository notificationRepository;
-    UserRepository userRepository;
-    NotificationMapper notificationMapper;
-    RealtimeEventPublisherService realtimeEventPublisherService;
-    SecurityUtils securityUtils;
-    RedisCacheService redisCacheService;
-    AfterCommitExecutor afterCommitExecutor;
+  NotificationRepository notificationRepository;
+  UserRepository userRepository;
+  NotificationMapper notificationMapper;
+  RealtimeEventPublisherService realtimeEventPublisherService;
+  SecurityUtils securityUtils;
+  RedisCacheService redisCacheService;
+  AfterCommitExecutor afterCommitExecutor;
 
-    static final Duration UNREAD_COUNT_TTL = Duration.ofMinutes(5);
+  static final Duration UNREAD_COUNT_TTL = Duration.ofMinutes(5);
 
-    @Override
-    public PaginationResponse listMyNotifications(Pageable pageable) {
-        User currentUser = securityUtils.getAuthenticatedUser();
-        Page<Notification> page = notificationRepository.findByUserUserIdOrderByCreatedAtDesc(currentUser.getUserId(),
-                pageable);
+  @Override
+  public PaginationResponse listMyNotifications(Pageable pageable) {
+    User currentUser = securityUtils.getAuthenticatedUser();
+    Page<Notification> page =
+        notificationRepository.findByUserUserIdOrderByCreatedAtDesc(
+            currentUser.getUserId(), pageable);
 
-        return PaginationResponse.builder()
-                .meta(PaginationMeta.builder()
-                        .currentPage(pageable.getPageNumber() + 1)
-                        .pageSize(pageable.getPageSize())
-                        .totalPages(page.getTotalPages())
-                        .totalElements(page.getTotalElements())
-                        .hasNext(page.hasNext())
-                        .hasPrevious(page.hasPrevious())
-                        .build())
-                .content(page.getContent().stream().map(notificationMapper::toResponse).toList())
-                .build();
+    return PaginationResponse.builder()
+        .meta(
+            PaginationMeta.builder()
+                .currentPage(pageable.getPageNumber() + 1)
+                .pageSize(pageable.getPageSize())
+                .totalPages(page.getTotalPages())
+                .totalElements(page.getTotalElements())
+                .hasNext(page.hasNext())
+                .hasPrevious(page.hasPrevious())
+                .build())
+        .content(page.getContent().stream().map(notificationMapper::toResponse).toList())
+        .build();
+  }
+
+  @Override
+  public NotificationUnreadCountResponse getUnreadCount() {
+    User currentUser = securityUtils.getAuthenticatedUser();
+    long unreadCount = getUnreadCountValue(currentUser.getUserId());
+    return NotificationUnreadCountResponse.builder().unreadCount(unreadCount).build();
+  }
+
+  @Override
+  @Transactional
+  public void markOneAsRead(Long notificationId) {
+    User currentUser = securityUtils.getAuthenticatedUser();
+    int affectedRows =
+        notificationRepository.markOneAsRead(notificationId, currentUser.getUserId());
+    if (affectedRows == 0) {
+      throw new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND, "Notification không tồn tại");
     }
 
-    @Override
-    public NotificationUnreadCountResponse getUnreadCount() {
-        User currentUser = securityUtils.getAuthenticatedUser();
-        long unreadCount = getUnreadCountValue(currentUser.getUserId());
-        return NotificationUnreadCountResponse.builder().unreadCount(unreadCount).build();
-    }
+    afterCommitExecutor.runAfterCommit(() -> refreshUnreadCountAndPublish(currentUser.getUserId()));
+  }
 
-    @Override
-    @Transactional
-    public void markOneAsRead(Long notificationId) {
-        User currentUser = securityUtils.getAuthenticatedUser();
-        int affectedRows = notificationRepository.markOneAsRead(notificationId, currentUser.getUserId());
-        if (affectedRows == 0) {
-            throw new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND, "Notification không tồn tại");
-        }
-
-        afterCommitExecutor.runAfterCommit(() -> refreshUnreadCountAndPublish(currentUser.getUserId()));
-    }
-
-    @Override
-    @Transactional
-    public void markAllAsRead() {
-        User currentUser = securityUtils.getAuthenticatedUser();
-        notificationRepository.markAllAsRead(currentUser.getUserId());
-        afterCommitExecutor.runAfterCommit(() -> {
-            redisCacheService.setJson(CacheKeys.notificationUnreadCount(currentUser.getUserId()), 0L, UNREAD_COUNT_TTL);
-            realtimeEventPublisherService.publishUnreadCount(currentUser.getUserId(), 0);
+  @Override
+  @Transactional
+  public void markAllAsRead() {
+    User currentUser = securityUtils.getAuthenticatedUser();
+    notificationRepository.markAllAsRead(currentUser.getUserId());
+    afterCommitExecutor.runAfterCommit(
+        () -> {
+          redisCacheService.setJson(
+              CacheKeys.notificationUnreadCount(currentUser.getUserId()), 0L, UNREAD_COUNT_TTL);
+          realtimeEventPublisherService.publishUnreadCount(currentUser.getUserId(), 0);
         });
-    }
+  }
 
-    @Override
-    @Transactional
-    public void createAndPublish(String recipientUserId, NotificationType type, String title, String message,
-            ReferenceType referenceType, Long referenceId) {
-        User recipient = userRepository.findById(recipientUserId)
-                .orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
+  @Override
+  @Transactional
+  public void createAndPublish(
+      String recipientUserId,
+      NotificationType type,
+      String title,
+      String message,
+      ReferenceType referenceType,
+      Long referenceId) {
+    User recipient =
+        userRepository
+            .findById(recipientUserId)
+            .orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
 
-        Notification notification = Notification.builder()
-                .user(recipient)
-                .type(type)
-                .title(title)
-                .message(message)
-                .referenceType(referenceType)
-                .referenceId(referenceId)
-                .isRead(false)
-                .createdAt(LocalDateTime.now())
-                .build();
+    Notification notification =
+        Notification.builder()
+            .user(recipient)
+            .type(type)
+            .title(title)
+            .message(message)
+            .referenceType(referenceType)
+            .referenceId(referenceId)
+            .isRead(false)
+            .createdAt(LocalDateTime.now())
+            .build();
 
-        Notification savedNotification = notificationRepository.save(notification);
+    Notification savedNotification = notificationRepository.save(notification);
 
-        var response = notificationMapper.toResponse(savedNotification);
-        afterCommitExecutor.runAfterCommit(() -> {
-            realtimeEventPublisherService.publishNotificationEvent(recipientUserId, "notification.created", response);
-            refreshUnreadCountAndPublish(recipientUserId);
+    var response = notificationMapper.toResponse(savedNotification);
+    afterCommitExecutor.runAfterCommit(
+        () -> {
+          realtimeEventPublisherService.publishNotificationEvent(
+              recipientUserId, "notification.created", response);
+          refreshUnreadCountAndPublish(recipientUserId);
         });
-    }
+  }
 
-    private long getUnreadCountValue(String userId) {
-        String key = CacheKeys.notificationUnreadCount(userId);
-        return redisCacheService.getJson(key, Long.class)
-                .orElseGet(() -> {
-                    long unreadCount = notificationRepository.countByUserUserIdAndIsReadFalse(userId);
-                    redisCacheService.setJson(key, unreadCount, UNREAD_COUNT_TTL);
-                    return unreadCount;
-                });
-    }
+  private long getUnreadCountValue(String userId) {
+    String key = CacheKeys.notificationUnreadCount(userId);
+    return redisCacheService
+        .getJson(key, Long.class)
+        .orElseGet(
+            () -> {
+              long unreadCount = notificationRepository.countByUserUserIdAndIsReadFalse(userId);
+              redisCacheService.setJson(key, unreadCount, UNREAD_COUNT_TTL);
+              return unreadCount;
+            });
+  }
 
-    private void refreshUnreadCountAndPublish(String userId) {
-        long unreadCount = notificationRepository.countByUserUserIdAndIsReadFalse(userId);
-        redisCacheService.setJson(CacheKeys.notificationUnreadCount(userId), unreadCount, UNREAD_COUNT_TTL);
-        realtimeEventPublisherService.publishUnreadCount(userId, unreadCount);
-    }
+  private void refreshUnreadCountAndPublish(String userId) {
+    long unreadCount = notificationRepository.countByUserUserIdAndIsReadFalse(userId);
+    redisCacheService.setJson(
+        CacheKeys.notificationUnreadCount(userId), unreadCount, UNREAD_COUNT_TTL);
+    realtimeEventPublisherService.publishUnreadCount(userId, unreadCount);
+  }
 }

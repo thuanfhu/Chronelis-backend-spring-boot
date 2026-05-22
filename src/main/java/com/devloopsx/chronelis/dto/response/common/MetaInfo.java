@@ -9,6 +9,6 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class MetaInfo {
-	String timestamp;
-	String instance;
+  String timestamp;
+  String instance;
 }

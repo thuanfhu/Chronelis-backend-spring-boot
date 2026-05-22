@@ -11,11 +11,14 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface ActivityLogRepository extends JpaRepository<ActivityLog, Long>, JpaSpecificationExecutor<ActivityLog> {
-    Page<ActivityLog> findByWorkspaceIdOrderByCreatedAtDesc(Long workspaceId, Pageable pageable);
+public interface ActivityLogRepository
+    extends JpaRepository<ActivityLog, Long>, JpaSpecificationExecutor<ActivityLog> {
+  Page<ActivityLog> findByWorkspaceIdOrderByCreatedAtDesc(Long workspaceId, Pageable pageable);
 
-    @Modifying
-    @Query("UPDATE ActivityLog al SET al.actor = :replacementUser WHERE al.actor.userId = :sourceUserId")
-    int reassignActor(@Param("sourceUserId") String sourceUserId,
-            @Param("replacementUser") com.devloopsx.chronelis.domain.User replacementUser);
+  @Modifying
+  @Query(
+      "UPDATE ActivityLog al SET al.actor = :replacementUser WHERE al.actor.userId = :sourceUserId")
+  int reassignActor(
+      @Param("sourceUserId") String sourceUserId,
+      @Param("replacementUser") com.devloopsx.chronelis.domain.User replacementUser);
 }

@@ -10,13 +10,13 @@ import java.lang.annotation.*;
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface PasswordMatches {
-	String message() default "PASSWORD_AND_CONFIRM_MISMATCH";
+  String message() default "PASSWORD_AND_CONFIRM_MISMATCH";
 
-	Class<?>[] groups() default {};
+  Class<?>[] groups() default {};
 
-	Class<? extends Payload>[] payload() default {};
+  Class<? extends Payload>[] payload() default {};
 
-	String passwordField();
+  String passwordField();
 
-	String confirmPasswordField();
+  String confirmPasswordField();
 }

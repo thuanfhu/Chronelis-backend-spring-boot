@@ -10,13 +10,13 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpdateTaskStatusRequest {
-    @Size(max = 100, message = "INVALID_REQUEST_DATA")
-    String name;
+  @Size(max = 100, message = "INVALID_REQUEST_DATA")
+  String name;
 
-    @Size(max = 50, message = "INVALID_REQUEST_DATA")
-    String code;
+  @Size(max = 50, message = "INVALID_REQUEST_DATA")
+  String code;
 
-    Integer position;
+  Integer position;
 
-    Boolean isClosed;
+  Boolean isClosed;
 }

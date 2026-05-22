@@ -4,17 +4,17 @@ import com.devloopsx.chronelis.dto.request.projectaccess.UpdateProjectAccessRequ
 import com.devloopsx.chronelis.dto.request.projectaccess.UpsertProjectAccessRequest;
 import com.devloopsx.chronelis.dto.response.projectaccess.EffectiveProjectAccessResponse;
 import com.devloopsx.chronelis.dto.response.projectaccess.ProjectAccessResponse;
-
 import java.util.List;
 
 public interface ProjectAccessService {
-    List<ProjectAccessResponse> listProjectAccess(Long projectId);
+  List<ProjectAccessResponse> listProjectAccess(Long projectId);
 
-    ProjectAccessResponse upsertProjectAccess(Long projectId, UpsertProjectAccessRequest request);
+  ProjectAccessResponse upsertProjectAccess(Long projectId, UpsertProjectAccessRequest request);
 
-    ProjectAccessResponse updateProjectAccess(Long projectId, Long accessId, UpdateProjectAccessRequest request);
+  ProjectAccessResponse updateProjectAccess(
+      Long projectId, Long accessId, UpdateProjectAccessRequest request);
 
-    void revokeProjectAccess(Long projectId, Long accessId);
+  void revokeProjectAccess(Long projectId, Long accessId);
 
-    EffectiveProjectAccessResponse getCurrentUserEffectiveAccess(Long projectId);
+  EffectiveProjectAccessResponse getCurrentUserEffectiveAccess(Long projectId);
 }

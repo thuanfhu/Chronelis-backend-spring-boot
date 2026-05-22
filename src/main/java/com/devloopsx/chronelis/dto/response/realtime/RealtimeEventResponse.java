@@ -1,9 +1,8 @@
 package com.devloopsx.chronelis.dto.response.realtime;
 
+import java.time.LocalDateTime;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-
-import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
@@ -11,7 +10,7 @@ import java.time.LocalDateTime;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class RealtimeEventResponse {
-    String eventType;
-    Object data;
-    LocalDateTime occurredAt;
+  String eventType;
+  Object data;
+  LocalDateTime occurredAt;
 }

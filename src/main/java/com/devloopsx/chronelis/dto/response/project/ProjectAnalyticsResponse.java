@@ -15,20 +15,20 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class ProjectAnalyticsResponse {
 
-    List<DailyTrendPoint> trend;
-    double completionRate;
-    int totalTasks;
-    int completedTasks;
+  List<DailyTrendPoint> trend;
+  double completionRate;
+  int totalTasks;
+  int completedTasks;
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class DailyTrendPoint {
-        String date;
-        int created;
-        int completed;
-        int cumulative;
-    }
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  @Builder
+  @FieldDefaults(level = AccessLevel.PRIVATE)
+  public static class DailyTrendPoint {
+    String date;
+    int created;
+    int completed;
+    int cumulative;
+  }
 }

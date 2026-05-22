@@ -9,29 +9,30 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Slf4j
 public class AfterCommitExecutor {
 
-    public void runAfterCommit(Runnable action) {
-        if (action == null) {
-            return;
-        }
+  public void runAfterCommit(Runnable action) {
+    if (action == null) {
+      return;
+    }
 
-        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+    if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+      runSafely(action);
+      return;
+    }
+
+    TransactionSynchronizationManager.registerSynchronization(
+        new TransactionSynchronization() {
+          @Override
+          public void afterCommit() {
             runSafely(action);
-            return;
-        }
-
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                runSafely(action);
-            }
+          }
         });
-    }
+  }
 
-    private void runSafely(Runnable action) {
-        try {
-            action.run();
-        } catch (Exception ex) {
-            log.warn("After-commit action failed", ex);
-        }
+  private void runSafely(Runnable action) {
+    try {
+      action.run();
+    } catch (Exception ex) {
+      log.warn("After-commit action failed", ex);
     }
+  }
 }

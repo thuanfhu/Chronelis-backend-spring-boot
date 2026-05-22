@@ -9,7 +9,8 @@ import lombok.experimental.FieldDefaults;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public enum TokenType {
-	ACCESS_TOKEN("access_token"), REFRESH_TOKEN("refresh_token");
+  ACCESS_TOKEN("access_token"),
+  REFRESH_TOKEN("refresh_token");
 
-	String key;
+  String key;
 }

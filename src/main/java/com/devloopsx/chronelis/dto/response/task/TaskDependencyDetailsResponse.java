@@ -15,16 +15,14 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class TaskDependencyDetailsResponse {
-    Long taskId;
-    String blockerNote;
-    Boolean blocked;
-    String blockedReason;
-    Integer blockedByOpenCount;
-    Integer blockingTaskCount;
+  Long taskId;
+  String blockerNote;
+  Boolean blocked;
+  String blockedReason;
+  Integer blockedByOpenCount;
+  Integer blockingTaskCount;
 
-    @Builder.Default
-    List<TaskDependencyTaskResponse> blockedByTasks = new ArrayList<>();
+  @Builder.Default List<TaskDependencyTaskResponse> blockedByTasks = new ArrayList<>();
 
-    @Builder.Default
-    List<TaskDependencyTaskResponse> blockingTasks = new ArrayList<>();
+  @Builder.Default List<TaskDependencyTaskResponse> blockingTasks = new ArrayList<>();
 }

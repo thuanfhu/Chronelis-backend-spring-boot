@@ -3,11 +3,10 @@ package com.devloopsx.chronelis.dto.response.role;
 import com.devloopsx.chronelis.dto.response.common.AuditResponse;
 import com.devloopsx.chronelis.dto.response.permission.PermissionResponse;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import java.util.List;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.SuperBuilder;
-
-import java.util.List;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -17,9 +16,9 @@ import java.util.List;
 @SuperBuilder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class RoleResponse extends AuditResponse {
-	String roleId;
-	String name;
-	String description;
-	Boolean active;
-	List<PermissionResponse> permissions;
+  String roleId;
+  String name;
+  String description;
+  Boolean active;
+  List<PermissionResponse> permissions;
 }

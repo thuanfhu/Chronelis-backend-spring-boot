@@ -8,19 +8,19 @@ import org.mapstruct.*;
 
 @Mapper(componentModel = "spring")
 public interface TaskStatusMapper {
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "project", ignore = true)
-    @Mapping(target = "createdAt", ignore = true)
-    @Mapping(target = "tasks", ignore = true)
-    TaskStatus toEntity(CreateTaskStatusRequest request);
+  @Mapping(target = "id", ignore = true)
+  @Mapping(target = "project", ignore = true)
+  @Mapping(target = "createdAt", ignore = true)
+  @Mapping(target = "tasks", ignore = true)
+  TaskStatus toEntity(CreateTaskStatusRequest request);
 
-    @Mapping(target = "projectId", source = "project.id")
-    TaskStatusResponse toResponse(TaskStatus taskStatus);
+  @Mapping(target = "projectId", source = "project.id")
+  TaskStatusResponse toResponse(TaskStatus taskStatus);
 
-    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "project", ignore = true)
-    @Mapping(target = "createdAt", ignore = true)
-    @Mapping(target = "tasks", ignore = true)
-    void updateEntity(@MappingTarget TaskStatus taskStatus, UpdateTaskStatusRequest request);
+  @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+  @Mapping(target = "id", ignore = true)
+  @Mapping(target = "project", ignore = true)
+  @Mapping(target = "createdAt", ignore = true)
+  @Mapping(target = "tasks", ignore = true)
+  void updateEntity(@MappingTarget TaskStatus taskStatus, UpdateTaskStatusRequest request);
 }

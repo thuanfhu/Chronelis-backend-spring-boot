@@ -12,8 +12,8 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Builder
 public class UpdateUserEmailRequest {
-	@NotBlank(message = "NEW_EMAIL_NOT_BLANK")
-	@Email(message = "EMAIL_INVALID")
-	@Pattern(regexp = "^[\\w._%+-]+@(gmail\\.com|yopmail\\.com)$", message = "EMAIL_PROVIDER_INVALID")
-	String newEmail;
+  @NotBlank(message = "NEW_EMAIL_NOT_BLANK")
+  @Email(message = "EMAIL_INVALID")
+  @Pattern(regexp = "^[\\w._%+-]+@(gmail\\.com|yopmail\\.com)$", message = "EMAIL_PROVIDER_INVALID")
+  String newEmail;
 }
