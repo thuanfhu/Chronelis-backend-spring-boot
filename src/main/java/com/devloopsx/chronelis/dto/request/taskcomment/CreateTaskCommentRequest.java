@@ -11,11 +11,11 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CreateTaskCommentRequest {
-    @NotNull(message = "INVALID_REQUEST_DATA")
-    Long taskId;
+  @NotNull(message = "INVALID_REQUEST_DATA")
+  Long taskId;
 
-    Long parentCommentId;
+  Long parentCommentId;
 
-    @NotBlank(message = "INVALID_REQUEST_DATA")
-    String content;
+  @NotBlank(message = "INVALID_REQUEST_DATA")
+  String content;
 }

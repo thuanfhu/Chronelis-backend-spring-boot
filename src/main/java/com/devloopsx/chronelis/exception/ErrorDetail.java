@@ -11,8 +11,8 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ErrorDetail {
-	Integer code;
-	String message;
-	String field;
-	String resource; // model
+  Integer code;
+  String message;
+  String field;
+  String resource; // model
 }

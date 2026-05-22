@@ -10,6 +10,6 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpdateTaskCommentRequest {
-    @NotBlank(message = "INVALID_REQUEST_DATA")
-    String content;
+  @NotBlank(message = "INVALID_REQUEST_DATA")
+  String content;
 }

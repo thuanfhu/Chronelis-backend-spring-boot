@@ -6,10 +6,9 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import java.time.LocalDateTime;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-
-import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
@@ -17,37 +16,37 @@ import java.time.LocalDateTime;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CreateTaskRequest {
-    @NotNull(message = "INVALID_REQUEST_DATA")
-    Long projectId;
+  @NotNull(message = "INVALID_REQUEST_DATA")
+  Long projectId;
 
-    Long goalId;
+  Long goalId;
 
-    @NotNull(message = "INVALID_REQUEST_DATA")
-    Long statusId;
+  @NotNull(message = "INVALID_REQUEST_DATA")
+  Long statusId;
 
-    @NotBlank(message = "INVALID_REQUEST_DATA")
-    @Size(max = 200, message = "INVALID_REQUEST_DATA")
-    String title;
+  @NotBlank(message = "INVALID_REQUEST_DATA")
+  @Size(max = 200, message = "INVALID_REQUEST_DATA")
+  String title;
 
-    @Size(max = 5000, message = "INVALID_REQUEST_DATA")
-    String description;
+  @Size(max = 5000, message = "INVALID_REQUEST_DATA")
+  String description;
 
-    @Size(max = 200000, message = "INVALID_REQUEST_DATA")
-    String notesHtml;
+  @Size(max = 200000, message = "INVALID_REQUEST_DATA")
+  String notesHtml;
 
-    @NotNull(message = "INVALID_REQUEST_DATA")
-    TaskPriorityType priority;
+  @NotNull(message = "INVALID_REQUEST_DATA")
+  TaskPriorityType priority;
 
-    String assigneeId;
+  String assigneeId;
 
-    LocalDateTime dueDate;
+  LocalDateTime dueDate;
 
-    @Min(value = 0, message = "INVALID_REQUEST_DATA")
-    Integer estimatedMinutes;
+  @Min(value = 0, message = "INVALID_REQUEST_DATA")
+  Integer estimatedMinutes;
 
-    Integer boardPosition;
+  Integer boardPosition;
 
-    Long taskTypeId;
+  Long taskTypeId;
 
-    SourceViewType sourceView;
+  SourceViewType sourceView;
 }

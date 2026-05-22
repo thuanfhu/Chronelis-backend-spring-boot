@@ -12,6 +12,6 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class AuthenticationResponse {
-	String accessToken;
-	UserSecureResponse userSecured;
+  String accessToken;
+  UserSecureResponse userSecured;
 }

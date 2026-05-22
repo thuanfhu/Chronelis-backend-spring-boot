@@ -10,12 +10,12 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Builder
 public class UpdateUserPasswordRequest {
-	@NotBlank(message = "CURRENT_PASSWORD_NOT_BLANK")
-	String currentPassword;
+  @NotBlank(message = "CURRENT_PASSWORD_NOT_BLANK")
+  String currentPassword;
 
-	@NotBlank(message = "NEW_PASSWORD_NOT_BLANK")
-	String newPassword;
+  @NotBlank(message = "NEW_PASSWORD_NOT_BLANK")
+  String newPassword;
 
-	@NotBlank(message = "CONFIRM_PASSWORD_NOT_BLANK")
-	String confirmPassword;
+  @NotBlank(message = "CONFIRM_PASSWORD_NOT_BLANK")
+  String confirmPassword;
 }

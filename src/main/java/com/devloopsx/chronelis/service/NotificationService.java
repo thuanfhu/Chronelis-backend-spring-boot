@@ -7,14 +7,19 @@ import com.devloopsx.chronelis.dto.response.notification.NotificationUnreadCount
 import org.springframework.data.domain.Pageable;
 
 public interface NotificationService {
-    PaginationResponse listMyNotifications(Pageable pageable);
+  PaginationResponse listMyNotifications(Pageable pageable);
 
-    NotificationUnreadCountResponse getUnreadCount();
+  NotificationUnreadCountResponse getUnreadCount();
 
-    void markOneAsRead(Long notificationId);
+  void markOneAsRead(Long notificationId);
 
-    void markAllAsRead();
+  void markAllAsRead();
 
-    void createAndPublish(String recipientUserId, NotificationType type, String title, String message,
-            ReferenceType referenceType, Long referenceId);
+  void createAndPublish(
+      String recipientUserId,
+      NotificationType type,
+      String title,
+      String message,
+      ReferenceType referenceType,
+      Long referenceId);
 }

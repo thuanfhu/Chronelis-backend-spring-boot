@@ -14,7 +14,15 @@ import com.devloopsx.chronelis.exception.ErrorCode;
 import com.devloopsx.chronelis.mapper.TaskScheduleMapper;
 import com.devloopsx.chronelis.repository.TaskScheduleRepository;
 import com.devloopsx.chronelis.service.*;
+import com.devloopsx.chronelis.service.cache.AfterCommitExecutor;
+import com.devloopsx.chronelis.service.cache.CacheInvalidationService;
+import com.devloopsx.chronelis.service.cache.CacheKeys;
+import com.devloopsx.chronelis.service.cache.RedisCacheService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -23,192 +31,299 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
-
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class TaskScheduleServiceImpl implements TaskScheduleService {
-        TaskScheduleRepository taskScheduleRepository;
-        TaskScheduleMapper taskScheduleMapper;
-        CollaborationAccessService collaborationAccessService;
-        SecurityUtils securityUtils;
-        NotificationService notificationService;
-        ActivityLogService activityLogService;
-        RealtimeEventPublisherService realtimeEventPublisherService;
+  TaskScheduleRepository taskScheduleRepository;
+  TaskScheduleMapper taskScheduleMapper;
+  CollaborationAccessService collaborationAccessService;
+  SecurityUtils securityUtils;
+  NotificationService notificationService;
+  ActivityLogService activityLogService;
+  RealtimeEventPublisherService realtimeEventPublisherService;
+  RedisCacheService redisCacheService;
+  CacheInvalidationService cacheInvalidationService;
+  AfterCommitExecutor afterCommitExecutor;
 
-        @Override
-        @Transactional
-        public TaskScheduleResponse createSchedule(CreateTaskScheduleRequest request) {
-                validateScheduleTime(request.getScheduledStart(), request.getScheduledEnd());
+  static final Duration CALENDAR_TTL = Duration.ofSeconds(60);
 
-                Task task = collaborationAccessService.requireTask(request.getTaskId());
-                collaborationAccessService.ensureCurrentUserCanManageProjectWork(task.getProject().getId());
+  @Override
+  @Transactional
+  public TaskScheduleResponse createSchedule(CreateTaskScheduleRequest request) {
+    validateScheduleTime(request.getScheduledStart(), request.getScheduledEnd());
 
-                User currentUser = securityUtils.getAuthenticatedUser();
-                LocalDateTime now = LocalDateTime.now();
+    Task task = collaborationAccessService.requireTask(request.getTaskId());
+    collaborationAccessService.ensureCurrentUserCanManageProjectWork(task.getProject().getId());
 
-                TaskSchedule taskSchedule = taskScheduleMapper.toEntity(request);
-                taskSchedule.setTask(task);
-                taskSchedule.setScheduledDate(request.getScheduledStart().toLocalDate());
-                taskSchedule.setCreatedBy(currentUser);
-                taskSchedule.setCreatedAt(now);
-                taskSchedule.setUpdatedAt(now);
+    User currentUser = securityUtils.getAuthenticatedUser();
+    LocalDateTime now = LocalDateTime.now();
 
-                TaskSchedule savedSchedule = taskScheduleRepository.save(taskSchedule);
+    TaskSchedule taskSchedule = taskScheduleMapper.toEntity(request);
+    taskSchedule.setTask(task);
+    taskSchedule.setScheduledDate(request.getScheduledStart().toLocalDate());
+    taskSchedule.setCreatedBy(currentUser);
+    taskSchedule.setCreatedAt(now);
+    taskSchedule.setUpdatedAt(now);
 
-                activityLogService.createLog(task.getProject().getWorkspace().getId(), currentUser.getUserId(),
-                                ActivityActionType.TASK_RESCHEDULED, ActivityTargetType.SCHEDULE, savedSchedule.getId(),
-                                "Tạo lịch cho task " + task.getTitle());
+    TaskSchedule savedSchedule = taskScheduleRepository.save(taskSchedule);
 
-                if (task.getAssignee() != null && !task.getAssignee().getUserId().equals(currentUser.getUserId())) {
-                        notificationService.createAndPublish(task.getAssignee().getUserId(),
-                                        NotificationType.TASK_RESCHEDULED,
-                                        "Task được lên lịch", "Task " + task.getTitle() + " vừa được lên lịch mới",
-                                        ReferenceType.TASK,
-                                        task.getId());
-                }
+    activityLogService.createLog(
+        task.getProject().getWorkspace().getId(),
+        currentUser.getUserId(),
+        ActivityActionType.TASK_RESCHEDULED,
+        ActivityTargetType.SCHEDULE,
+        savedSchedule.getId(),
+        "Tạo lịch cho task " + task.getTitle());
 
-                TaskScheduleResponse response = taskScheduleMapper.toResponse(savedSchedule);
-                realtimeEventPublisherService.publishTaskEvent(task.getProject().getWorkspace().getId(),
-                                task.getProject().getId(),
-                                task.getId(), "task-schedule.created", response);
-                return response;
-        }
+    if (task.getAssignee() != null
+        && !task.getAssignee().getUserId().equals(currentUser.getUserId())) {
+      notificationService.createAndPublish(
+          task.getAssignee().getUserId(),
+          NotificationType.TASK_RESCHEDULED,
+          "Task được lên lịch",
+          "Task " + task.getTitle() + " vừa được lên lịch mới",
+          ReferenceType.TASK,
+          task.getId());
+    }
 
-        @Override
-        @Transactional
-        public TaskScheduleResponse updateSchedule(Long scheduleId, UpdateTaskScheduleRequest request) {
-                validateScheduleTime(request.getScheduledStart(), request.getScheduledEnd());
+    TaskScheduleResponse response = taskScheduleMapper.toResponse(savedSchedule);
+    invalidateScheduleMutationAfterCommit(task);
+    publishTaskEventAfterCommit(
+        task.getProject().getWorkspace().getId(),
+        task.getProject().getId(),
+        task.getId(),
+        "task-schedule.created",
+        response);
+    return response;
+  }
 
-                TaskSchedule schedule = taskScheduleRepository.findById(scheduleId)
-                                .orElseThrow(
-                                                () -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND,
-                                                                "Task schedule không tồn tại"));
+  @Override
+  @Transactional
+  public TaskScheduleResponse updateSchedule(Long scheduleId, UpdateTaskScheduleRequest request) {
+    validateScheduleTime(request.getScheduledStart(), request.getScheduledEnd());
 
-                Task task = schedule.getTask();
-                collaborationAccessService.ensureCurrentUserCanManageProjectWork(task.getProject().getId());
+    TaskSchedule schedule =
+        taskScheduleRepository
+            .findById(scheduleId)
+            .orElseThrow(
+                () ->
+                    new ApplicationException(
+                        ErrorCode.RESOURCE_NOT_FOUND, "Task schedule không tồn tại"));
 
-                taskScheduleMapper.updateEntity(schedule, request);
-                schedule.setScheduledDate(request.getScheduledStart().toLocalDate());
-                schedule.setUpdatedAt(LocalDateTime.now());
+    Task task = schedule.getTask();
+    collaborationAccessService.ensureCurrentUserCanManageProjectWork(task.getProject().getId());
 
-                TaskSchedule updatedSchedule = taskScheduleRepository.save(schedule);
-                User currentUser = securityUtils.getAuthenticatedUser();
+    taskScheduleMapper.updateEntity(schedule, request);
+    schedule.setScheduledDate(request.getScheduledStart().toLocalDate());
+    schedule.setUpdatedAt(LocalDateTime.now());
 
-                activityLogService.createLog(task.getProject().getWorkspace().getId(), currentUser.getUserId(),
-                                ActivityActionType.TASK_RESCHEDULED, ActivityTargetType.SCHEDULE,
-                                updatedSchedule.getId(),
-                                "Cập nhật lịch cho task " + task.getTitle());
+    TaskSchedule updatedSchedule = taskScheduleRepository.save(schedule);
+    User currentUser = securityUtils.getAuthenticatedUser();
 
-                if (task.getAssignee() != null && !task.getAssignee().getUserId().equals(currentUser.getUserId())) {
-                        notificationService.createAndPublish(task.getAssignee().getUserId(),
-                                        NotificationType.TASK_RESCHEDULED,
-                                        "Task đổi lịch", "Task " + task.getTitle() + " vừa được cập nhật lịch",
-                                        ReferenceType.TASK,
-                                        task.getId());
-                }
+    activityLogService.createLog(
+        task.getProject().getWorkspace().getId(),
+        currentUser.getUserId(),
+        ActivityActionType.TASK_RESCHEDULED,
+        ActivityTargetType.SCHEDULE,
+        updatedSchedule.getId(),
+        "Cập nhật lịch cho task " + task.getTitle());
 
-                TaskScheduleResponse response = taskScheduleMapper.toResponse(updatedSchedule);
-                realtimeEventPublisherService.publishTaskEvent(task.getProject().getWorkspace().getId(),
-                                task.getProject().getId(),
-                                task.getId(), "task-schedule.updated", response);
-                return response;
-        }
+    if (task.getAssignee() != null
+        && !task.getAssignee().getUserId().equals(currentUser.getUserId())) {
+      notificationService.createAndPublish(
+          task.getAssignee().getUserId(),
+          NotificationType.TASK_RESCHEDULED,
+          "Task đổi lịch",
+          "Task " + task.getTitle() + " vừa được cập nhật lịch",
+          ReferenceType.TASK,
+          task.getId());
+    }
 
-        @Override
-        @Transactional
-        public void deleteSchedule(Long scheduleId) {
-                TaskSchedule schedule = taskScheduleRepository.findById(scheduleId)
-                                .orElseThrow(
-                                                () -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND,
-                                                                "Task schedule không tồn tại"));
+    TaskScheduleResponse response = taskScheduleMapper.toResponse(updatedSchedule);
+    invalidateScheduleMutationAfterCommit(task);
+    publishTaskEventAfterCommit(
+        task.getProject().getWorkspace().getId(),
+        task.getProject().getId(),
+        task.getId(),
+        "task-schedule.updated",
+        response);
+    return response;
+  }
 
-                Task task = schedule.getTask();
-                collaborationAccessService.ensureCurrentUserCanManageProjectWork(task.getProject().getId());
+  @Override
+  @Transactional
+  public void deleteSchedule(Long scheduleId) {
+    TaskSchedule schedule =
+        taskScheduleRepository
+            .findById(scheduleId)
+            .orElseThrow(
+                () ->
+                    new ApplicationException(
+                        ErrorCode.RESOURCE_NOT_FOUND, "Task schedule không tồn tại"));
 
-                taskScheduleRepository.delete(schedule);
-                User currentUser = securityUtils.getAuthenticatedUser();
+    Task task = schedule.getTask();
+    collaborationAccessService.ensureCurrentUserCanManageProjectWork(task.getProject().getId());
 
-                activityLogService.createLog(task.getProject().getWorkspace().getId(), currentUser.getUserId(),
-                                ActivityActionType.TASK_RESCHEDULED, ActivityTargetType.SCHEDULE, scheduleId,
-                                "Xóa lịch của task " + task.getTitle());
+    taskScheduleRepository.delete(schedule);
+    User currentUser = securityUtils.getAuthenticatedUser();
 
-                realtimeEventPublisherService.publishTaskEvent(task.getProject().getWorkspace().getId(),
-                                task.getProject().getId(),
-                                task.getId(), "task-schedule.deleted", scheduleId);
-        }
+    activityLogService.createLog(
+        task.getProject().getWorkspace().getId(),
+        currentUser.getUserId(),
+        ActivityActionType.TASK_RESCHEDULED,
+        ActivityTargetType.SCHEDULE,
+        scheduleId,
+        "Xóa lịch của task " + task.getTitle());
 
-        @Override
-        public List<TaskScheduleResponse> listSchedulesByTask(Long taskId) {
-                Task task = collaborationAccessService.requireTask(taskId);
-                collaborationAccessService.ensureCurrentUserCanAccessProject(task.getProject().getId());
+    invalidateScheduleMutationAfterCommit(task);
+    publishTaskEventAfterCommit(
+        task.getProject().getWorkspace().getId(),
+        task.getProject().getId(),
+        task.getId(),
+        "task-schedule.deleted",
+        scheduleId);
+  }
 
-                return taskScheduleRepository.findByTaskIdOrderByScheduledStartAsc(taskId).stream()
-                                .map(taskScheduleMapper::toResponse)
-                                .toList();
-        }
+  @Override
+  public List<TaskScheduleResponse> listSchedulesByTask(Long taskId) {
+    Task task = collaborationAccessService.requireTask(taskId);
+    collaborationAccessService.ensureCurrentUserCanAccessProject(task.getProject().getId());
 
-        @Override
-        public PaginationResponse getProjectCalendar(Long projectId, LocalDate fromDate, LocalDate toDate,
-                        Pageable pageable) {
-                collaborationAccessService.ensureCurrentUserCanAccessProject(projectId);
-                validateCalendarRange(fromDate, toDate);
+    return taskScheduleRepository.findByTaskIdOrderByScheduledStartAsc(taskId).stream()
+        .map(taskScheduleMapper::toResponse)
+        .toList();
+  }
 
-                Page<TaskSchedule> page = taskScheduleRepository.findByTaskProjectIdAndScheduledDateBetween(projectId,
-                                fromDate, toDate, pageable);
+  @Override
+  public PaginationResponse getProjectCalendar(
+      Long projectId, LocalDate fromDate, LocalDate toDate, Pageable pageable) {
+    collaborationAccessService.ensureCurrentUserCanAccessProject(projectId);
+    validateCalendarRange(fromDate, toDate);
+    long scheduleVersion =
+        redisCacheService.getVersion(CacheKeys.projectSchedulesVersion(projectId));
+    String key =
+        CacheKeys.projectCalendar(
+            projectId,
+            fromDate.toString(),
+            toDate.toString(),
+            pageable.getPageNumber(),
+            pageable.getPageSize(),
+            scheduleVersion);
+    return redisCacheService
+        .getJson(key, PaginationResponse.class)
+        .orElseGet(
+            () -> {
+              PaginationResponse response =
+                  buildProjectCalendar(projectId, fromDate, toDate, pageable);
+              redisCacheService.setJson(key, response, CALENDAR_TTL);
+              return response;
+            });
+  }
 
-                return PaginationResponse.builder()
-                                .meta(PaginationMeta.builder()
-                                                .currentPage(pageable.getPageNumber() + 1)
-                                                .pageSize(pageable.getPageSize())
-                                                .totalPages(page.getTotalPages())
-                                                .totalElements(page.getTotalElements())
-                                                .hasNext(page.hasNext())
-                                                .hasPrevious(page.hasPrevious())
-                                                .build())
-                                .content(page.getContent().stream().map(taskScheduleMapper::toResponse).toList())
-                                .build();
-        }
+  @Override
+  public PaginationResponse getWorkspaceCalendar(
+      Long workspaceId, LocalDate fromDate, LocalDate toDate, Pageable pageable) {
+    collaborationAccessService.requireCurrentWorkspaceMember(workspaceId);
+    validateCalendarRange(fromDate, toDate);
 
-        @Override
-        public PaginationResponse getWorkspaceCalendar(Long workspaceId, LocalDate fromDate, LocalDate toDate,
-                        Pageable pageable) {
-                collaborationAccessService.requireCurrentWorkspaceMember(workspaceId);
-                validateCalendarRange(fromDate, toDate);
+    String currentUserId = securityUtils.getAuthenticatedUser().getUserId();
+    long scheduleVersion =
+        redisCacheService.getVersion(CacheKeys.workspaceSchedulesVersion(workspaceId));
+    long accessVersion =
+        redisCacheService.getVersion(CacheKeys.workspaceAccessVersion(workspaceId));
+    String key =
+        CacheKeys.workspaceCalendar(
+            workspaceId,
+            currentUserId,
+            fromDate.toString(),
+            toDate.toString(),
+            pageable.getPageNumber(),
+            pageable.getPageSize(),
+            scheduleVersion,
+            accessVersion);
+    return redisCacheService
+        .getJson(key, PaginationResponse.class)
+        .orElseGet(
+            () -> {
+              PaginationResponse response =
+                  buildWorkspaceCalendar(workspaceId, currentUserId, fromDate, toDate, pageable);
+              redisCacheService.setJson(key, response, CALENDAR_TTL);
+              return response;
+            });
+  }
 
-                String currentUserId = securityUtils.getAuthenticatedUser().getUserId();
-                Page<TaskSchedule> page = taskScheduleRepository.findVisibleByWorkspaceCalendar(
-                                workspaceId,
-                                currentUserId,
-                                fromDate, toDate, pageable);
+  private PaginationResponse buildProjectCalendar(
+      Long projectId, LocalDate fromDate, LocalDate toDate, Pageable pageable) {
+    Page<TaskSchedule> page =
+        taskScheduleRepository.findByTaskProjectIdAndScheduledDateBetween(
+            projectId, fromDate, toDate, pageable);
 
-                return PaginationResponse.builder()
-                                .meta(PaginationMeta.builder()
-                                                .currentPage(pageable.getPageNumber() + 1)
-                                                .pageSize(pageable.getPageSize())
-                                                .totalPages(page.getTotalPages())
-                                                .totalElements(page.getTotalElements())
-                                                .hasNext(page.hasNext())
-                                                .hasPrevious(page.hasPrevious())
-                                                .build())
-                                .content(page.getContent().stream().map(taskScheduleMapper::toResponse).toList())
-                                .build();
-        }
+    return PaginationResponse.builder()
+        .meta(
+            PaginationMeta.builder()
+                .currentPage(pageable.getPageNumber() + 1)
+                .pageSize(pageable.getPageSize())
+                .totalPages(page.getTotalPages())
+                .totalElements(page.getTotalElements())
+                .hasNext(page.hasNext())
+                .hasPrevious(page.hasPrevious())
+                .build())
+        .content(page.getContent().stream().map(taskScheduleMapper::toResponse).toList())
+        .build();
+  }
 
-        private void validateScheduleTime(LocalDateTime scheduledStart, LocalDateTime scheduledEnd) {
-                if (!scheduledEnd.isAfter(scheduledStart)) {
-                        throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
-                                        "scheduled_end phải lớn hơn scheduled_start");
-                }
-        }
+  private PaginationResponse buildWorkspaceCalendar(
+      Long workspaceId,
+      String currentUserId,
+      LocalDate fromDate,
+      LocalDate toDate,
+      Pageable pageable) {
+    Page<TaskSchedule> page =
+        taskScheduleRepository.findVisibleByWorkspaceCalendar(
+            workspaceId, currentUserId, fromDate, toDate, pageable);
 
-        private void validateCalendarRange(LocalDate fromDate, LocalDate toDate) {
-                if (fromDate == null || toDate == null || toDate.isBefore(fromDate)) {
-                        throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
-                                        "Khoảng ngày không hợp lệ");
-                }
-        }
+    return PaginationResponse.builder()
+        .meta(
+            PaginationMeta.builder()
+                .currentPage(pageable.getPageNumber() + 1)
+                .pageSize(pageable.getPageSize())
+                .totalPages(page.getTotalPages())
+                .totalElements(page.getTotalElements())
+                .hasNext(page.hasNext())
+                .hasPrevious(page.hasPrevious())
+                .build())
+        .content(page.getContent().stream().map(taskScheduleMapper::toResponse).toList())
+        .build();
+  }
+
+  private void invalidateScheduleMutationAfterCommit(Task task) {
+    cacheInvalidationService.invalidateProjectSchedulesAfterCommit(task.getProject().getId());
+    cacheInvalidationService.invalidateWorkspaceSchedulesAfterCommit(
+        task.getProject().getWorkspace().getId());
+    if (task.getAssignee() != null) {
+      cacheInvalidationService.invalidateUserWorkAfterCommit(task.getAssignee().getUserId());
+    }
+  }
+
+  private void publishTaskEventAfterCommit(
+      Long workspaceId, Long projectId, Long taskId, String eventType, Object data) {
+    afterCommitExecutor.runAfterCommit(
+        () ->
+            realtimeEventPublisherService.publishTaskEvent(
+                workspaceId, projectId, taskId, eventType, data));
+  }
+
+  private void validateScheduleTime(LocalDateTime scheduledStart, LocalDateTime scheduledEnd) {
+    if (!scheduledEnd.isAfter(scheduledStart)) {
+      throw new ApplicationException(
+          ErrorCode.INVALID_REQUEST_DATA, "scheduled_end phải lớn hơn scheduled_start");
+    }
+  }
+
+  private void validateCalendarRange(LocalDate fromDate, LocalDate toDate) {
+    if (fromDate == null || toDate == null || toDate.isBefore(fromDate)) {
+      throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA, "Khoảng ngày không hợp lệ");
+    }
+  }
 }

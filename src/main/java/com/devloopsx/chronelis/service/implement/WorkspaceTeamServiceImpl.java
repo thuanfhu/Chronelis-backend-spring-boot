@@ -22,207 +22,252 @@ import com.devloopsx.chronelis.service.ActivityLogService;
 import com.devloopsx.chronelis.service.CollaborationAccessService;
 import com.devloopsx.chronelis.service.RealtimeEventPublisherService;
 import com.devloopsx.chronelis.service.WorkspaceTeamService;
+import com.devloopsx.chronelis.service.cache.AfterCommitExecutor;
+import com.devloopsx.chronelis.service.cache.CacheInvalidationService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
+import java.time.LocalDateTime;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class WorkspaceTeamServiceImpl implements WorkspaceTeamService {
-        WorkspaceTeamRepository workspaceTeamRepository;
-        WorkspaceTeamMemberRepository workspaceTeamMemberRepository;
-        UserRepository userRepository;
-        WorkspaceTeamMapper workspaceTeamMapper;
-        WorkspaceTeamMemberMapper workspaceTeamMemberMapper;
-        CollaborationAccessService collaborationAccessService;
-        SecurityUtils securityUtils;
-        ActivityLogService activityLogService;
-        RealtimeEventPublisherService realtimeEventPublisherService;
+  WorkspaceTeamRepository workspaceTeamRepository;
+  WorkspaceTeamMemberRepository workspaceTeamMemberRepository;
+  UserRepository userRepository;
+  WorkspaceTeamMapper workspaceTeamMapper;
+  WorkspaceTeamMemberMapper workspaceTeamMemberMapper;
+  CollaborationAccessService collaborationAccessService;
+  SecurityUtils securityUtils;
+  ActivityLogService activityLogService;
+  RealtimeEventPublisherService realtimeEventPublisherService;
+  CacheInvalidationService cacheInvalidationService;
+  AfterCommitExecutor afterCommitExecutor;
 
-        @Override
-        @Transactional
-        public WorkspaceTeamResponse createTeam(CreateWorkspaceTeamRequest request) {
-                collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(request.getWorkspaceId());
-                Workspace workspace = collaborationAccessService.requireWorkspace(request.getWorkspaceId());
+  @Override
+  @Transactional
+  public WorkspaceTeamResponse createTeam(CreateWorkspaceTeamRequest request) {
+    collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(request.getWorkspaceId());
+    Workspace workspace = collaborationAccessService.requireWorkspace(request.getWorkspaceId());
 
-                if (workspaceTeamRepository.existsByWorkspaceIdAndNameIgnoreCase(request.getWorkspaceId(),
-                                request.getName())) {
-                        throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
-                                        "Team với tên này đã tồn tại trong workspace");
-                }
+    if (workspaceTeamRepository.existsByWorkspaceIdAndNameIgnoreCase(
+        request.getWorkspaceId(), request.getName())) {
+      throw new ApplicationException(
+          ErrorCode.INVALID_REQUEST_DATA, "Team với tên này đã tồn tại trong workspace");
+    }
 
-                User currentUser = securityUtils.getAuthenticatedUser();
-                LocalDateTime now = LocalDateTime.now();
+    User currentUser = securityUtils.getAuthenticatedUser();
+    LocalDateTime now = LocalDateTime.now();
 
-                WorkspaceTeam team = WorkspaceTeam.builder()
-                                .workspace(workspace)
-                                .name(request.getName())
-                                .description(request.getDescription())
-                                .createdBy(currentUser)
-                                .createdAt(now)
-                                .updatedAt(now)
-                                .build();
+    WorkspaceTeam team =
+        WorkspaceTeam.builder()
+            .workspace(workspace)
+            .name(request.getName())
+            .description(request.getDescription())
+            .createdBy(currentUser)
+            .createdAt(now)
+            .updatedAt(now)
+            .build();
 
-                WorkspaceTeam saved = workspaceTeamRepository.save(team);
+    WorkspaceTeam saved = workspaceTeamRepository.save(team);
 
-                activityLogService.createLog(workspace.getId(), currentUser.getUserId(),
-                                ActivityActionType.TEAM_CREATED, ActivityTargetType.TEAM,
-                                saved.getId(), "Tạo team " + saved.getName());
+    activityLogService.createLog(
+        workspace.getId(),
+        currentUser.getUserId(),
+        ActivityActionType.TEAM_CREATED,
+        ActivityTargetType.TEAM,
+        saved.getId(),
+        "Tạo team " + saved.getName());
 
-                WorkspaceTeamResponse response = workspaceTeamMapper.toResponse(saved);
-                realtimeEventPublisherService.publishWorkspaceEvent(workspace.getId(), "team.created", response);
-                return response;
-        }
+    WorkspaceTeamResponse response = workspaceTeamMapper.toResponse(saved);
+    publishWorkspaceEventAfterCommit(workspace.getId(), "team.created", response);
+    return response;
+  }
 
-        @Override
-        @Transactional
-        public WorkspaceTeamResponse updateTeam(Long teamId, UpdateWorkspaceTeamRequest request) {
-                WorkspaceTeam team = workspaceTeamRepository.findById(teamId)
-                                .orElseThrow(() -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND,
-                                                "Team không tồn tại"));
-                collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(team.getWorkspace().getId());
+  @Override
+  @Transactional
+  public WorkspaceTeamResponse updateTeam(Long teamId, UpdateWorkspaceTeamRequest request) {
+    WorkspaceTeam team =
+        workspaceTeamRepository
+            .findById(teamId)
+            .orElseThrow(
+                () -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND, "Team không tồn tại"));
+    collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(team.getWorkspace().getId());
 
-                if (request.getName() != null && workspaceTeamRepository.existsByWorkspaceIdAndNameIgnoreCaseAndIdNot(
-                                team.getWorkspace().getId(), request.getName(), teamId)) {
-                        throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
-                                        "Team với tên này đã tồn tại trong workspace");
-                }
+    if (request.getName() != null
+        && workspaceTeamRepository.existsByWorkspaceIdAndNameIgnoreCaseAndIdNot(
+            team.getWorkspace().getId(), request.getName(), teamId)) {
+      throw new ApplicationException(
+          ErrorCode.INVALID_REQUEST_DATA, "Team với tên này đã tồn tại trong workspace");
+    }
 
-                if (request.getName() != null)
-                        team.setName(request.getName());
-                if (request.getDescription() != null)
-                        team.setDescription(request.getDescription());
-                team.setUpdatedAt(LocalDateTime.now());
+    if (request.getName() != null) team.setName(request.getName());
+    if (request.getDescription() != null) team.setDescription(request.getDescription());
+    team.setUpdatedAt(LocalDateTime.now());
 
-                WorkspaceTeam updated = workspaceTeamRepository.save(team);
+    WorkspaceTeam updated = workspaceTeamRepository.save(team);
 
-                String userId = securityUtils.getAuthenticatedUser().getUserId();
-                activityLogService.createLog(team.getWorkspace().getId(), userId,
-                                ActivityActionType.TEAM_UPDATED, ActivityTargetType.TEAM,
-                                updated.getId(), "Cập nhật team " + updated.getName());
+    String userId = securityUtils.getAuthenticatedUser().getUserId();
+    activityLogService.createLog(
+        team.getWorkspace().getId(),
+        userId,
+        ActivityActionType.TEAM_UPDATED,
+        ActivityTargetType.TEAM,
+        updated.getId(),
+        "Cập nhật team " + updated.getName());
 
-                WorkspaceTeamResponse response = workspaceTeamMapper.toResponse(updated);
-                realtimeEventPublisherService.publishWorkspaceEvent(team.getWorkspace().getId(), "team.updated",
-                                response);
-                return response;
-        }
+    WorkspaceTeamResponse response = workspaceTeamMapper.toResponse(updated);
+    publishWorkspaceEventAfterCommit(team.getWorkspace().getId(), "team.updated", response);
+    return response;
+  }
 
-        @Override
-        public List<WorkspaceTeamResponse> listByWorkspace(Long workspaceId) {
-                collaborationAccessService.requireCurrentWorkspaceMember(workspaceId);
-                return workspaceTeamRepository.findByWorkspaceIdOrderByNameAsc(workspaceId).stream()
-                                .map(workspaceTeamMapper::toResponse).toList();
-        }
+  @Override
+  public List<WorkspaceTeamResponse> listByWorkspace(Long workspaceId) {
+    collaborationAccessService.requireCurrentWorkspaceMember(workspaceId);
+    return workspaceTeamRepository.findByWorkspaceIdOrderByNameAsc(workspaceId).stream()
+        .map(workspaceTeamMapper::toResponse)
+        .toList();
+  }
 
-        @Override
-        public WorkspaceTeamResponse getTeam(Long teamId) {
-                WorkspaceTeam team = workspaceTeamRepository.findById(teamId)
-                                .orElseThrow(() -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND,
-                                                "Team không tồn tại"));
-                collaborationAccessService.requireCurrentWorkspaceMember(team.getWorkspace().getId());
-                return workspaceTeamMapper.toResponse(team);
-        }
+  @Override
+  public WorkspaceTeamResponse getTeam(Long teamId) {
+    WorkspaceTeam team =
+        workspaceTeamRepository
+            .findById(teamId)
+            .orElseThrow(
+                () -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND, "Team không tồn tại"));
+    collaborationAccessService.requireCurrentWorkspaceMember(team.getWorkspace().getId());
+    return workspaceTeamMapper.toResponse(team);
+  }
 
-        @Override
-        @Transactional
-        public void deleteTeam(Long teamId) {
-                WorkspaceTeam team = workspaceTeamRepository.findById(teamId)
-                                .orElseThrow(() -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND,
-                                                "Team không tồn tại"));
-                collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(team.getWorkspace().getId());
+  @Override
+  @Transactional
+  public void deleteTeam(Long teamId) {
+    WorkspaceTeam team =
+        workspaceTeamRepository
+            .findById(teamId)
+            .orElseThrow(
+                () -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND, "Team không tồn tại"));
+    collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(team.getWorkspace().getId());
 
-                Long workspaceId = team.getWorkspace().getId();
-                String name = team.getName();
+    Long workspaceId = team.getWorkspace().getId();
+    String name = team.getName();
 
-                // Defensive cleanup in case DB foreign keys are not configured with CASCADE.
-                workspaceTeamMemberRepository.deleteByTeamId(teamId);
+    // Defensive cleanup in case DB foreign keys are not configured with CASCADE.
+    workspaceTeamMemberRepository.deleteByTeamId(teamId);
 
-                workspaceTeamRepository.delete(team);
+    workspaceTeamRepository.delete(team);
 
-                String userId = securityUtils.getAuthenticatedUser().getUserId();
-                activityLogService.createLog(workspaceId, userId,
-                                ActivityActionType.TEAM_DELETED, ActivityTargetType.TEAM,
-                                teamId, "Xóa team " + name);
+    String userId = securityUtils.getAuthenticatedUser().getUserId();
+    activityLogService.createLog(
+        workspaceId,
+        userId,
+        ActivityActionType.TEAM_DELETED,
+        ActivityTargetType.TEAM,
+        teamId,
+        "Xóa team " + name);
 
-                realtimeEventPublisherService.publishWorkspaceEvent(workspaceId, "team.deleted", teamId);
-        }
+    cacheInvalidationService.invalidateWorkspaceAccessAfterCommit(workspaceId);
+    publishWorkspaceEventAfterCommit(workspaceId, "team.deleted", teamId);
+  }
 
-        @Override
-        @Transactional
-        public WorkspaceTeamMemberResponse addMember(Long teamId, AddTeamMemberRequest request) {
-                WorkspaceTeam team = workspaceTeamRepository.findById(teamId)
-                                .orElseThrow(() -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND,
-                                                "Team không tồn tại"));
-                Long workspaceId = team.getWorkspace().getId();
-                collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(workspaceId);
+  @Override
+  @Transactional
+  public WorkspaceTeamMemberResponse addMember(Long teamId, AddTeamMemberRequest request) {
+    WorkspaceTeam team =
+        workspaceTeamRepository
+            .findById(teamId)
+            .orElseThrow(
+                () -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND, "Team không tồn tại"));
+    Long workspaceId = team.getWorkspace().getId();
+    collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(workspaceId);
 
-                collaborationAccessService.ensureAssigneeBelongsWorkspace(request.getUserId(), workspaceId);
+    collaborationAccessService.ensureAssigneeBelongsWorkspace(request.getUserId(), workspaceId);
 
-                if (workspaceTeamMemberRepository.existsByTeamIdAndUserUserId(teamId, request.getUserId())) {
-                        throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA,
-                                        "Người dùng đã là thành viên của team này");
-                }
+    if (workspaceTeamMemberRepository.existsByTeamIdAndUserUserId(teamId, request.getUserId())) {
+      throw new ApplicationException(
+          ErrorCode.INVALID_REQUEST_DATA, "Người dùng đã là thành viên của team này");
+    }
 
-                User user = userRepository.findById(request.getUserId())
-                                .orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
+    User user =
+        userRepository
+            .findById(request.getUserId())
+            .orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
 
-                WorkspaceTeamMember member = WorkspaceTeamMember.builder()
-                                .team(team)
-                                .user(user)
-                                .joinedAt(LocalDateTime.now())
-                                .build();
+    WorkspaceTeamMember member =
+        WorkspaceTeamMember.builder().team(team).user(user).joinedAt(LocalDateTime.now()).build();
 
-                WorkspaceTeamMember saved = workspaceTeamMemberRepository.save(member);
+    WorkspaceTeamMember saved = workspaceTeamMemberRepository.save(member);
 
-                String currentUserId = securityUtils.getAuthenticatedUser().getUserId();
-                activityLogService.createLog(workspaceId, currentUserId,
-                                ActivityActionType.TEAM_MEMBER_ADDED, ActivityTargetType.TEAM,
-                                teamId, "Thêm thành viên vào team " + team.getName());
+    String currentUserId = securityUtils.getAuthenticatedUser().getUserId();
+    activityLogService.createLog(
+        workspaceId,
+        currentUserId,
+        ActivityActionType.TEAM_MEMBER_ADDED,
+        ActivityTargetType.TEAM,
+        teamId,
+        "Thêm thành viên vào team " + team.getName());
 
-                WorkspaceTeamMemberResponse response = workspaceTeamMemberMapper.toResponse(saved);
-                realtimeEventPublisherService.publishWorkspaceEvent(workspaceId, "team.memberAdded", response);
-                return response;
-        }
+    WorkspaceTeamMemberResponse response = workspaceTeamMemberMapper.toResponse(saved);
+    cacheInvalidationService.invalidateWorkspaceAccessAfterCommit(workspaceId);
+    cacheInvalidationService.invalidateUserWorkAfterCommit(request.getUserId());
+    publishWorkspaceEventAfterCommit(workspaceId, "team.memberAdded", response);
+    return response;
+  }
 
-        @Override
-        @Transactional
-        public void removeMember(Long teamId, String userId) {
-                WorkspaceTeam team = workspaceTeamRepository.findById(teamId)
-                                .orElseThrow(() -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND,
-                                                "Team không tồn tại"));
-                Long workspaceId = team.getWorkspace().getId();
-                collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(workspaceId);
+  @Override
+  @Transactional
+  public void removeMember(Long teamId, String userId) {
+    WorkspaceTeam team =
+        workspaceTeamRepository
+            .findById(teamId)
+            .orElseThrow(
+                () -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND, "Team không tồn tại"));
+    Long workspaceId = team.getWorkspace().getId();
+    collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(workspaceId);
 
-                if (!workspaceTeamMemberRepository.existsByTeamIdAndUserUserId(teamId, userId)) {
-                        throw new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND,
-                                        "Người dùng không phải là thành viên team");
-                }
+    if (!workspaceTeamMemberRepository.existsByTeamIdAndUserUserId(teamId, userId)) {
+      throw new ApplicationException(
+          ErrorCode.RESOURCE_NOT_FOUND, "Người dùng không phải là thành viên team");
+    }
 
-                workspaceTeamMemberRepository.deleteByTeamIdAndUserUserId(teamId, userId);
+    workspaceTeamMemberRepository.deleteByTeamIdAndUserUserId(teamId, userId);
 
-                String currentUserId = securityUtils.getAuthenticatedUser().getUserId();
-                activityLogService.createLog(workspaceId, currentUserId,
-                                ActivityActionType.TEAM_MEMBER_REMOVED, ActivityTargetType.TEAM,
-                                teamId, "Xóa thành viên khỏi team " + team.getName());
+    String currentUserId = securityUtils.getAuthenticatedUser().getUserId();
+    activityLogService.createLog(
+        workspaceId,
+        currentUserId,
+        ActivityActionType.TEAM_MEMBER_REMOVED,
+        ActivityTargetType.TEAM,
+        teamId,
+        "Xóa thành viên khỏi team " + team.getName());
 
-                realtimeEventPublisherService.publishWorkspaceEvent(workspaceId, "team.memberRemoved", teamId);
-        }
+    cacheInvalidationService.invalidateWorkspaceAccessAfterCommit(workspaceId);
+    cacheInvalidationService.invalidateUserWorkAfterCommit(userId);
+    publishWorkspaceEventAfterCommit(workspaceId, "team.memberRemoved", teamId);
+  }
 
-        @Override
-        public List<WorkspaceTeamMemberResponse> listMembers(Long teamId) {
-                WorkspaceTeam team = workspaceTeamRepository.findById(teamId)
-                                .orElseThrow(() -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND,
-                                                "Team không tồn tại"));
-                collaborationAccessService.requireCurrentWorkspaceMember(team.getWorkspace().getId());
+  @Override
+  public List<WorkspaceTeamMemberResponse> listMembers(Long teamId) {
+    WorkspaceTeam team =
+        workspaceTeamRepository
+            .findById(teamId)
+            .orElseThrow(
+                () -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND, "Team không tồn tại"));
+    collaborationAccessService.requireCurrentWorkspaceMember(team.getWorkspace().getId());
 
-                return workspaceTeamMemberRepository.findByTeamIdOrderByJoinedAtAsc(teamId).stream()
-                                .map(workspaceTeamMemberMapper::toResponse).toList();
-        }
+    return workspaceTeamMemberRepository.findByTeamIdOrderByJoinedAtAsc(teamId).stream()
+        .map(workspaceTeamMemberMapper::toResponse)
+        .toList();
+  }
+
+  private void publishWorkspaceEventAfterCommit(Long workspaceId, String eventType, Object data) {
+    afterCommitExecutor.runAfterCommit(
+        () -> realtimeEventPublisherService.publishWorkspaceEvent(workspaceId, eventType, data));
+  }
 }

@@ -16,9 +16,8 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpdateTaskDependenciesRequest {
-    @Builder.Default
-    List<Long> dependencyTaskIds = new ArrayList<>();
+  @Builder.Default List<Long> dependencyTaskIds = new ArrayList<>();
 
-    @Size(max = 1000, message = "INVALID_REQUEST_DATA")
-    String blockerNote;
+  @Size(max = 1000, message = "INVALID_REQUEST_DATA")
+  String blockerNote;
 }

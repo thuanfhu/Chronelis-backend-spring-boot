@@ -7,26 +7,26 @@ import com.devloopsx.chronelis.dto.request.workspace.UpdateWorkspaceRequest;
 import com.devloopsx.chronelis.dto.response.common.PaginationResponse;
 import com.devloopsx.chronelis.dto.response.workspace.WorkspaceMemberResponse;
 import com.devloopsx.chronelis.dto.response.workspace.WorkspaceResponse;
+import java.util.List;
 import org.springframework.data.domain.Pageable;
 
-import java.util.List;
-
 public interface WorkspaceService {
-    WorkspaceResponse createWorkspace(CreateWorkspaceRequest request);
+  WorkspaceResponse createWorkspace(CreateWorkspaceRequest request);
 
-    WorkspaceResponse updateWorkspace(Long workspaceId, UpdateWorkspaceRequest request);
+  WorkspaceResponse updateWorkspace(Long workspaceId, UpdateWorkspaceRequest request);
 
-    WorkspaceResponse getWorkspace(Long workspaceId);
+  WorkspaceResponse getWorkspace(Long workspaceId);
 
-    PaginationResponse listVisibleWorkspaces(Pageable pageable);
+  PaginationResponse listVisibleWorkspaces(Pageable pageable);
 
-    WorkspaceMemberResponse addMember(Long workspaceId, AddWorkspaceMemberRequest request);
+  WorkspaceMemberResponse addMember(Long workspaceId, AddWorkspaceMemberRequest request);
 
-    List<WorkspaceMemberResponse> listMembers(Long workspaceId);
+  List<WorkspaceMemberResponse> listMembers(Long workspaceId);
 
-    WorkspaceMemberResponse updateMemberRole(Long workspaceId, String userId, UpdateWorkspaceMemberRoleRequest request);
+  WorkspaceMemberResponse updateMemberRole(
+      Long workspaceId, String userId, UpdateWorkspaceMemberRoleRequest request);
 
-    void removeMember(Long workspaceId, String userId);
+  void removeMember(Long workspaceId, String userId);
 
-    void deleteWorkspace(Long workspaceId);
+  void deleteWorkspace(Long workspaceId);
 }

@@ -3,10 +3,9 @@ package com.devloopsx.chronelis.dto.request.pomodoro;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import java.time.LocalDateTime;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-
-import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
@@ -14,12 +13,12 @@ import java.time.LocalDateTime;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class SavePomodoroSessionRequest {
-    @NotNull(message = "INVALID_REQUEST_DATA")
-    @Min(value = 1, message = "INVALID_REQUEST_DATA")
-    @Max(value = 240, message = "INVALID_REQUEST_DATA")
-    Integer durationMinutes;
+  @NotNull(message = "INVALID_REQUEST_DATA")
+  @Min(value = 1, message = "INVALID_REQUEST_DATA")
+  @Max(value = 240, message = "INVALID_REQUEST_DATA")
+  Integer durationMinutes;
 
-    LocalDateTime startedAt;
+  LocalDateTime startedAt;
 
-    LocalDateTime endedAt;
+  LocalDateTime endedAt;
 }

@@ -70,12 +70,16 @@ AZURE_STORAGE_ACCOUNT_KEY=your_account_key
 AZURE_STORAGE_CONTAINER_NAME=uploads
 AZURE_STORAGE_ENDPOINT=https://your_account_name.blob.core.windows.net
 
-REDIS_HOST=your_redis_host
+REDIS_HOST=localhost
 REDIS_PORT=6379
-REDIS_USERNAME=default
-REDIS_PASSWORD=your_redis_password
-REDIS_SSL=true
+REDIS_USERNAME=
+REDIS_PASSWORD=
+REDIS_SSL=false
+REDIS_TIMEOUT=1000
+REDIS_CACHE_MAX_PAYLOAD_BYTES=65536
 ```
+
+Với Redis Cloud, dùng host/port/password của dashboard. Nếu endpoint yêu cầu TLS thì đặt `REDIS_SSL=true`; Redis local/Docker plain TCP phải dùng `REDIS_SSL=false`.
 
 ## 6) Run Locally
 

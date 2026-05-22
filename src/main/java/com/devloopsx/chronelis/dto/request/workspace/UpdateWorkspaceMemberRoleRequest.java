@@ -11,6 +11,6 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpdateWorkspaceMemberRoleRequest {
-    @NotNull(message = "INVALID_REQUEST_DATA")
-    WorkspaceMemberRoleType role;
+  @NotNull(message = "INVALID_REQUEST_DATA")
+  WorkspaceMemberRoleType role;
 }

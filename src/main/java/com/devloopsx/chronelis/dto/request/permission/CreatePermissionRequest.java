@@ -11,15 +11,15 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Builder
 public class CreatePermissionRequest {
-	@NotBlank(message = "PERMISSION_NAME_NOT_BLANK")
-	String name;
+  @NotBlank(message = "PERMISSION_NAME_NOT_BLANK")
+  String name;
 
-	@NotBlank(message = "PERMISSION_API_PATH_NOT_BLANK")
-	String apiPath;
+  @NotBlank(message = "PERMISSION_API_PATH_NOT_BLANK")
+  String apiPath;
 
-	@NotBlank(message = "PERMISSION_HTTP_METHOD_NOT_BLANK")
-	String httpMethod;
+  @NotBlank(message = "PERMISSION_HTTP_METHOD_NOT_BLANK")
+  String httpMethod;
 
-	@Pattern(regexp = "^(?!\\s*$).+", message = "PERMISSION_MODULE_NAME_INVALID")
-	String module;
+  @Pattern(regexp = "^(?!\\s*$).+", message = "PERMISSION_MODULE_NAME_INVALID")
+  String module;
 }

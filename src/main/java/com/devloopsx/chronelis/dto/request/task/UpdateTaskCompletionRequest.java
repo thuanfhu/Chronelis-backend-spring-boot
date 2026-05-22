@@ -10,6 +10,6 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpdateTaskCompletionRequest {
-    @NotNull(message = "INVALID_REQUEST_DATA")
-    Boolean isCompleted;
+  @NotNull(message = "INVALID_REQUEST_DATA")
+  Boolean isCompleted;
 }

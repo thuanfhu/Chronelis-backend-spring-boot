@@ -11,19 +11,19 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpdateTaskTypeRequest {
-    @Size(max = 100, message = "INVALID_REQUEST_DATA")
-    String name;
+  @Size(max = 100, message = "INVALID_REQUEST_DATA")
+  String name;
 
-    @Size(max = 2000, message = "INVALID_REQUEST_DATA")
-    String description;
+  @Size(max = 2000, message = "INVALID_REQUEST_DATA")
+  String description;
 
-    Long goalId;
+  Long goalId;
 
-    Boolean clearGoal;
+  Boolean clearGoal;
 
-    @Pattern(regexp = "^#[0-9A-Fa-f]{6}$", message = "INVALID_REQUEST_DATA")
-    String color;
+  @Pattern(regexp = "^#[0-9A-Fa-f]{6}$", message = "INVALID_REQUEST_DATA")
+  String color;
 
-    @Size(max = 50, message = "INVALID_REQUEST_DATA")
-    String icon;
+  @Size(max = 50, message = "INVALID_REQUEST_DATA")
+  String icon;
 }

@@ -37,120 +37,88 @@ public class AzureBlobStorageController {
 
   @PostMapping("/upload/single")
   public ApiResponse<SingleFileResponse> uploadSingleFile(
-    @Valid SingleUploadFileRequest singleUploadFileRequest,
-    HttpServletRequest servletRequest
-  ) {
+      @Valid SingleUploadFileRequest singleUploadFileRequest, HttpServletRequest servletRequest) {
     String folderName = singleUploadFileRequest.getFolderName();
     MultipartFile file = singleUploadFileRequest.getFile();
 
     String fileUrl = azureBlobStorageService.uploadSingleFile(file, folderName);
-    SingleFileResponse responseDto = new SingleFileResponse(
-      file.getOriginalFilename(),
-      fileUrl
-    );
+    SingleFileResponse responseDto = new SingleFileResponse(file.getOriginalFilename(), fileUrl);
 
     return ApiResponse.<SingleFileResponse>builder()
-      .message("Tai len tep don thanh cong")
-      .data(responseDto)
-      .meta(buildMetaInfo(servletRequest))
-      .build();
+        .message("Tai len tep don thanh cong")
+        .data(responseDto)
+        .meta(buildMetaInfo(servletRequest))
+        .build();
   }
 
   @PostMapping("/upload/multiple")
   public ApiResponse<MultipleFileResponse> uploadMultipleFiles(
-    @Valid MultipleUploadFileRequest multipleUploadFileRequest,
-    HttpServletRequest servletRequest
-  ) {
+      @Valid MultipleUploadFileRequest multipleUploadFileRequest,
+      HttpServletRequest servletRequest) {
     String folderName = multipleUploadFileRequest.getFolderName();
     List<MultipartFile> files = multipleUploadFileRequest.getFiles();
 
-    List<String> fileUrls = azureBlobStorageService.uploadMultipleFiles(
-      files,
-      folderName
-    );
+    List<String> fileUrls = azureBlobStorageService.uploadMultipleFiles(files, folderName);
     List<SingleFileResponse> fileResponses = new ArrayList<>();
     for (int i = 0; i < files.size(); i++) {
       fileResponses.add(
-        new SingleFileResponse(
-          files.get(i).getOriginalFilename(),
-          fileUrls.get(i)
-        )
-      );
+          new SingleFileResponse(files.get(i).getOriginalFilename(), fileUrls.get(i)));
     }
 
     MultipleFileResponse multipleDto = new MultipleFileResponse(fileResponses);
 
     return ApiResponse.<MultipleFileResponse>builder()
-      .message("Tai len nhieu tep thanh cong")
-      .data(multipleDto)
-      .meta(buildMetaInfo(servletRequest))
-      .build();
+        .message("Tai len nhieu tep thanh cong")
+        .data(multipleDto)
+        .meta(buildMetaInfo(servletRequest))
+        .build();
   }
 
   @DeleteMapping("/delete/single")
   public ApiResponse<String> deleteSingleFile(
-    @RequestParam("filePath") String filePath,
-    HttpServletRequest servletRequest
-  ) {
+      @RequestParam("filePath") String filePath, HttpServletRequest servletRequest) {
     azureBlobStorageService.deleteSingleFile(filePath);
     return ApiResponse.<String>builder()
-      .message("Xoa tep thanh cong")
-      .meta(buildMetaInfo(servletRequest))
-      .build();
+        .message("Xoa tep thanh cong")
+        .meta(buildMetaInfo(servletRequest))
+        .build();
   }
 
   @DeleteMapping("/delete/multiple")
   public ApiResponse<String> deleteMultipleFiles(
-    @RequestBody MultipleDeleteFileRequest multipleDeleteFileRequest,
-    HttpServletRequest servletRequest
-  ) {
-    azureBlobStorageService.deleteMultipleFiles(
-      multipleDeleteFileRequest.getFilePaths()
-    );
+      @RequestBody MultipleDeleteFileRequest multipleDeleteFileRequest,
+      HttpServletRequest servletRequest) {
+    azureBlobStorageService.deleteMultipleFiles(multipleDeleteFileRequest.getFilePaths());
     return ApiResponse.<String>builder()
-      .message("Xoa nhieu tep thanh cong")
-      .meta(buildMetaInfo(servletRequest))
-      .build();
+        .message("Xoa nhieu tep thanh cong")
+        .meta(buildMetaInfo(servletRequest))
+        .build();
   }
 
   @PutMapping("/move/single")
   public ApiResponse<String> moveSingleFile(
-    @Valid SingleMoveFileRequest singleMoveFileRequest,
-    HttpServletRequest servletRequest
-  ) {
+      @Valid SingleMoveFileRequest singleMoveFileRequest, HttpServletRequest servletRequest) {
     String sourceKey = singleMoveFileRequest.getSourceKey();
     String destinationFolder = singleMoveFileRequest.getDestinationFolder();
     azureBlobStorageService.moveSingleFile(sourceKey, destinationFolder);
 
     return ApiResponse.<String>builder()
-      .message("Di chuyen tep thanh cong")
-      .data(
-        "Tep da duoc di chuyen tu: " +
-          sourceKey +
-          " den thu muc: " +
-          destinationFolder
-      )
-      .meta(buildMetaInfo(servletRequest))
-      .build();
+        .message("Di chuyen tep thanh cong")
+        .data("Tep da duoc di chuyen tu: " + sourceKey + " den thu muc: " + destinationFolder)
+        .meta(buildMetaInfo(servletRequest))
+        .build();
   }
 
   @PutMapping("/move/multiple")
   public ApiResponse<String> moveMultipleFiles(
-    @RequestBody @Valid MultipleMoveFileRequest requestDto,
-    HttpServletRequest servletRequest
-  ) {
+      @RequestBody @Valid MultipleMoveFileRequest requestDto, HttpServletRequest servletRequest) {
     azureBlobStorageService.moveMultipleFiles(
-      requestDto.getSourceKeys(),
-      requestDto.getDestinationFolder()
-    );
+        requestDto.getSourceKeys(), requestDto.getDestinationFolder());
 
     return ApiResponse.<String>builder()
-      .message("Di chuyen nhieu tep thanh cong")
-      .data(
-        "Cac tep da duoc di chuyen toi thu muc: " +
-          requestDto.getDestinationFolder()
-      )
-      .meta(buildMetaInfo(servletRequest))
-      .build();
+        .message("Di chuyen nhieu tep thanh cong")
+        .data("Cac tep da duoc di chuyen toi thu muc: " + requestDto.getDestinationFolder())
+        .meta(buildMetaInfo(servletRequest))
+        .build();
   }
 }

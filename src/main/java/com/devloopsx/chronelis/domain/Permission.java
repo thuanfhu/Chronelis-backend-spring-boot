@@ -2,10 +2,9 @@ package com.devloopsx.chronelis.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import java.util.List;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-
-import java.util.List;
 
 @Getter
 @Setter
@@ -16,23 +15,23 @@ import java.util.List;
 @Entity
 @Table(name = "permissions")
 public class Permission extends BaseEntity {
-	@Id
-	@GeneratedValue(strategy = GenerationType.UUID)
-	String permissionId;
+  @Id
+  @GeneratedValue(strategy = GenerationType.UUID)
+  String permissionId;
 
-	@ManyToMany(fetch = FetchType.LAZY, mappedBy = "permissions")
-	@JsonIgnore
-	List<Role> roles;
+  @ManyToMany(fetch = FetchType.LAZY, mappedBy = "permissions")
+  @JsonIgnore
+  List<Role> roles;
 
-	String name;
-	String apiPath;
-	String httpMethod;
-	String module;
+  String name;
+  String apiPath;
+  String httpMethod;
+  String module;
 
-	public Permission(String name, String apiPath, String httpMethod, String module) {
-		this.name = name;
-		this.apiPath = apiPath;
-		this.httpMethod = httpMethod;
-		this.module = module;
-	}
+  public Permission(String name, String apiPath, String httpMethod, String module) {
+    this.name = name;
+    this.apiPath = apiPath;
+    this.httpMethod = httpMethod;
+    this.module = module;
+  }
 }

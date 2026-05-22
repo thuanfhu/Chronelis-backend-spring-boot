@@ -11,7 +11,7 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CreateWorkspaceRequest {
-    @NotBlank(message = "INVALID_REQUEST_DATA")
-    @Size(max = 150, message = "INVALID_REQUEST_DATA")
-    String name;
+  @NotBlank(message = "INVALID_REQUEST_DATA")
+  @Size(max = 150, message = "INVALID_REQUEST_DATA")
+  String name;
 }

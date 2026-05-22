@@ -17,22 +17,21 @@ import org.springframework.stereotype.Component;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class PhoneNumberUtils {
 
-	public String formatPhoneNumberToE164(String phoneNumber, String region) {
-		PhoneNumberUtil phoneUtil = PhoneNumberUtil.getInstance();
+  public String formatPhoneNumberToE164(String phoneNumber, String region) {
+    PhoneNumberUtil phoneUtil = PhoneNumberUtil.getInstance();
 
-		try {
-			Phonenumber.PhoneNumber parsedNumber = phoneUtil.parse(phoneNumber, region);
+    try {
+      Phonenumber.PhoneNumber parsedNumber = phoneUtil.parse(phoneNumber, region);
 
-			if (!phoneUtil.isValidNumber(parsedNumber)) {
-				throw new ApplicationException(ErrorCode.INVALID_PHONE_NUMBER);
-			}
+      if (!phoneUtil.isValidNumber(parsedNumber)) {
+        throw new ApplicationException(ErrorCode.INVALID_PHONE_NUMBER);
+      }
 
-			return phoneUtil.format(parsedNumber, PhoneNumberUtil.PhoneNumberFormat.E164);
-		} catch (NumberParseException e) {
-			throw new ApplicationException(ErrorCode.PHONE_NUMBER_FORMAT_ERROR);
-		} catch (IllegalArgumentException e) {
-			throw new ApplicationException(ErrorCode.PHONE_NUMBER_NOT_SUPPORTED);
-		}
-	}
-
+      return phoneUtil.format(parsedNumber, PhoneNumberUtil.PhoneNumberFormat.E164);
+    } catch (NumberParseException e) {
+      throw new ApplicationException(ErrorCode.PHONE_NUMBER_FORMAT_ERROR);
+    } catch (IllegalArgumentException e) {
+      throw new ApplicationException(ErrorCode.PHONE_NUMBER_NOT_SUPPORTED);
+    }
+  }
 }

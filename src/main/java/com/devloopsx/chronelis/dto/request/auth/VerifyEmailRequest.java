@@ -10,6 +10,6 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Builder
 public class VerifyEmailRequest {
-	@NotBlank(message = "TOKEN_NOT_BLANK")
-	String token;
+  @NotBlank(message = "TOKEN_NOT_BLANK")
+  String token;
 }

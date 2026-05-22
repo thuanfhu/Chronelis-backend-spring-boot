@@ -3,47 +3,47 @@ package com.devloopsx.chronelis.service;
 import com.devloopsx.chronelis.domain.*;
 
 public interface CollaborationAccessService {
-    Workspace requireWorkspace(Long workspaceId);
+  Workspace requireWorkspace(Long workspaceId);
 
-    WorkspaceMember requireWorkspaceMember(Long workspaceId, String userId);
+  WorkspaceMember requireWorkspaceMember(Long workspaceId, String userId);
 
-    WorkspaceMember requireCurrentWorkspaceMember(Long workspaceId);
+  WorkspaceMember requireCurrentWorkspaceMember(Long workspaceId);
 
-    void ensureCurrentUserIsWorkspaceManager(Long workspaceId);
+  void ensureCurrentUserIsWorkspaceManager(Long workspaceId);
 
-    void ensureCurrentUserIsWorkspaceOwner(Long workspaceId);
+  void ensureCurrentUserIsWorkspaceOwner(Long workspaceId);
 
-    Project requireProject(Long projectId);
+  Project requireProject(Long projectId);
 
-    Goal requireGoal(Long goalId);
+  Goal requireGoal(Long goalId);
 
-    TaskStatus requireTaskStatus(Long statusId);
+  TaskStatus requireTaskStatus(Long statusId);
 
-    Task requireTask(Long taskId);
+  Task requireTask(Long taskId);
 
-    WorkspaceTeam requireWorkspaceTeam(Long teamId);
+  WorkspaceTeam requireWorkspaceTeam(Long teamId);
 
-    void ensureCurrentUserCanAccessProject(Long projectId);
+  void ensureCurrentUserCanAccessProject(Long projectId);
 
-    void ensureCurrentUserCanManageProject(Long projectId);
+  void ensureCurrentUserCanManageProject(Long projectId);
 
-    void ensureCurrentUserCanContributeToProject(Long projectId);
+  void ensureCurrentUserCanContributeToProject(Long projectId);
 
-    void ensureCurrentUserCanManageProjectWork(Long projectId);
+  void ensureCurrentUserCanManageProjectWork(Long projectId);
 
-    void ensureCurrentUserCanManageProjectAccess(Long projectId);
+  void ensureCurrentUserCanManageProjectAccess(Long projectId);
 
-    void ensureCurrentUserCanChangeProjectVisibility(Long projectId);
+  void ensureCurrentUserCanChangeProjectVisibility(Long projectId);
 
-    void ensureCurrentUserCanDeleteProject(Long projectId);
+  void ensureCurrentUserCanDeleteProject(Long projectId);
 
-    void ensureCurrentUserCanAssignOthers(Long projectId);
+  void ensureCurrentUserCanAssignOthers(Long projectId);
 
-    void ensureCurrentUserCanManageGoal(Long goalId);
+  void ensureCurrentUserCanManageGoal(Long goalId);
 
-    void ensureCurrentUserCanManageTask(Long taskId);
+  void ensureCurrentUserCanManageTask(Long taskId);
 
-    void ensureCurrentUserCanAccessTask(Long taskId);
+  void ensureCurrentUserCanAccessTask(Long taskId);
 
-    void ensureAssigneeBelongsWorkspace(String assigneeId, Long workspaceId);
+  void ensureAssigneeBelongsWorkspace(String assigneeId, Long workspaceId);
 }

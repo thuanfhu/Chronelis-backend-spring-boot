@@ -10,6 +10,6 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpdateWorkspaceRequest {
-    @Size(max = 150, message = "INVALID_REQUEST_DATA")
-    String name;
+  @Size(max = 150, message = "INVALID_REQUEST_DATA")
+  String name;
 }

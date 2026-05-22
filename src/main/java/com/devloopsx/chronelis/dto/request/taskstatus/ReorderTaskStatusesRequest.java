@@ -1,10 +1,9 @@
 package com.devloopsx.chronelis.dto.request.taskstatus;
 
 import jakarta.validation.constraints.NotEmpty;
+import java.util.List;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-
-import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -12,6 +11,6 @@ import java.util.List;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class ReorderTaskStatusesRequest {
-    @NotEmpty(message = "INVALID_REQUEST_DATA")
-    List<Long> statusIdsInOrder;
+  @NotEmpty(message = "INVALID_REQUEST_DATA")
+  List<Long> statusIdsInOrder;
 }

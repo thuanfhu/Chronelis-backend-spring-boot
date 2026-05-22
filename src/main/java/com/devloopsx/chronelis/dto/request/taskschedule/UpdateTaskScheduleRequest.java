@@ -1,10 +1,9 @@
 package com.devloopsx.chronelis.dto.request.taskschedule;
 
 import jakarta.validation.constraints.NotNull;
+import java.time.LocalDateTime;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-
-import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
@@ -12,9 +11,9 @@ import java.time.LocalDateTime;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpdateTaskScheduleRequest {
-    @NotNull(message = "INVALID_REQUEST_DATA")
-    LocalDateTime scheduledStart;
+  @NotNull(message = "INVALID_REQUEST_DATA")
+  LocalDateTime scheduledStart;
 
-    @NotNull(message = "INVALID_REQUEST_DATA")
-    LocalDateTime scheduledEnd;
+  @NotNull(message = "INVALID_REQUEST_DATA")
+  LocalDateTime scheduledEnd;
 }

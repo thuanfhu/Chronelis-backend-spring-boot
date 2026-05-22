@@ -11,6 +11,6 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpdateProjectStatusRequest {
-    @NotNull(message = "INVALID_REQUEST_DATA")
-    ProjectStatusType status;
+  @NotNull(message = "INVALID_REQUEST_DATA")
+  ProjectStatusType status;
 }

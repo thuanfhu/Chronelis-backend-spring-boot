@@ -14,9 +14,9 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class MyWorkScheduleItemResponse {
-    Long scheduleId;
-    Long taskId;
-    LocalDateTime scheduledStart;
-    LocalDateTime scheduledEnd;
-    TaskResponse task;
+  Long scheduleId;
+  Long taskId;
+  LocalDateTime scheduledStart;
+  LocalDateTime scheduledEnd;
+  TaskResponse task;
 }

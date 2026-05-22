@@ -12,17 +12,17 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpdateProjectRequest {
-    @Size(max = 150, message = "INVALID_REQUEST_DATA")
-    String name;
+  @Size(max = 150, message = "INVALID_REQUEST_DATA")
+  String name;
 
-    @Size(max = 2000, message = "INVALID_REQUEST_DATA")
-    String description;
+  @Size(max = 2000, message = "INVALID_REQUEST_DATA")
+  String description;
 
-    ProjectStatusType status;
+  ProjectStatusType status;
 
-    ProjectVisibilityType visibility;
+  ProjectVisibilityType visibility;
 
-    String managerUserId;
+  String managerUserId;
 
-    Long managerTeamId;
+  Long managerTeamId;
 }

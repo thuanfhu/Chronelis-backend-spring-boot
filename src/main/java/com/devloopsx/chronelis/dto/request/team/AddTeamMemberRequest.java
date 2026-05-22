@@ -10,6 +10,6 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class AddTeamMemberRequest {
-    @NotBlank(message = "INVALID_REQUEST_DATA")
-    String userId;
+  @NotBlank(message = "INVALID_REQUEST_DATA")
+  String userId;
 }

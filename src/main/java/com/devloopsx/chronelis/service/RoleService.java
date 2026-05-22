@@ -10,15 +10,16 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 
 public interface RoleService {
-	RoleResponse createRole(CreateRoleRequest createRoleRequest);
+  RoleResponse createRole(CreateRoleRequest createRoleRequest);
 
-	RoleResponse getRoleById(String roleId);
+  RoleResponse getRoleById(String roleId);
 
-	PaginationResponse getAllRoleWithQuery(Specification<Role> spec, Pageable pageable);
+  PaginationResponse getAllRoleWithQuery(Specification<Role> spec, Pageable pageable);
 
-	RoleResponse updateRoleById(String roleId, UpdateRoleRequest updateRoleRequest);
+  RoleResponse updateRoleById(String roleId, UpdateRoleRequest updateRoleRequest);
 
-	void deletePermissionFromRole(String roleId, DeletePermissionFromRoleRequest deletePermissionFromRoleRequest);
+  void deletePermissionFromRole(
+      String roleId, DeletePermissionFromRoleRequest deletePermissionFromRoleRequest);
 
-	void deleteRoleById(String roleId);
+  void deleteRoleById(String roleId);
 }

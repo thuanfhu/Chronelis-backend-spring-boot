@@ -1,25 +1,24 @@
 package com.devloopsx.chronelis.repository;
 
 import com.devloopsx.chronelis.domain.TaskStatus;
+import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
-import java.util.Optional;
-
 @Repository
 public interface TaskStatusRepository extends JpaRepository<TaskStatus, Long> {
-    List<TaskStatus> findByProjectIdOrderByPositionAsc(Long projectId);
+  List<TaskStatus> findByProjectIdOrderByPositionAsc(Long projectId);
 
-    Optional<TaskStatus> findByProjectIdAndCodeIgnoreCase(Long projectId, String code);
+  Optional<TaskStatus> findByProjectIdAndCodeIgnoreCase(Long projectId, String code);
 
-    Optional<TaskStatus> findByProjectIdAndIdAndIsClosedFalse(Long projectId, Long statusId);
+  Optional<TaskStatus> findByProjectIdAndIdAndIsClosedFalse(Long projectId, Long statusId);
 
-    Optional<TaskStatus> findFirstByProjectIdAndIsClosedTrueOrderByPositionAsc(Long projectId);
+  Optional<TaskStatus> findFirstByProjectIdAndIsClosedTrueOrderByPositionAsc(Long projectId);
 
-    Optional<TaskStatus> findFirstByProjectIdAndIsClosedFalseOrderByPositionAsc(Long projectId);
+  Optional<TaskStatus> findFirstByProjectIdAndIsClosedFalseOrderByPositionAsc(Long projectId);
 
-    boolean existsByProjectIdAndCodeIgnoreCase(Long projectId, String code);
+  boolean existsByProjectIdAndCodeIgnoreCase(Long projectId, String code);
 
-    boolean existsByProjectIdAndPosition(Long projectId, Integer position);
+  boolean existsByProjectIdAndPosition(Long projectId, Integer position);
 }

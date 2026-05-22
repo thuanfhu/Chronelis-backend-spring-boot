@@ -11,7 +11,8 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface TaskDependencyRepository extends JpaRepository<TaskDependency, Long> {
-    @Query("""
+  @Query(
+      """
             SELECT dependency
             FROM TaskDependency dependency
             JOIN FETCH dependency.dependsOnTask dependsOnTask
@@ -19,9 +20,10 @@ public interface TaskDependencyRepository extends JpaRepository<TaskDependency, 
             WHERE dependency.task.id = :taskId
             ORDER BY dependency.createdAt ASC, dependency.id ASC
             """)
-    List<TaskDependency> findIncomingByTaskId(@Param("taskId") Long taskId);
+  List<TaskDependency> findIncomingByTaskId(@Param("taskId") Long taskId);
 
-    @Query("""
+  @Query(
+      """
             SELECT dependency
             FROM TaskDependency dependency
             JOIN FETCH dependency.task task
@@ -29,35 +31,38 @@ public interface TaskDependencyRepository extends JpaRepository<TaskDependency, 
             WHERE dependency.dependsOnTask.id = :taskId
             ORDER BY dependency.createdAt ASC, dependency.id ASC
             """)
-    List<TaskDependency> findOutgoingByTaskId(@Param("taskId") Long taskId);
+  List<TaskDependency> findOutgoingByTaskId(@Param("taskId") Long taskId);
 
-    @Query("""
+  @Query(
+      """
             SELECT dependency
             FROM TaskDependency dependency
             JOIN FETCH dependency.dependsOnTask dependsOnTask
             LEFT JOIN FETCH dependsOnTask.status
             WHERE dependency.task.id IN :taskIds
             """)
-    List<TaskDependency> findIncomingByTaskIds(@Param("taskIds") Collection<Long> taskIds);
+  List<TaskDependency> findIncomingByTaskIds(@Param("taskIds") Collection<Long> taskIds);
 
-    @Query("""
+  @Query(
+      """
             SELECT dependency
             FROM TaskDependency dependency
             JOIN FETCH dependency.task task
             LEFT JOIN FETCH task.status
             WHERE dependency.dependsOnTask.id IN :taskIds
             """)
-    List<TaskDependency> findOutgoingByTaskIds(@Param("taskIds") Collection<Long> taskIds);
+  List<TaskDependency> findOutgoingByTaskIds(@Param("taskIds") Collection<Long> taskIds);
 
-    @Query("""
+  @Query(
+      """
             SELECT dependency
             FROM TaskDependency dependency
             WHERE dependency.task.project.id = :projectId
             """)
-    List<TaskDependency> findByProjectId(@Param("projectId") Long projectId);
+  List<TaskDependency> findByProjectId(@Param("projectId") Long projectId);
 
-    @Modifying
-    void deleteByTaskIdOrDependsOnTaskId(Long taskId, Long dependsOnTaskId);
+  @Modifying
+  void deleteByTaskIdOrDependsOnTaskId(Long taskId, Long dependsOnTaskId);
 
-    boolean existsByTaskIdAndDependsOnTaskId(Long taskId, Long dependsOnTaskId);
+  boolean existsByTaskIdAndDependsOnTaskId(Long taskId, Long dependsOnTaskId);
 }

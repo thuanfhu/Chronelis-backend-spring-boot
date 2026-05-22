@@ -12,9 +12,9 @@ import java.lang.annotation.Target;
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface LoginIdentifierValid {
-	String message() default "EMAIL_OR_PHONE_REQUIRED";
+  String message() default "EMAIL_OR_PHONE_REQUIRED";
 
-	Class<?>[] groups() default {};
+  Class<?>[] groups() default {};
 
-	Class<? extends Payload>[] payload() default {};
+  Class<? extends Payload>[] payload() default {};
 }

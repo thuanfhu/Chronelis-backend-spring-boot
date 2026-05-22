@@ -27,25 +27,25 @@ import lombok.experimental.FieldDefaults;
 @Entity
 @Table(name = "task_dependencies")
 public class TaskDependency {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    Long id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "task_id", nullable = false)
-    Task task;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "task_id", nullable = false)
+  Task task;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "depends_on_task_id", nullable = false)
-    Task dependsOnTask;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "depends_on_task_id", nullable = false)
+  Task dependsOnTask;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by", nullable = false)
-    User createdBy;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "created_by", nullable = false)
+  User createdBy;
 
-    @Column(name = "created_at", nullable = false)
-    LocalDateTime createdAt;
+  @Column(name = "created_at", nullable = false)
+  LocalDateTime createdAt;
 
-    @Column(name = "updated_at", nullable = false)
-    LocalDateTime updatedAt;
+  @Column(name = "updated_at", nullable = false)
+  LocalDateTime updatedAt;
 }

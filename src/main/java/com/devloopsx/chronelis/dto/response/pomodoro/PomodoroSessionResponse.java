@@ -1,10 +1,9 @@
 package com.devloopsx.chronelis.dto.response.pomodoro;
 
 import com.devloopsx.chronelis.dto.response.common.UserSummaryResponse;
+import java.time.LocalDateTime;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-
-import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
@@ -12,11 +11,11 @@ import java.time.LocalDateTime;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class PomodoroSessionResponse {
-    Long id;
-    Long taskId;
-    UserSummaryResponse user;
-    Integer durationMinutes;
-    LocalDateTime startedAt;
-    LocalDateTime endedAt;
-    LocalDateTime createdAt;
+  Long id;
+  Long taskId;
+  UserSummaryResponse user;
+  Integer durationMinutes;
+  LocalDateTime startedAt;
+  LocalDateTime endedAt;
+  LocalDateTime createdAt;
 }

@@ -11,10 +11,10 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class PaginationMeta {
-	int currentPage;
-	int pageSize;
-	int totalPages;
-	long totalElements;
-	boolean hasNext;
-	boolean hasPrevious;
+  int currentPage;
+  int pageSize;
+  int totalPages;
+  long totalElements;
+  boolean hasNext;
+  boolean hasPrevious;
 }

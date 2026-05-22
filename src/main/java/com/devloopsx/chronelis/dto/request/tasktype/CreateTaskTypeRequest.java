@@ -13,24 +13,24 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CreateTaskTypeRequest {
-    @NotNull(message = "INVALID_REQUEST_DATA")
-    Long workspaceId;
+  @NotNull(message = "INVALID_REQUEST_DATA")
+  Long workspaceId;
 
-    @NotNull(message = "INVALID_REQUEST_DATA")
-    Long projectId;
+  @NotNull(message = "INVALID_REQUEST_DATA")
+  Long projectId;
 
-    Long goalId;
+  Long goalId;
 
-    @NotBlank(message = "INVALID_REQUEST_DATA")
-    @Size(max = 100, message = "INVALID_REQUEST_DATA")
-    String name;
+  @NotBlank(message = "INVALID_REQUEST_DATA")
+  @Size(max = 100, message = "INVALID_REQUEST_DATA")
+  String name;
 
-    @Size(max = 2000, message = "INVALID_REQUEST_DATA")
-    String description;
+  @Size(max = 2000, message = "INVALID_REQUEST_DATA")
+  String description;
 
-    @Pattern(regexp = "^#[0-9A-Fa-f]{6}$", message = "INVALID_REQUEST_DATA")
-    String color;
+  @Pattern(regexp = "^#[0-9A-Fa-f]{6}$", message = "INVALID_REQUEST_DATA")
+  String color;
 
-    @Size(max = 50, message = "INVALID_REQUEST_DATA")
-    String icon;
+  @Size(max = 50, message = "INVALID_REQUEST_DATA")
+  String icon;
 }
