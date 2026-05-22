@@ -76,7 +76,6 @@ REDIS_USERNAME=
 REDIS_PASSWORD=
 REDIS_SSL=false
 REDIS_TIMEOUT=1000
-REDIS_CACHE_MAX_PAYLOAD_BYTES=65536
 ```
 
 Với Redis Cloud, dùng host/port/password của dashboard. Nếu endpoint yêu cầu TLS thì đặt `REDIS_SSL=true`; Redis local/Docker plain TCP phải dùng `REDIS_SSL=false`.

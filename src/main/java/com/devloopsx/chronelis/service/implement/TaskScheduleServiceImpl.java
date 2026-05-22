@@ -15,23 +15,23 @@ import com.devloopsx.chronelis.mapper.TaskScheduleMapper;
 import com.devloopsx.chronelis.repository.TaskScheduleRepository;
 import com.devloopsx.chronelis.service.*;
 import com.devloopsx.chronelis.service.cache.AfterCommitExecutor;
-import com.devloopsx.chronelis.service.cache.CacheInvalidationService;
-import com.devloopsx.chronelis.service.cache.CacheKeys;
-import com.devloopsx.chronelis.service.cache.RedisCacheService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class TaskScheduleServiceImpl implements TaskScheduleService {
@@ -42,11 +42,7 @@ public class TaskScheduleServiceImpl implements TaskScheduleService {
   NotificationService notificationService;
   ActivityLogService activityLogService;
   RealtimeEventPublisherService realtimeEventPublisherService;
-  RedisCacheService redisCacheService;
-  CacheInvalidationService cacheInvalidationService;
   AfterCommitExecutor afterCommitExecutor;
-
-  static final Duration CALENDAR_TTL = Duration.ofSeconds(60);
 
   @Override
   @Transactional
@@ -88,13 +84,7 @@ public class TaskScheduleServiceImpl implements TaskScheduleService {
     }
 
     TaskScheduleResponse response = taskScheduleMapper.toResponse(savedSchedule);
-    invalidateScheduleMutationAfterCommit(task);
-    publishTaskEventAfterCommit(
-        task.getProject().getWorkspace().getId(),
-        task.getProject().getId(),
-        task.getId(),
-        "task-schedule.created",
-        response);
+    afterScheduleMutationCommit(task, "task-schedule.created", response);
     return response;
   }
 
@@ -141,13 +131,7 @@ public class TaskScheduleServiceImpl implements TaskScheduleService {
     }
 
     TaskScheduleResponse response = taskScheduleMapper.toResponse(updatedSchedule);
-    invalidateScheduleMutationAfterCommit(task);
-    publishTaskEventAfterCommit(
-        task.getProject().getWorkspace().getId(),
-        task.getProject().getId(),
-        task.getId(),
-        "task-schedule.updated",
-        response);
+    afterScheduleMutationCommit(task, "task-schedule.updated", response);
     return response;
   }
 
@@ -176,13 +160,7 @@ public class TaskScheduleServiceImpl implements TaskScheduleService {
         scheduleId,
         "Xóa lịch của task " + task.getTitle());
 
-    invalidateScheduleMutationAfterCommit(task);
-    publishTaskEventAfterCommit(
-        task.getProject().getWorkspace().getId(),
-        task.getProject().getId(),
-        task.getId(),
-        "task-schedule.deleted",
-        scheduleId);
+    afterScheduleMutationCommit(task, "task-schedule.deleted", scheduleId);
   }
 
   @Override
@@ -200,25 +178,8 @@ public class TaskScheduleServiceImpl implements TaskScheduleService {
       Long projectId, LocalDate fromDate, LocalDate toDate, Pageable pageable) {
     collaborationAccessService.ensureCurrentUserCanAccessProject(projectId);
     validateCalendarRange(fromDate, toDate);
-    long scheduleVersion =
-        redisCacheService.getVersion(CacheKeys.projectSchedulesVersion(projectId));
-    String key =
-        CacheKeys.projectCalendar(
-            projectId,
-            fromDate.toString(),
-            toDate.toString(),
-            pageable.getPageNumber(),
-            pageable.getPageSize(),
-            scheduleVersion);
-    return redisCacheService
-        .getJson(key, PaginationResponse.class)
-        .orElseGet(
-            () -> {
-              PaginationResponse response =
-                  buildProjectCalendar(projectId, fromDate, toDate, pageable);
-              redisCacheService.setJson(key, response, CALENDAR_TTL);
-              return response;
-            });
+    return sanitizeCalendarResponse(
+        buildProjectCalendar(projectId, fromDate, toDate, pageable), "project-calendar");
   }
 
   @Override
@@ -228,29 +189,9 @@ public class TaskScheduleServiceImpl implements TaskScheduleService {
     validateCalendarRange(fromDate, toDate);
 
     String currentUserId = securityUtils.getAuthenticatedUser().getUserId();
-    long scheduleVersion =
-        redisCacheService.getVersion(CacheKeys.workspaceSchedulesVersion(workspaceId));
-    long accessVersion =
-        redisCacheService.getVersion(CacheKeys.workspaceAccessVersion(workspaceId));
-    String key =
-        CacheKeys.workspaceCalendar(
-            workspaceId,
-            currentUserId,
-            fromDate.toString(),
-            toDate.toString(),
-            pageable.getPageNumber(),
-            pageable.getPageSize(),
-            scheduleVersion,
-            accessVersion);
-    return redisCacheService
-        .getJson(key, PaginationResponse.class)
-        .orElseGet(
-            () -> {
-              PaginationResponse response =
-                  buildWorkspaceCalendar(workspaceId, currentUserId, fromDate, toDate, pageable);
-              redisCacheService.setJson(key, response, CALENDAR_TTL);
-              return response;
-            });
+    return sanitizeCalendarResponse(
+        buildWorkspaceCalendar(workspaceId, currentUserId, fromDate, toDate, pageable),
+        "workspace-calendar");
   }
 
   private PaginationResponse buildProjectCalendar(
@@ -297,21 +238,61 @@ public class TaskScheduleServiceImpl implements TaskScheduleService {
         .build();
   }
 
-  private void invalidateScheduleMutationAfterCommit(Task task) {
-    cacheInvalidationService.invalidateProjectSchedulesAfterCommit(task.getProject().getId());
-    cacheInvalidationService.invalidateWorkspaceSchedulesAfterCommit(
-        task.getProject().getWorkspace().getId());
-    if (task.getAssignee() != null) {
-      cacheInvalidationService.invalidateUserWorkAfterCommit(task.getAssignee().getUserId());
-    }
+  private void afterScheduleMutationCommit(Task task, String eventType, Object data) {
+    Long workspaceId = task.getProject().getWorkspace().getId();
+    Long projectId = task.getProject().getId();
+    Long taskId = task.getId();
+
+    afterCommitExecutor.runAfterCommit(
+        () -> {
+          realtimeEventPublisherService.publishProjectEvent(workspaceId, projectId, eventType, data);
+          realtimeEventPublisherService.publishTaskEvent(
+              workspaceId, projectId, taskId, eventType, data);
+        });
   }
 
-  private void publishTaskEventAfterCommit(
-      Long workspaceId, Long projectId, Long taskId, String eventType, Object data) {
-    afterCommitExecutor.runAfterCommit(
-        () ->
-            realtimeEventPublisherService.publishTaskEvent(
-                workspaceId, projectId, taskId, eventType, data));
+  private PaginationResponse sanitizeCalendarResponse(PaginationResponse response, String context) {
+    if (response == null || !(response.getContent() instanceof List<?> content) || content.isEmpty()) {
+      return response;
+    }
+
+    Map<Object, Object> dedupedById = new LinkedHashMap<>();
+    int duplicates = 0;
+    int anonymousIndex = 0;
+
+    for (Object item : content) {
+      Object scheduleId = extractScheduleId(item);
+      Object dedupeKey = scheduleId != null ? scheduleId : "anonymous:" + anonymousIndex++;
+      if (dedupedById.containsKey(dedupeKey)) {
+        duplicates++;
+      }
+      dedupedById.put(dedupeKey, item);
+    }
+
+    if (duplicates == 0) {
+      return response;
+    }
+
+    log.warn(
+        "Detected {} duplicate schedule entries in calendar response for key {}",
+        duplicates,
+        context);
+    return PaginationResponse.builder()
+        .meta(response.getMeta())
+        .content(List.copyOf(dedupedById.values()))
+        .build();
+  }
+
+  private Object extractScheduleId(Object item) {
+    if (item instanceof TaskScheduleResponse response) {
+      return response.getId();
+    }
+
+    if (item instanceof Map<?, ?> map) {
+      return map.get("id");
+    }
+
+    return null;
   }
 
   private void validateScheduleTime(LocalDateTime scheduledStart, LocalDateTime scheduledEnd) {

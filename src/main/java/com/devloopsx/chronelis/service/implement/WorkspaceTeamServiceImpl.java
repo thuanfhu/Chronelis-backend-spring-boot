@@ -23,7 +23,6 @@ import com.devloopsx.chronelis.service.CollaborationAccessService;
 import com.devloopsx.chronelis.service.RealtimeEventPublisherService;
 import com.devloopsx.chronelis.service.WorkspaceTeamService;
 import com.devloopsx.chronelis.service.cache.AfterCommitExecutor;
-import com.devloopsx.chronelis.service.cache.CacheInvalidationService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -46,7 +45,6 @@ public class WorkspaceTeamServiceImpl implements WorkspaceTeamService {
   SecurityUtils securityUtils;
   ActivityLogService activityLogService;
   RealtimeEventPublisherService realtimeEventPublisherService;
-  CacheInvalidationService cacheInvalidationService;
   AfterCommitExecutor afterCommitExecutor;
 
   @Override
@@ -172,7 +170,6 @@ public class WorkspaceTeamServiceImpl implements WorkspaceTeamService {
         teamId,
         "Xóa team " + name);
 
-    cacheInvalidationService.invalidateWorkspaceAccessAfterCommit(workspaceId);
     publishWorkspaceEventAfterCommit(workspaceId, "team.deleted", teamId);
   }
 
@@ -214,8 +211,6 @@ public class WorkspaceTeamServiceImpl implements WorkspaceTeamService {
         "Thêm thành viên vào team " + team.getName());
 
     WorkspaceTeamMemberResponse response = workspaceTeamMemberMapper.toResponse(saved);
-    cacheInvalidationService.invalidateWorkspaceAccessAfterCommit(workspaceId);
-    cacheInvalidationService.invalidateUserWorkAfterCommit(request.getUserId());
     publishWorkspaceEventAfterCommit(workspaceId, "team.memberAdded", response);
     return response;
   }
@@ -247,8 +242,6 @@ public class WorkspaceTeamServiceImpl implements WorkspaceTeamService {
         teamId,
         "Xóa thành viên khỏi team " + team.getName());
 
-    cacheInvalidationService.invalidateWorkspaceAccessAfterCommit(workspaceId);
-    cacheInvalidationService.invalidateUserWorkAfterCommit(userId);
     publishWorkspaceEventAfterCommit(workspaceId, "team.memberRemoved", teamId);
   }
 
