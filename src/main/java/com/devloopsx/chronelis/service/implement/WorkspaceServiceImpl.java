@@ -22,6 +22,8 @@ import com.devloopsx.chronelis.repository.WorkspaceMemberRepository;
 import com.devloopsx.chronelis.repository.WorkspaceRepository;
 import com.devloopsx.chronelis.repository.UserRepository;
 import com.devloopsx.chronelis.service.*;
+import com.devloopsx.chronelis.service.cache.AfterCommitExecutor;
+import com.devloopsx.chronelis.service.cache.CacheInvalidationService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +52,8 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         ActivityLogService activityLogService;
         RealtimeEventPublisherService realtimeEventPublisherService;
         NotificationService notificationService;
+        CacheInvalidationService cacheInvalidationService;
+        AfterCommitExecutor afterCommitExecutor;
 
         @Override
         @Transactional
@@ -78,7 +82,8 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                                 "Tạo workspace " + savedWorkspace.getName());
 
                 WorkspaceResponse response = workspaceMapper.toResponse(savedWorkspace);
-                realtimeEventPublisherService.publishWorkspaceEvent(savedWorkspace.getId(), "workspace.created",
+                cacheInvalidationService.invalidateWorkspaceAccessAfterCommit(savedWorkspace.getId());
+                publishWorkspaceEventAfterCommit(savedWorkspace.getId(), "workspace.created",
                                 response);
                 return response;
         }
@@ -104,7 +109,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                                 "Cập nhật workspace " + updatedWorkspace.getName());
 
                 WorkspaceResponse response = workspaceMapper.toResponse(updatedWorkspace);
-                realtimeEventPublisherService.publishWorkspaceEvent(workspaceId, "workspace.updated", response);
+                publishWorkspaceEventAfterCommit(workspaceId, "workspace.updated", response);
                 return response;
         }
 
@@ -161,7 +166,9 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                                 "Thêm thành viên " + targetUser.getEmail() + " vào workspace");
 
                 WorkspaceMemberResponse response = workspaceMemberMapper.toResponse(savedMember);
-                realtimeEventPublisherService.publishWorkspaceEvent(workspaceId, "workspace.member.added", response);
+                cacheInvalidationService.invalidateWorkspaceAccessAfterCommit(workspaceId);
+                cacheInvalidationService.invalidateUserWorkAfterCommit(targetUser.getUserId());
+                publishWorkspaceEventAfterCommit(workspaceId, "workspace.member.added", response);
 
                 notificationService.createAndPublish(targetUser.getUserId(), NotificationType.WORKSPACE_MEMBER_ADDED,
                                 "Bạn được thêm vào workspace", "Bạn vừa được thêm vào workspace " + workspace.getName(),
@@ -211,7 +218,9 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                                 "Cập nhật vai trò thành viên " + updatedMember.getUser().getEmail());
 
                 WorkspaceMemberResponse response = workspaceMemberMapper.toResponse(updatedMember);
-                realtimeEventPublisherService.publishWorkspaceEvent(workspaceId, "workspace.member.role-updated",
+                cacheInvalidationService.invalidateWorkspaceAccessAfterCommit(workspaceId);
+                cacheInvalidationService.invalidateUserWorkAfterCommit(userId);
+                publishWorkspaceEventAfterCommit(workspaceId, "workspace.member.role-updated",
                                 response);
                 return response;
         }
@@ -241,7 +250,9 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                                 ActivityTargetType.MEMBER, member.getId(),
                                 "Xóa thành viên " + member.getUser().getEmail() + " khỏi workspace");
 
-                realtimeEventPublisherService.publishWorkspaceEvent(workspaceId, "workspace.member.removed",
+                cacheInvalidationService.invalidateWorkspaceAccessAfterCommit(workspaceId);
+                cacheInvalidationService.invalidateUserWorkAfterCommit(userId);
+                publishWorkspaceEventAfterCommit(workspaceId, "workspace.member.removed",
                                 workspaceMemberMapper.toResponse(member));
 
                 notificationService.createAndPublish(userId, NotificationType.WORKSPACE_MEMBER_REMOVED,
@@ -272,6 +283,10 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                 String workspaceName = workspace.getName();
 
                 List<Long> workspaceProjectIds = projectRepository.findIdsByWorkspaceId(workspaceId);
+                List<String> workspaceUserIds = workspaceMemberRepository.findByWorkspaceIdOrderByJoinedAtAsc(workspaceId)
+                                .stream()
+                                .map(member -> member.getUser().getUserId())
+                                .toList();
                 if (!workspaceProjectIds.isEmpty()) {
                         // Remove tasks before deleting workspace/project cascades to prevent
                         // fk_tasks_status (RESTRICT) violations during status deletion.
@@ -280,6 +295,18 @@ public class WorkspaceServiceImpl implements WorkspaceService {
 
                 workspaceRepository.delete(workspace);
 
-                realtimeEventPublisherService.publishWorkspaceEvent(workspaceId, "workspace.deleted", workspaceName);
+                workspaceProjectIds.forEach(projectId -> {
+                        cacheInvalidationService.invalidateProjectAccessAfterCommit(projectId);
+                        cacheInvalidationService.invalidateProjectTasksAfterCommit(projectId);
+                        cacheInvalidationService.invalidateProjectSchedulesAfterCommit(projectId);
+                });
+                cacheInvalidationService.invalidateUserWorkAfterCommit(workspaceUserIds);
+                cacheInvalidationService.invalidateWorkspaceAccessAfterCommit(workspaceId);
+                publishWorkspaceEventAfterCommit(workspaceId, "workspace.deleted", workspaceName);
+        }
+
+        private void publishWorkspaceEventAfterCommit(Long workspaceId, String eventType, Object data) {
+                afterCommitExecutor.runAfterCommit(() -> realtimeEventPublisherService.publishWorkspaceEvent(workspaceId,
+                                eventType, data));
         }
 }

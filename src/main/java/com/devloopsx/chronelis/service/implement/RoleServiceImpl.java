@@ -14,6 +14,7 @@ import com.devloopsx.chronelis.exception.ErrorCode;
 import com.devloopsx.chronelis.mapper.RoleMapper;
 import com.devloopsx.chronelis.repository.RoleRepository;
 import com.devloopsx.chronelis.service.RoleService;
+import com.devloopsx.chronelis.service.cache.CacheInvalidationService;
 import com.devloopsx.chronelis.utils.PermissionUtils;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,7 @@ public class RoleServiceImpl implements RoleService {
 	RoleRepository roleRepository;
 	RoleMapper roleMapper;
 	PermissionUtils permissionUtils;
+	CacheInvalidationService cacheInvalidationService;
 
 	@Override
 	public RoleResponse createRole(CreateRoleRequest createRoleRequest) {
@@ -54,7 +56,9 @@ public class RoleServiceImpl implements RoleService {
 			role.setPermissions(permissions);
 		}
 
-		return this.roleMapper.roleToResponse(this.roleRepository.save(role));
+		RoleResponse response = this.roleMapper.roleToResponse(this.roleRepository.save(role));
+		cacheInvalidationService.invalidateGlobalAuthzAfterCommit();
+		return response;
 	}
 
 	@Override
@@ -108,7 +112,9 @@ public class RoleServiceImpl implements RoleService {
 			currentRole.getPermissions().addAll(providedPermissions);
 		}
 
-		return this.roleMapper.roleToResponse(this.roleRepository.save(currentRole));
+		RoleResponse response = this.roleMapper.roleToResponse(this.roleRepository.save(currentRole));
+		cacheInvalidationService.invalidateGlobalAuthzAfterCommit();
+		return response;
 	}
 
 	@Override
@@ -132,6 +138,7 @@ public class RoleServiceImpl implements RoleService {
 
 		currentRole.getPermissions().removeIf(permission -> permissionIds.contains(permission.getPermissionId()));
 		this.roleRepository.save(currentRole);
+		cacheInvalidationService.invalidateGlobalAuthzAfterCommit();
 	}
 
 	@Override
@@ -149,5 +156,6 @@ public class RoleServiceImpl implements RoleService {
 		currentRole.getUsers().clear();
 
 		this.roleRepository.delete(currentRole);
+		cacheInvalidationService.invalidateGlobalAuthzAfterCommit();
 	}
 }

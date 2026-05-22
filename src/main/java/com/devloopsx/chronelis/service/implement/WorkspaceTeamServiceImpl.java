@@ -22,6 +22,8 @@ import com.devloopsx.chronelis.service.ActivityLogService;
 import com.devloopsx.chronelis.service.CollaborationAccessService;
 import com.devloopsx.chronelis.service.RealtimeEventPublisherService;
 import com.devloopsx.chronelis.service.WorkspaceTeamService;
+import com.devloopsx.chronelis.service.cache.AfterCommitExecutor;
+import com.devloopsx.chronelis.service.cache.CacheInvalidationService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -45,6 +47,8 @@ public class WorkspaceTeamServiceImpl implements WorkspaceTeamService {
         SecurityUtils securityUtils;
         ActivityLogService activityLogService;
         RealtimeEventPublisherService realtimeEventPublisherService;
+        CacheInvalidationService cacheInvalidationService;
+        AfterCommitExecutor afterCommitExecutor;
 
         @Override
         @Transactional
@@ -77,7 +81,7 @@ public class WorkspaceTeamServiceImpl implements WorkspaceTeamService {
                                 saved.getId(), "Tạo team " + saved.getName());
 
                 WorkspaceTeamResponse response = workspaceTeamMapper.toResponse(saved);
-                realtimeEventPublisherService.publishWorkspaceEvent(workspace.getId(), "team.created", response);
+                publishWorkspaceEventAfterCommit(workspace.getId(), "team.created", response);
                 return response;
         }
 
@@ -109,7 +113,7 @@ public class WorkspaceTeamServiceImpl implements WorkspaceTeamService {
                                 updated.getId(), "Cập nhật team " + updated.getName());
 
                 WorkspaceTeamResponse response = workspaceTeamMapper.toResponse(updated);
-                realtimeEventPublisherService.publishWorkspaceEvent(team.getWorkspace().getId(), "team.updated",
+                publishWorkspaceEventAfterCommit(team.getWorkspace().getId(), "team.updated",
                                 response);
                 return response;
         }
@@ -151,7 +155,8 @@ public class WorkspaceTeamServiceImpl implements WorkspaceTeamService {
                                 ActivityActionType.TEAM_DELETED, ActivityTargetType.TEAM,
                                 teamId, "Xóa team " + name);
 
-                realtimeEventPublisherService.publishWorkspaceEvent(workspaceId, "team.deleted", teamId);
+                cacheInvalidationService.invalidateWorkspaceAccessAfterCommit(workspaceId);
+                publishWorkspaceEventAfterCommit(workspaceId, "team.deleted", teamId);
         }
 
         @Override
@@ -187,7 +192,9 @@ public class WorkspaceTeamServiceImpl implements WorkspaceTeamService {
                                 teamId, "Thêm thành viên vào team " + team.getName());
 
                 WorkspaceTeamMemberResponse response = workspaceTeamMemberMapper.toResponse(saved);
-                realtimeEventPublisherService.publishWorkspaceEvent(workspaceId, "team.memberAdded", response);
+                cacheInvalidationService.invalidateWorkspaceAccessAfterCommit(workspaceId);
+                cacheInvalidationService.invalidateUserWorkAfterCommit(request.getUserId());
+                publishWorkspaceEventAfterCommit(workspaceId, "team.memberAdded", response);
                 return response;
         }
 
@@ -212,7 +219,9 @@ public class WorkspaceTeamServiceImpl implements WorkspaceTeamService {
                                 ActivityActionType.TEAM_MEMBER_REMOVED, ActivityTargetType.TEAM,
                                 teamId, "Xóa thành viên khỏi team " + team.getName());
 
-                realtimeEventPublisherService.publishWorkspaceEvent(workspaceId, "team.memberRemoved", teamId);
+                cacheInvalidationService.invalidateWorkspaceAccessAfterCommit(workspaceId);
+                cacheInvalidationService.invalidateUserWorkAfterCommit(userId);
+                publishWorkspaceEventAfterCommit(workspaceId, "team.memberRemoved", teamId);
         }
 
         @Override
@@ -224,5 +233,10 @@ public class WorkspaceTeamServiceImpl implements WorkspaceTeamService {
 
                 return workspaceTeamMemberRepository.findByTeamIdOrderByJoinedAtAsc(teamId).stream()
                                 .map(workspaceTeamMemberMapper::toResponse).toList();
+        }
+
+        private void publishWorkspaceEventAfterCommit(Long workspaceId, String eventType, Object data) {
+                afterCommitExecutor.runAfterCommit(() -> realtimeEventPublisherService.publishWorkspaceEvent(workspaceId,
+                                eventType, data));
         }
 }

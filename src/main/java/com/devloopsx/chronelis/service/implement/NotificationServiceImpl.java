@@ -14,6 +14,9 @@ import com.devloopsx.chronelis.repository.NotificationRepository;
 import com.devloopsx.chronelis.repository.UserRepository;
 import com.devloopsx.chronelis.service.NotificationService;
 import com.devloopsx.chronelis.service.RealtimeEventPublisherService;
+import com.devloopsx.chronelis.service.cache.AfterCommitExecutor;
+import com.devloopsx.chronelis.service.cache.CacheKeys;
+import com.devloopsx.chronelis.service.cache.RedisCacheService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.Duration;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +38,10 @@ public class NotificationServiceImpl implements NotificationService {
     NotificationMapper notificationMapper;
     RealtimeEventPublisherService realtimeEventPublisherService;
     SecurityUtils securityUtils;
+    RedisCacheService redisCacheService;
+    AfterCommitExecutor afterCommitExecutor;
+
+    static final Duration UNREAD_COUNT_TTL = Duration.ofMinutes(5);
 
     @Override
     public PaginationResponse listMyNotifications(Pageable pageable) {
@@ -57,7 +65,7 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     public NotificationUnreadCountResponse getUnreadCount() {
         User currentUser = securityUtils.getAuthenticatedUser();
-        long unreadCount = notificationRepository.countByUserUserIdAndIsReadFalse(currentUser.getUserId());
+        long unreadCount = getUnreadCountValue(currentUser.getUserId());
         return NotificationUnreadCountResponse.builder().unreadCount(unreadCount).build();
     }
 
@@ -70,8 +78,7 @@ public class NotificationServiceImpl implements NotificationService {
             throw new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND, "Notification không tồn tại");
         }
 
-        long unreadCount = notificationRepository.countByUserUserIdAndIsReadFalse(currentUser.getUserId());
-        realtimeEventPublisherService.publishUnreadCount(currentUser.getUserId(), unreadCount);
+        afterCommitExecutor.runAfterCommit(() -> refreshUnreadCountAndPublish(currentUser.getUserId()));
     }
 
     @Override
@@ -79,7 +86,10 @@ public class NotificationServiceImpl implements NotificationService {
     public void markAllAsRead() {
         User currentUser = securityUtils.getAuthenticatedUser();
         notificationRepository.markAllAsRead(currentUser.getUserId());
-        realtimeEventPublisherService.publishUnreadCount(currentUser.getUserId(), 0);
+        afterCommitExecutor.runAfterCommit(() -> {
+            redisCacheService.setJson(CacheKeys.notificationUnreadCount(currentUser.getUserId()), 0L, UNREAD_COUNT_TTL);
+            realtimeEventPublisherService.publishUnreadCount(currentUser.getUserId(), 0);
+        });
     }
 
     @Override
@@ -102,10 +112,26 @@ public class NotificationServiceImpl implements NotificationService {
 
         Notification savedNotification = notificationRepository.save(notification);
 
-        realtimeEventPublisherService.publishNotificationEvent(recipientUserId, "notification.created",
-                notificationMapper.toResponse(savedNotification));
+        var response = notificationMapper.toResponse(savedNotification);
+        afterCommitExecutor.runAfterCommit(() -> {
+            realtimeEventPublisherService.publishNotificationEvent(recipientUserId, "notification.created", response);
+            refreshUnreadCountAndPublish(recipientUserId);
+        });
+    }
 
-        long unreadCount = notificationRepository.countByUserUserIdAndIsReadFalse(recipientUserId);
-        realtimeEventPublisherService.publishUnreadCount(recipientUserId, unreadCount);
+    private long getUnreadCountValue(String userId) {
+        String key = CacheKeys.notificationUnreadCount(userId);
+        return redisCacheService.getJson(key, Long.class)
+                .orElseGet(() -> {
+                    long unreadCount = notificationRepository.countByUserUserIdAndIsReadFalse(userId);
+                    redisCacheService.setJson(key, unreadCount, UNREAD_COUNT_TTL);
+                    return unreadCount;
+                });
+    }
+
+    private void refreshUnreadCountAndPublish(String userId) {
+        long unreadCount = notificationRepository.countByUserUserIdAndIsReadFalse(userId);
+        redisCacheService.setJson(CacheKeys.notificationUnreadCount(userId), unreadCount, UNREAD_COUNT_TTL);
+        realtimeEventPublisherService.publishUnreadCount(userId, unreadCount);
     }
 }

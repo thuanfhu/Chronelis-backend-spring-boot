@@ -25,6 +25,10 @@ import com.devloopsx.chronelis.repository.TaskStatusRepository;
 import com.devloopsx.chronelis.repository.UserRepository;
 import com.devloopsx.chronelis.repository.WorkspaceTeamRepository;
 import com.devloopsx.chronelis.service.*;
+import com.devloopsx.chronelis.service.cache.AfterCommitExecutor;
+import com.devloopsx.chronelis.service.cache.CacheInvalidationService;
+import com.devloopsx.chronelis.service.cache.CacheKeys;
+import com.devloopsx.chronelis.service.cache.RedisCacheService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +38,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -56,6 +61,11 @@ public class ProjectServiceImpl implements ProjectService {
         SecurityUtils securityUtils;
         ActivityLogService activityLogService;
         RealtimeEventPublisherService realtimeEventPublisherService;
+        RedisCacheService redisCacheService;
+        CacheInvalidationService cacheInvalidationService;
+        AfterCommitExecutor afterCommitExecutor;
+
+        static final Duration PROJECT_ANALYTICS_TTL = Duration.ofMinutes(3);
 
         @Override
         @Transactional
@@ -92,7 +102,8 @@ public class ProjectServiceImpl implements ProjectService {
                                 "Tạo project " + savedProject.getName());
 
                 ProjectResponse response = projectMapper.toResponse(savedProject);
-                realtimeEventPublisherService.publishProjectEvent(workspace.getId(), savedProject.getId(),
+                cacheInvalidationService.invalidateWorkspaceAccessAfterCommit(workspace.getId());
+                publishProjectEventAfterCommit(workspace.getId(), savedProject.getId(),
                                 "project.created",
                                 response);
                 return response;
@@ -147,7 +158,10 @@ public class ProjectServiceImpl implements ProjectService {
                                 "Cập nhật project " + updatedProject.getName());
 
                 ProjectResponse response = projectMapper.toResponse(updatedProject);
-                realtimeEventPublisherService.publishProjectEvent(updatedProject.getWorkspace().getId(),
+                if (request.getVisibility() != null || managerUpdateRequested) {
+                        cacheInvalidationService.invalidateWorkspaceAccessAfterCommit(updatedProject.getWorkspace().getId());
+                }
+                publishProjectEventAfterCommit(updatedProject.getWorkspace().getId(),
                                 updatedProject.getId(),
                                 "project.updated", response);
                 return response;
@@ -171,7 +185,7 @@ public class ProjectServiceImpl implements ProjectService {
                                                 + request.getStatus());
 
                 ProjectResponse response = projectMapper.toResponse(updatedProject);
-                realtimeEventPublisherService.publishProjectEvent(updatedProject.getWorkspace().getId(),
+                publishProjectEventAfterCommit(updatedProject.getWorkspace().getId(),
                                 updatedProject.getId(),
                                 "project.status-updated", response);
                 return response;
@@ -218,14 +232,17 @@ public class ProjectServiceImpl implements ProjectService {
                 // does not conflict when DB cascades task_statuses via project delete.
                 taskRepository.deleteByProjectIdIn(List.of(projectId));
 
-                realtimeEventPublisherService.publishProjectEvent(workspaceId, projectId, "project.deleted", projectId);
-
                 projectRepository.delete(project);
 
                 activityLogService.createLog(workspaceId, currentUser.getUserId(),
                                 ActivityActionType.PROJECT_DELETED,
                                 ActivityTargetType.PROJECT, projectId,
                                 "Xóa project " + projectName);
+                cacheInvalidationService.invalidateProjectAccessAfterCommit(projectId);
+                cacheInvalidationService.invalidateProjectTasksAfterCommit(projectId);
+                cacheInvalidationService.invalidateProjectSchedulesAfterCommit(projectId);
+                cacheInvalidationService.invalidateWorkspaceAccessAfterCommit(workspaceId);
+                publishProjectEventAfterCommit(workspaceId, projectId, "project.deleted", projectId);
         }
 
         private void applyProjectManagerAssignments(Project project, Long workspaceId, String managerUserId,
@@ -343,7 +360,17 @@ public class ProjectServiceImpl implements ProjectService {
         @Transactional(readOnly = true)
         public ProjectAnalyticsResponse getProjectAnalytics(Long projectId) {
                 collaborationAccessService.ensureCurrentUserCanAccessProject(projectId);
+                long version = redisCacheService.getVersion(CacheKeys.projectTasksVersion(projectId));
+                String key = CacheKeys.projectAnalytics(projectId, version);
+                return redisCacheService.getJson(key, ProjectAnalyticsResponse.class)
+                                .orElseGet(() -> {
+                                        ProjectAnalyticsResponse response = buildProjectAnalytics(projectId);
+                                        redisCacheService.setJson(key, response, PROJECT_ANALYTICS_TTL);
+                                        return response;
+                                });
+        }
 
+        private ProjectAnalyticsResponse buildProjectAnalytics(Long projectId) {
                 LocalDateTime since = LocalDateTime.now().minusDays(30);
 
                 Map<String, Integer> createdMap = new HashMap<>();
@@ -379,5 +406,10 @@ public class ProjectServiceImpl implements ProjectService {
                                 .completedTasks((int) completed)
                                 .completionRate(rate)
                                 .build();
+        }
+
+        private void publishProjectEventAfterCommit(Long workspaceId, Long projectId, String eventType, Object data) {
+                afterCommitExecutor.runAfterCommit(() -> realtimeEventPublisherService.publishProjectEvent(workspaceId,
+                                projectId, eventType, data));
         }
 }

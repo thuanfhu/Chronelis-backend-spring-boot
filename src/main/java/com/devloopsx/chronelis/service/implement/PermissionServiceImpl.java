@@ -13,6 +13,7 @@ import com.devloopsx.chronelis.exception.ErrorCode;
 import com.devloopsx.chronelis.mapper.PermissionMapper;
 import com.devloopsx.chronelis.repository.PermissionRepository;
 import com.devloopsx.chronelis.service.PermissionService;
+import com.devloopsx.chronelis.service.cache.CacheInvalidationService;
 import com.devloopsx.chronelis.utils.PermissionUtils;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,7 @@ public class PermissionServiceImpl implements PermissionService {
 	PermissionRepository permissionRepository;
 	PermissionMapper permissionMapper;
 	PermissionUtils permissionUtils;
+	CacheInvalidationService cacheInvalidationService;
 
 	@Override
 	public List<PermissionResponse> createModuleForPermissions(CreateModuleRequest createModuleRequest) {
@@ -49,6 +51,7 @@ public class PermissionServiceImpl implements PermissionService {
 
 		permissions.forEach(permission -> permission.setModule(moduleName));
 		this.permissionRepository.saveAll(permissions);
+		cacheInvalidationService.invalidateGlobalAuthzAfterCommit();
 
 		return this.permissionMapper.permissionsToPermissionResponseList(permissions);
 	}
@@ -64,6 +67,7 @@ public class PermissionServiceImpl implements PermissionService {
 		permissionsInModule.forEach(permission -> permission.setModule(null));
 
 		this.permissionRepository.saveAll(permissionsInModule);
+		cacheInvalidationService.invalidateGlobalAuthzAfterCommit();
 	}
 
 	@Override
@@ -88,7 +92,9 @@ public class PermissionServiceImpl implements PermissionService {
 		Permission permission = this.permissionMapper.createPermissionRequestToPermission(createPermissionRequest);
 		permission.setModule(moduleName); // can null
 
-		return this.permissionMapper.permissionToResponse(this.permissionRepository.save(permission));
+		PermissionResponse response = this.permissionMapper.permissionToResponse(this.permissionRepository.save(permission));
+		cacheInvalidationService.invalidateGlobalAuthzAfterCommit();
+		return response;
 	}
 
 	@Override
@@ -138,7 +144,9 @@ public class PermissionServiceImpl implements PermissionService {
 			currentPermission.setModule(null);
 		}
 
-		return this.permissionMapper.permissionToResponse(this.permissionRepository.save(currentPermission));
+		PermissionResponse response = this.permissionMapper.permissionToResponse(this.permissionRepository.save(currentPermission));
+		cacheInvalidationService.invalidateGlobalAuthzAfterCommit();
+		return response;
 	}
 
 	@Override
@@ -150,5 +158,6 @@ public class PermissionServiceImpl implements PermissionService {
 		currentPermission.getRoles().clear();
 
 		this.permissionRepository.delete(currentPermission);
+		cacheInvalidationService.invalidateGlobalAuthzAfterCommit();
 	}
 }

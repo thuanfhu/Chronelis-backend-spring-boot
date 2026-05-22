@@ -1,7 +1,7 @@
 package com.devloopsx.chronelis.configuration;
 
 import com.devloopsx.chronelis.interceptor.PermissionInterceptor;
-import com.devloopsx.chronelis.repository.UserRepository;
+import com.devloopsx.chronelis.service.cache.AuthzPermissionCacheService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -15,12 +15,12 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @RequiredArgsConstructor
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 public class PermissionInterceptorConfiguration implements WebMvcConfigurer {
-	UserRepository userRepository;
 	SecurityUtils securityUtils;
+	AuthzPermissionCacheService authzPermissionCacheService;
 
 	@Bean
 	PermissionInterceptor getPermissionInterceptor() {
-		return new PermissionInterceptor(userRepository, securityUtils);
+		return new PermissionInterceptor(securityUtils, authzPermissionCacheService);
 	}
 
 	@Override

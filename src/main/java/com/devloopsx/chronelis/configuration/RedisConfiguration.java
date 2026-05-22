@@ -70,6 +70,9 @@ public class RedisConfiguration {
 		RedisStandaloneConfiguration redisConfig = new RedisStandaloneConfiguration();
 		redisConfig.setHostName(redisHost);
 		redisConfig.setPort(redisPort);
+		if (StringUtils.hasText(redisUsername)) {
+			redisConfig.setUsername(redisUsername);
+		}
 		if (StringUtils.hasText(redisPassword)) {
 			redisConfig.setPassword(redisPassword);
 		}
@@ -80,11 +83,14 @@ public class RedisConfiguration {
 		jedisClientConfiguration.connectTimeout(Duration.ofMillis(redisTimeout));
 		jedisClientConfiguration.readTimeout(Duration.ofMillis(redisTimeout));
 		jedisClientConfiguration.usePooling().poolConfig(jedisPoolConfig);
+		if (redisSsl) {
+			jedisClientConfiguration.useSsl();
+		}
 
 		JedisConnectionFactory factory = new JedisConnectionFactory(redisConfig, jedisClientConfiguration.build());
 
 		factory.afterPropertiesSet();
-		log.info("Redis connection factory configured successfully for host: {}", redisHost);
+		log.info("Redis connection factory configured successfully for host: {}, ssl: {}", redisHost, redisSsl);
 		return factory;
 	}
 
@@ -107,6 +113,8 @@ public class RedisConfiguration {
 	@Bean
 	public UnifiedJedis unifiedJedis() {
 		DefaultJedisClientConfig.Builder builder = DefaultJedisClientConfig.builder();
+		builder.ssl(redisSsl);
+		builder.timeoutMillis(redisTimeout);
 		if (StringUtils.hasText(redisUsername)) {
 			builder.user(redisUsername);
 		}

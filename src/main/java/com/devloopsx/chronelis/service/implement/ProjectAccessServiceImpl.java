@@ -12,9 +12,11 @@ import com.devloopsx.chronelis.exception.ErrorCode;
 import com.devloopsx.chronelis.mapper.ProjectAccessMapper;
 import com.devloopsx.chronelis.repository.ProjectAccessGrantRepository;
 import com.devloopsx.chronelis.repository.UserRepository;
+import com.devloopsx.chronelis.repository.WorkspaceTeamMemberRepository;
 import com.devloopsx.chronelis.service.CollaborationAccessService;
 import com.devloopsx.chronelis.service.ProjectAccessService;
 import com.devloopsx.chronelis.service.ProjectPermissionService;
+import com.devloopsx.chronelis.service.cache.CacheInvalidationService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -31,10 +35,12 @@ import java.util.List;
 public class ProjectAccessServiceImpl implements ProjectAccessService {
     ProjectAccessGrantRepository projectAccessGrantRepository;
     UserRepository userRepository;
+    WorkspaceTeamMemberRepository workspaceTeamMemberRepository;
     ProjectAccessMapper projectAccessMapper;
     CollaborationAccessService collaborationAccessService;
     ProjectPermissionService projectPermissionService;
     SecurityUtils securityUtils;
+    CacheInvalidationService cacheInvalidationService;
 
     @Override
     public List<ProjectAccessResponse> listProjectAccess(Long projectId) {
@@ -70,7 +76,9 @@ public class ProjectAccessServiceImpl implements ProjectAccessService {
                 .build();
 
         applySubject(projectAccess, project, request);
-        return projectAccessMapper.toResponse(projectAccessGrantRepository.save(projectAccess));
+        ProjectAccessResponse response = projectAccessMapper.toResponse(projectAccessGrantRepository.save(projectAccess));
+        invalidateProjectAccessMutation(project, affectedUserIds(projectAccess));
+        return response;
     }
 
     @Override
@@ -87,7 +95,9 @@ public class ProjectAccessServiceImpl implements ProjectAccessService {
 
         projectAccess.setRole(request.getRole());
         projectAccess.setUpdatedAt(LocalDateTime.now());
-        return projectAccessMapper.toResponse(projectAccessGrantRepository.save(projectAccess));
+        ProjectAccessResponse response = projectAccessMapper.toResponse(projectAccessGrantRepository.save(projectAccess));
+        invalidateProjectAccessMutation(project, affectedUserIds(projectAccess));
+        return response;
     }
 
     @Override
@@ -104,7 +114,9 @@ public class ProjectAccessServiceImpl implements ProjectAccessService {
                 .orElseThrow(() -> new ApplicationException(ErrorCode.RESOURCE_NOT_FOUND,
                         "Quyền truy cập project không tồn tại"));
         ensureCanManageExistingGrant(actorAccess, projectAccess);
+        Set<String> affectedUserIds = affectedUserIds(projectAccess);
         projectAccessGrantRepository.delete(projectAccess);
+        invalidateProjectAccessMutation(project, affectedUserIds);
     }
 
     @Override
@@ -171,5 +183,25 @@ public class ProjectAccessServiceImpl implements ProjectAccessService {
             throw new ApplicationException(ErrorCode.UNAUTHORIZED_ACCESS,
                     "Chỉ owner workspace mới có quyền thay đổi quyền MANAGER");
         }
+    }
+
+    private Set<String> affectedUserIds(ProjectAccessGrant projectAccess) {
+        if (projectAccess.getSubjectType() == ProjectAccessSubjectType.USER && projectAccess.getUser() != null) {
+            return Set.of(projectAccess.getUser().getUserId());
+        }
+
+        if (projectAccess.getSubjectType() == ProjectAccessSubjectType.TEAM && projectAccess.getTeam() != null) {
+            return workspaceTeamMemberRepository.findByTeamIdOrderByJoinedAtAsc(projectAccess.getTeam().getId())
+                    .stream()
+                    .map(member -> member.getUser().getUserId())
+                    .collect(Collectors.toSet());
+        }
+
+        return Set.of();
+    }
+
+    private void invalidateProjectAccessMutation(Project project, Set<String> affectedUserIds) {
+        cacheInvalidationService.invalidateWorkspaceAccessAfterCommit(project.getWorkspace().getId());
+        cacheInvalidationService.invalidateUserWorkAfterCommit(affectedUserIds);
     }
 }

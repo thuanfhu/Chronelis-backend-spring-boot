@@ -17,12 +17,16 @@ import com.devloopsx.chronelis.repository.ProjectRepository;
 import com.devloopsx.chronelis.repository.WorkspaceMemberRepository;
 import com.devloopsx.chronelis.repository.WorkspaceTeamMemberRepository;
 import com.devloopsx.chronelis.service.ProjectPermissionService;
+import com.devloopsx.chronelis.service.cache.CacheKeys;
+import com.devloopsx.chronelis.service.cache.RedisCacheService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
+import tools.jackson.core.type.TypeReference;
 
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -36,6 +40,10 @@ public class ProjectPermissionServiceImpl implements ProjectPermissionService {
     WorkspaceMemberRepository workspaceMemberRepository;
     WorkspaceTeamMemberRepository workspaceTeamMemberRepository;
     SecurityUtils securityUtils;
+    RedisCacheService redisCacheService;
+
+    static final Duration PROJECT_ACCESS_TTL = Duration.ofMinutes(5);
+    static final Duration REALTIME_AUTHORIZED_USERS_TTL = Duration.ofMinutes(5);
 
     @Override
     public EffectiveProjectAccessResponse resolveCurrentUserAccess(Long projectId) {
@@ -62,6 +70,30 @@ public class ProjectPermissionServiceImpl implements ProjectPermissionService {
             return EffectiveProjectAccessRoleType.NO_ACCESS;
         }
 
+        long version = redisCacheService.getVersion(CacheKeys.projectAccessVersion(project.getId()));
+        String key = CacheKeys.projectAccess(project.getId(), userId, version);
+        return redisCacheService.getJson(key, EffectiveProjectAccessRoleType.class)
+                .orElseGet(() -> {
+                    EffectiveProjectAccessRoleType role = resolveUserRoleUncached(project, userId);
+                    redisCacheService.setJson(key, role, PROJECT_ACCESS_TTL);
+                    return role;
+                });
+    }
+
+    @Override
+    public Set<String> findAuthorizedUserIds(Project project) {
+        long version = redisCacheService.getVersion(CacheKeys.projectAccessVersion(project.getId()));
+        String key = CacheKeys.realtimeAuthorizedUsers(project.getId(), version);
+        return redisCacheService.getJson(key, new TypeReference<Set<String>>() {
+                })
+                .orElseGet(() -> {
+                    Set<String> userIds = findAuthorizedUserIdsUncached(project);
+                    redisCacheService.setJson(key, userIds, REALTIME_AUTHORIZED_USERS_TTL);
+                    return userIds;
+                });
+    }
+
+    private EffectiveProjectAccessRoleType resolveUserRoleUncached(Project project, String userId) {
         WorkspaceMember member = workspaceMemberRepository.findByWorkspaceIdAndUserUserId(project.getWorkspace().getId(), userId).orElse(null);
         if (member == null) {
             return EffectiveProjectAccessRoleType.NO_ACCESS;
@@ -70,8 +102,7 @@ public class ProjectPermissionServiceImpl implements ProjectPermissionService {
         return resolveRole(project, userId, workspaceOwner);
     }
 
-    @Override
-    public Set<String> findAuthorizedUserIds(Project project) {
+    private Set<String> findAuthorizedUserIdsUncached(Project project) {
         Long workspaceId = project.getWorkspace().getId();
         Set<String> userIds = new HashSet<>();
         workspaceMemberRepository.findByWorkspaceIdOrderByJoinedAtAsc(workspaceId).stream()
@@ -149,6 +180,17 @@ public class ProjectPermissionServiceImpl implements ProjectPermissionService {
     }
 
     private EffectiveProjectAccessResponse resolveAccess(Project project, String userId) {
+        long version = redisCacheService.getVersion(CacheKeys.projectAccessVersion(project.getId()));
+        String key = CacheKeys.projectEffectiveAccess(project.getId(), userId, version);
+        return redisCacheService.getJson(key, EffectiveProjectAccessResponse.class)
+                .orElseGet(() -> {
+                    EffectiveProjectAccessResponse response = resolveAccessUncached(project, userId);
+                    redisCacheService.setJson(key, response, PROJECT_ACCESS_TTL);
+                    return response;
+                });
+    }
+
+    private EffectiveProjectAccessResponse resolveAccessUncached(Project project, String userId) {
         Long workspaceId = project.getWorkspace().getId();
         WorkspaceMember member = workspaceMemberRepository.findByWorkspaceIdAndUserUserId(workspaceId, userId).orElse(null);
         if (member == null) {

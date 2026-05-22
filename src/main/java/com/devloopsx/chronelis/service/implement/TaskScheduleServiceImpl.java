@@ -14,6 +14,10 @@ import com.devloopsx.chronelis.exception.ErrorCode;
 import com.devloopsx.chronelis.mapper.TaskScheduleMapper;
 import com.devloopsx.chronelis.repository.TaskScheduleRepository;
 import com.devloopsx.chronelis.service.*;
+import com.devloopsx.chronelis.service.cache.AfterCommitExecutor;
+import com.devloopsx.chronelis.service.cache.CacheInvalidationService;
+import com.devloopsx.chronelis.service.cache.CacheKeys;
+import com.devloopsx.chronelis.service.cache.RedisCacheService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +27,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -38,6 +43,11 @@ public class TaskScheduleServiceImpl implements TaskScheduleService {
         NotificationService notificationService;
         ActivityLogService activityLogService;
         RealtimeEventPublisherService realtimeEventPublisherService;
+        RedisCacheService redisCacheService;
+        CacheInvalidationService cacheInvalidationService;
+        AfterCommitExecutor afterCommitExecutor;
+
+        static final Duration CALENDAR_TTL = Duration.ofSeconds(60);
 
         @Override
         @Transactional
@@ -72,7 +82,8 @@ public class TaskScheduleServiceImpl implements TaskScheduleService {
                 }
 
                 TaskScheduleResponse response = taskScheduleMapper.toResponse(savedSchedule);
-                realtimeEventPublisherService.publishTaskEvent(task.getProject().getWorkspace().getId(),
+                invalidateScheduleMutationAfterCommit(task);
+                publishTaskEventAfterCommit(task.getProject().getWorkspace().getId(),
                                 task.getProject().getId(),
                                 task.getId(), "task-schedule.created", response);
                 return response;
@@ -112,7 +123,8 @@ public class TaskScheduleServiceImpl implements TaskScheduleService {
                 }
 
                 TaskScheduleResponse response = taskScheduleMapper.toResponse(updatedSchedule);
-                realtimeEventPublisherService.publishTaskEvent(task.getProject().getWorkspace().getId(),
+                invalidateScheduleMutationAfterCommit(task);
+                publishTaskEventAfterCommit(task.getProject().getWorkspace().getId(),
                                 task.getProject().getId(),
                                 task.getId(), "task-schedule.updated", response);
                 return response;
@@ -136,7 +148,8 @@ public class TaskScheduleServiceImpl implements TaskScheduleService {
                                 ActivityActionType.TASK_RESCHEDULED, ActivityTargetType.SCHEDULE, scheduleId,
                                 "Xóa lịch của task " + task.getTitle());
 
-                realtimeEventPublisherService.publishTaskEvent(task.getProject().getWorkspace().getId(),
+                invalidateScheduleMutationAfterCommit(task);
+                publishTaskEventAfterCommit(task.getProject().getWorkspace().getId(),
                                 task.getProject().getId(),
                                 task.getId(), "task-schedule.deleted", scheduleId);
         }
@@ -156,7 +169,41 @@ public class TaskScheduleServiceImpl implements TaskScheduleService {
                         Pageable pageable) {
                 collaborationAccessService.ensureCurrentUserCanAccessProject(projectId);
                 validateCalendarRange(fromDate, toDate);
+                long scheduleVersion = redisCacheService.getVersion(CacheKeys.projectSchedulesVersion(projectId));
+                String key = CacheKeys.projectCalendar(projectId, fromDate.toString(), toDate.toString(),
+                                pageable.getPageNumber(), pageable.getPageSize(), scheduleVersion);
+                return redisCacheService.getJson(key, PaginationResponse.class)
+                                .orElseGet(() -> {
+                                        PaginationResponse response = buildProjectCalendar(projectId, fromDate, toDate,
+                                                        pageable);
+                                        redisCacheService.setJson(key, response, CALENDAR_TTL);
+                                        return response;
+                                });
+        }
 
+        @Override
+        public PaginationResponse getWorkspaceCalendar(Long workspaceId, LocalDate fromDate, LocalDate toDate,
+                        Pageable pageable) {
+                collaborationAccessService.requireCurrentWorkspaceMember(workspaceId);
+                validateCalendarRange(fromDate, toDate);
+
+                String currentUserId = securityUtils.getAuthenticatedUser().getUserId();
+                long scheduleVersion = redisCacheService.getVersion(CacheKeys.workspaceSchedulesVersion(workspaceId));
+                long accessVersion = redisCacheService.getVersion(CacheKeys.workspaceAccessVersion(workspaceId));
+                String key = CacheKeys.workspaceCalendar(workspaceId, currentUserId, fromDate.toString(),
+                                toDate.toString(), pageable.getPageNumber(), pageable.getPageSize(), scheduleVersion,
+                                accessVersion);
+                return redisCacheService.getJson(key, PaginationResponse.class)
+                                .orElseGet(() -> {
+                                        PaginationResponse response = buildWorkspaceCalendar(workspaceId, currentUserId,
+                                                        fromDate, toDate, pageable);
+                                        redisCacheService.setJson(key, response, CALENDAR_TTL);
+                                        return response;
+                                });
+        }
+
+        private PaginationResponse buildProjectCalendar(Long projectId, LocalDate fromDate, LocalDate toDate,
+                        Pageable pageable) {
                 Page<TaskSchedule> page = taskScheduleRepository.findByTaskProjectIdAndScheduledDateBetween(projectId,
                                 fromDate, toDate, pageable);
 
@@ -173,13 +220,8 @@ public class TaskScheduleServiceImpl implements TaskScheduleService {
                                 .build();
         }
 
-        @Override
-        public PaginationResponse getWorkspaceCalendar(Long workspaceId, LocalDate fromDate, LocalDate toDate,
-                        Pageable pageable) {
-                collaborationAccessService.requireCurrentWorkspaceMember(workspaceId);
-                validateCalendarRange(fromDate, toDate);
-
-                String currentUserId = securityUtils.getAuthenticatedUser().getUserId();
+        private PaginationResponse buildWorkspaceCalendar(Long workspaceId, String currentUserId, LocalDate fromDate,
+                        LocalDate toDate, Pageable pageable) {
                 Page<TaskSchedule> page = taskScheduleRepository.findVisibleByWorkspaceCalendar(
                                 workspaceId,
                                 currentUserId,
@@ -196,6 +238,20 @@ public class TaskScheduleServiceImpl implements TaskScheduleService {
                                                 .build())
                                 .content(page.getContent().stream().map(taskScheduleMapper::toResponse).toList())
                                 .build();
+        }
+
+        private void invalidateScheduleMutationAfterCommit(Task task) {
+                cacheInvalidationService.invalidateProjectSchedulesAfterCommit(task.getProject().getId());
+                cacheInvalidationService.invalidateWorkspaceSchedulesAfterCommit(task.getProject().getWorkspace().getId());
+                if (task.getAssignee() != null) {
+                        cacheInvalidationService.invalidateUserWorkAfterCommit(task.getAssignee().getUserId());
+                }
+        }
+
+        private void publishTaskEventAfterCommit(Long workspaceId, Long projectId, Long taskId, String eventType,
+                        Object data) {
+                afterCommitExecutor.runAfterCommit(() -> realtimeEventPublisherService.publishTaskEvent(workspaceId,
+                                projectId, taskId, eventType, data));
         }
 
         private void validateScheduleTime(LocalDateTime scheduledStart, LocalDateTime scheduledEnd) {

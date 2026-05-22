@@ -25,6 +25,7 @@ import com.devloopsx.chronelis.repository.WorkspaceRepository;
 import com.devloopsx.chronelis.repository.WorkspaceTeamRepository;
 import com.devloopsx.chronelis.service.EmailService;
 import com.devloopsx.chronelis.service.UserService;
+import com.devloopsx.chronelis.service.cache.CacheInvalidationService;
 import com.devloopsx.chronelis.utils.PhoneNumberUtils;
 import com.devloopsx.chronelis.utils.RoleUtils;
 import com.devloopsx.chronelis.utils.SecurityUtils;
@@ -70,6 +71,7 @@ public class UserServiceImpl implements UserService {
 	SecurityUtils securityUtils;
 	PhoneNumberUtils phoneNumberUtils;
 	RoleUtils roleUtils;
+	CacheInvalidationService cacheInvalidationService;
 
 	@Override
 	public UserSecureResponse updateUserProfile(UpdateUserProfileRequest updateUserProfileRequest) {
@@ -196,7 +198,9 @@ public class UserServiceImpl implements UserService {
 			currentUser.getRoles().addAll(newRoles);
 		}
 
-		return userMapper.userToResponse(userRepository.save(currentUser));
+		UserResponse response = userMapper.userToResponse(userRepository.save(currentUser));
+		cacheInvalidationService.invalidateGlobalAuthzAfterCommit();
+		return response;
 	}
 
 	@Override
@@ -218,6 +222,7 @@ public class UserServiceImpl implements UserService {
 
 		targetUser.getRoles().clear();
 		userRepository.delete(targetUser);
+		cacheInvalidationService.invalidateGlobalAuthzAfterCommit();
 	}
 
 	@Override
@@ -241,6 +246,7 @@ public class UserServiceImpl implements UserService {
 
 		currentUser.getRoles().removeIf(role -> roleIds.contains(role.getRoleId()));
 		userRepository.save(currentUser);
+		cacheInvalidationService.invalidateGlobalAuthzAfterCommit();
 	}
 
 	@Override
@@ -260,6 +266,7 @@ public class UserServiceImpl implements UserService {
 
 		currentUser.getRoles().add(staffRole);
 		User savedUser = userRepository.save(currentUser);
+		cacheInvalidationService.invalidateGlobalAuthzAfterCommit();
 		return userMapper.userToSecureResponse(savedUser);
 	}
 
