@@ -22,11 +22,7 @@ import com.devloopsx.chronelis.repository.UserRepository;
 import com.devloopsx.chronelis.repository.WorkspaceMemberRepository;
 import com.devloopsx.chronelis.service.*;
 import com.devloopsx.chronelis.service.cache.AfterCommitExecutor;
-import com.devloopsx.chronelis.service.cache.CacheInvalidationService;
-import com.devloopsx.chronelis.service.cache.CacheKeys;
-import com.devloopsx.chronelis.service.cache.RedisCacheService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -60,12 +56,7 @@ public class TaskServiceImpl implements TaskService {
   RealtimeEventPublisherService realtimeEventPublisherService;
   GoalService goalService;
   ProjectPermissionService projectPermissionService;
-  RedisCacheService redisCacheService;
-  CacheInvalidationService cacheInvalidationService;
   AfterCommitExecutor afterCommitExecutor;
-
-  static final Duration MY_WORK_TTL = Duration.ofSeconds(60);
-  static final Duration TASK_ANALYTICS_TTL = Duration.ofMinutes(3);
 
   @Override
   @Transactional
@@ -176,8 +167,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     TaskResponse response = toTaskResponse(savedTask);
-    invalidateTaskMutationAfterCommit(project.getId(), assigneeIds(savedTask));
-    publishTaskEventAfterCommit(
+    afterTaskMutationCommit(
         project.getWorkspace().getId(),
         project.getId(),
         savedTask.getId(),
@@ -274,8 +264,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     TaskResponse response = toTaskResponse(updatedTask);
-    invalidateTaskMutationAfterCommit(task.getProject().getId(), assigneeIds(updatedTask));
-    publishTaskEventAfterCommit(
+    afterTaskMutationCommit(
         task.getProject().getWorkspace().getId(),
         task.getProject().getId(),
         task.getId(),
@@ -394,8 +383,7 @@ public class TaskServiceImpl implements TaskService {
       }
 
       TaskResponse response = toTaskResponse(updatedTask);
-      invalidateTaskMutationAfterCommit(task.getProject().getId(), assigneeIds(updatedTask));
-      publishTaskEventAfterCommit(
+      afterTaskMutationCommit(
           task.getProject().getWorkspace().getId(),
           task.getProject().getId(),
           task.getId(),
@@ -454,8 +442,7 @@ public class TaskServiceImpl implements TaskService {
         "Reorder task " + updatedTask.getTitle());
 
     TaskResponse response = toTaskResponse(updatedTask);
-    invalidateTaskMutationAfterCommit(task.getProject().getId(), assigneeIds(updatedTask));
-    publishTaskEventAfterCommit(
+    afterTaskMutationCommit(
         task.getProject().getWorkspace().getId(),
         task.getProject().getId(),
         task.getId(),
@@ -490,9 +477,7 @@ public class TaskServiceImpl implements TaskService {
           "Bỏ gán task " + updatedTask.getTitle());
 
       TaskResponse response = toTaskResponse(updatedTask);
-      invalidateTaskMutationAfterCommit(
-          task.getProject().getId(), oldAssigneeId == null ? Set.of() : Set.of(oldAssigneeId));
-      publishTaskEventAfterCommit(
+      afterTaskMutationCommit(
           task.getProject().getWorkspace().getId(),
           task.getProject().getId(),
           task.getId(),
@@ -536,13 +521,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     TaskResponse response = toTaskResponse(updatedTask);
-    Set<String> affectedAssignees = new HashSet<>();
-    if (oldAssigneeId != null) {
-      affectedAssignees.add(oldAssigneeId);
-    }
-    affectedAssignees.add(newAssignee.getUserId());
-    invalidateTaskMutationAfterCommit(task.getProject().getId(), affectedAssignees);
-    publishTaskEventAfterCommit(
+    afterTaskMutationCommit(
         task.getProject().getWorkspace().getId(),
         task.getProject().getId(),
         task.getId(),
@@ -612,8 +591,7 @@ public class TaskServiceImpl implements TaskService {
         "Cập nhật trạng thái hoàn thành task " + updatedTask.getTitle());
 
     TaskResponse response = toTaskResponse(updatedTask);
-    invalidateTaskMutationAfterCommit(task.getProject().getId(), assigneeIds(updatedTask));
-    publishTaskEventAfterCommit(
+    afterTaskMutationCommit(
         task.getProject().getWorkspace().getId(),
         task.getProject().getId(),
         task.getId(),
@@ -631,16 +609,7 @@ public class TaskServiceImpl implements TaskService {
   @Transactional(readOnly = true)
   public MyWorkResponse getMyWork() {
     User currentUser = securityUtils.getAuthenticatedUser();
-    long version = redisCacheService.getVersion(CacheKeys.userWorkVersion(currentUser.getUserId()));
-    String key = CacheKeys.myWork(currentUser.getUserId(), version);
-    return redisCacheService
-        .getJson(key, MyWorkResponse.class)
-        .orElseGet(
-            () -> {
-              MyWorkResponse response = buildMyWork(currentUser);
-              redisCacheService.setJson(key, response, MY_WORK_TTL);
-              return response;
-            });
+    return buildMyWork(currentUser);
   }
 
   private MyWorkResponse buildMyWork(User currentUser) {
@@ -740,16 +709,7 @@ public class TaskServiceImpl implements TaskService {
   @Transactional(readOnly = true)
   public TaskAnalyticsResponse getTaskAnalytics() {
     User currentUser = securityUtils.getAuthenticatedUser();
-    long version = redisCacheService.getVersion(CacheKeys.userWorkVersion(currentUser.getUserId()));
-    String key = CacheKeys.taskAnalytics(currentUser.getUserId(), version);
-    return redisCacheService
-        .getJson(key, TaskAnalyticsResponse.class)
-        .orElseGet(
-            () -> {
-              TaskAnalyticsResponse response = buildTaskAnalytics(currentUser);
-              redisCacheService.setJson(key, response, TASK_ANALYTICS_TTL);
-              return response;
-            });
+    return buildTaskAnalytics(currentUser);
   }
 
   private TaskAnalyticsResponse buildTaskAnalytics(User currentUser) {
@@ -838,7 +798,6 @@ public class TaskServiceImpl implements TaskService {
     int boardPosition = task.getBoardPosition();
     String title = task.getTitle();
     Long goalId = task.getGoal() != null ? task.getGoal().getId() : null;
-    String assigneeId = task.getAssignee() != null ? task.getAssignee().getUserId() : null;
 
     // Defensive cleanup in case DB foreign keys are not configured with CASCADE.
     taskCommentRepository.deleteByTaskId(taskId);
@@ -857,11 +816,12 @@ public class TaskServiceImpl implements TaskService {
         taskId,
         "Xóa task " + title);
 
-    invalidateTaskMutationAfterCommit(
-        projectId, assigneeId == null ? Set.of() : Set.of(assigneeId));
-    cacheInvalidationService.invalidateProjectSchedulesAfterCommit(projectId);
-    cacheInvalidationService.invalidateWorkspaceSchedulesAfterCommit(workspaceId);
-    publishTaskEventAfterCommit(workspaceId, projectId, taskId, "task.deleted", taskId);
+    afterTaskMutationCommit(
+        workspaceId,
+        projectId,
+        taskId,
+        "task.deleted",
+        taskId);
 
     if (goalId != null) {
       goalService.recalculateGoalProgress(goalId);
@@ -987,25 +947,18 @@ public class TaskServiceImpl implements TaskService {
     response.setBlockingTaskCount(dependencySummary.blockingTaskCount());
   }
 
-  private void publishTaskEventAfterCommit(
-      Long workspaceId, Long projectId, Long taskId, String eventType, Object data) {
+  private void afterTaskMutationCommit(
+      Long workspaceId,
+      Long projectId,
+      Long taskId,
+      String eventType,
+      Object data) {
     afterCommitExecutor.runAfterCommit(
-        () ->
-            realtimeEventPublisherService.publishTaskEvent(
-                workspaceId, projectId, taskId, eventType, data));
-  }
-
-  private void invalidateTaskMutationAfterCommit(
-      Long projectId, Collection<String> affectedUserIds) {
-    cacheInvalidationService.invalidateProjectTasksAfterCommit(projectId);
-    cacheInvalidationService.invalidateUserWorkAfterCommit(affectedUserIds);
-  }
-
-  private Set<String> assigneeIds(Task task) {
-    if (task == null || task.getAssignee() == null) {
-      return Set.of();
-    }
-    return Set.of(task.getAssignee().getUserId());
+        () -> {
+          realtimeEventPublisherService.publishProjectEvent(workspaceId, projectId, eventType, data);
+          realtimeEventPublisherService.publishTaskEvent(
+              workspaceId, projectId, taskId, eventType, data);
+        });
   }
 
   private void ensureAssigneeCanAccessProject(Project project, String assigneeId) {

@@ -14,7 +14,6 @@ import com.devloopsx.chronelis.exception.ErrorCode;
 import com.devloopsx.chronelis.mapper.RoleMapper;
 import com.devloopsx.chronelis.repository.RoleRepository;
 import com.devloopsx.chronelis.service.RoleService;
-import com.devloopsx.chronelis.service.cache.CacheInvalidationService;
 import com.devloopsx.chronelis.utils.PermissionUtils;
 import java.util.List;
 import java.util.Set;
@@ -36,7 +35,6 @@ public class RoleServiceImpl implements RoleService {
   RoleRepository roleRepository;
   RoleMapper roleMapper;
   PermissionUtils permissionUtils;
-  CacheInvalidationService cacheInvalidationService;
 
   @Override
   public RoleResponse createRole(CreateRoleRequest createRoleRequest) {
@@ -56,7 +54,6 @@ public class RoleServiceImpl implements RoleService {
     }
 
     RoleResponse response = this.roleMapper.roleToResponse(this.roleRepository.save(role));
-    cacheInvalidationService.invalidateGlobalAuthzAfterCommit();
     return response;
   }
 
@@ -133,7 +130,6 @@ public class RoleServiceImpl implements RoleService {
     }
 
     RoleResponse response = this.roleMapper.roleToResponse(this.roleRepository.save(currentRole));
-    cacheInvalidationService.invalidateGlobalAuthzAfterCommit();
     return response;
   }
 
@@ -168,7 +164,6 @@ public class RoleServiceImpl implements RoleService {
         .getPermissions()
         .removeIf(permission -> permissionIds.contains(permission.getPermissionId()));
     this.roleRepository.save(currentRole);
-    cacheInvalidationService.invalidateGlobalAuthzAfterCommit();
   }
 
   @Override
@@ -188,6 +183,5 @@ public class RoleServiceImpl implements RoleService {
     currentRole.getUsers().clear();
 
     this.roleRepository.delete(currentRole);
-    cacheInvalidationService.invalidateGlobalAuthzAfterCommit();
   }
 }

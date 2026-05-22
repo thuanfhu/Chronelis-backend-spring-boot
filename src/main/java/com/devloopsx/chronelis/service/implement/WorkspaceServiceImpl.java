@@ -23,7 +23,6 @@ import com.devloopsx.chronelis.repository.WorkspaceMemberRepository;
 import com.devloopsx.chronelis.repository.WorkspaceRepository;
 import com.devloopsx.chronelis.service.*;
 import com.devloopsx.chronelis.service.cache.AfterCommitExecutor;
-import com.devloopsx.chronelis.service.cache.CacheInvalidationService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -51,7 +50,6 @@ public class WorkspaceServiceImpl implements WorkspaceService {
   ActivityLogService activityLogService;
   RealtimeEventPublisherService realtimeEventPublisherService;
   NotificationService notificationService;
-  CacheInvalidationService cacheInvalidationService;
   AfterCommitExecutor afterCommitExecutor;
 
   @Override
@@ -85,7 +83,6 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         "Tạo workspace " + savedWorkspace.getName());
 
     WorkspaceResponse response = workspaceMapper.toResponse(savedWorkspace);
-    cacheInvalidationService.invalidateWorkspaceAccessAfterCommit(savedWorkspace.getId());
     publishWorkspaceEventAfterCommit(savedWorkspace.getId(), "workspace.created", response);
     return response;
   }
@@ -180,8 +177,6 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         "Thêm thành viên " + targetUser.getEmail() + " vào workspace");
 
     WorkspaceMemberResponse response = workspaceMemberMapper.toResponse(savedMember);
-    cacheInvalidationService.invalidateWorkspaceAccessAfterCommit(workspaceId);
-    cacheInvalidationService.invalidateUserWorkAfterCommit(targetUser.getUserId());
     publishWorkspaceEventAfterCommit(workspaceId, "workspace.member.added", response);
 
     notificationService.createAndPublish(
@@ -246,8 +241,6 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         "Cập nhật vai trò thành viên " + updatedMember.getUser().getEmail());
 
     WorkspaceMemberResponse response = workspaceMemberMapper.toResponse(updatedMember);
-    cacheInvalidationService.invalidateWorkspaceAccessAfterCommit(workspaceId);
-    cacheInvalidationService.invalidateUserWorkAfterCommit(userId);
     publishWorkspaceEventAfterCommit(workspaceId, "workspace.member.role-updated", response);
     return response;
   }
@@ -287,8 +280,6 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         member.getId(),
         "Xóa thành viên " + member.getUser().getEmail() + " khỏi workspace");
 
-    cacheInvalidationService.invalidateWorkspaceAccessAfterCommit(workspaceId);
-    cacheInvalidationService.invalidateUserWorkAfterCommit(userId);
     publishWorkspaceEventAfterCommit(
         workspaceId, "workspace.member.removed", workspaceMemberMapper.toResponse(member));
 
@@ -325,10 +316,6 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     String workspaceName = workspace.getName();
 
     List<Long> workspaceProjectIds = projectRepository.findIdsByWorkspaceId(workspaceId);
-    List<String> workspaceUserIds =
-        workspaceMemberRepository.findByWorkspaceIdOrderByJoinedAtAsc(workspaceId).stream()
-            .map(member -> member.getUser().getUserId())
-            .toList();
     if (!workspaceProjectIds.isEmpty()) {
       // Remove tasks before deleting workspace/project cascades to prevent
       // fk_tasks_status (RESTRICT) violations during status deletion.
@@ -337,14 +324,6 @@ public class WorkspaceServiceImpl implements WorkspaceService {
 
     workspaceRepository.delete(workspace);
 
-    workspaceProjectIds.forEach(
-        projectId -> {
-          cacheInvalidationService.invalidateProjectAccessAfterCommit(projectId);
-          cacheInvalidationService.invalidateProjectTasksAfterCommit(projectId);
-          cacheInvalidationService.invalidateProjectSchedulesAfterCommit(projectId);
-        });
-    cacheInvalidationService.invalidateUserWorkAfterCommit(workspaceUserIds);
-    cacheInvalidationService.invalidateWorkspaceAccessAfterCommit(workspaceId);
     publishWorkspaceEventAfterCommit(workspaceId, "workspace.deleted", workspaceName);
   }
 
