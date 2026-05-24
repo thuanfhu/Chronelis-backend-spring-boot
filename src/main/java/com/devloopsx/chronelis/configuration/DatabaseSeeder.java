@@ -359,6 +359,24 @@ public class DatabaseSeeder implements ApplicationRunner {
     "Noted. I will adjust acceptance criteria for this sprint."
   };
 
+  private String generateDiverseAvatar(Random random, String firstName, String lastName) {
+    double rand = random.nextDouble();
+    if (rand < 0.4) {
+      // 40% real person face
+      String gender = random.nextBoolean() ? "men" : "women";
+      int id = random.nextInt(99) + 1;
+      return "https://randomuser.me/api/portraits/" + gender + "/" + id + ".jpg";
+    } else if (rand < 0.8) {
+      // 40% dicebear avatars
+      String[] styles = {"adventurer", "avataaars", "bottts", "fun-emoji", "lorelei", "micah", "notionists", "open-peeps", "personas", "pixel-art"};
+      String style = styles[random.nextInt(styles.length)];
+      return "https://api.dicebear.com/7.x/" + style + "/svg?seed=" + firstName + "%20" + lastName;
+    } else {
+      // 20% initials (fallback)
+      return "https://api.dicebear.com/7.x/initials/svg?seed=" + firstName + "%20" + lastName;
+    }
+  }
+
   @Override
   public void run(ApplicationArguments args) {
     if (!ALLOWED_INIT) {
@@ -578,8 +596,7 @@ public class DatabaseSeeder implements ApplicationRunner {
       }
 
       if (user.getAvatarUrl() == null || user.getAvatarUrl().isBlank()) {
-        user.setAvatarUrl(
-            "https://api.dicebear.com/7.x/initials/svg?seed=" + firstName + "%20" + lastName);
+        user.setAvatarUrl(generateDiverseAvatar(random, firstName, lastName));
         changed = true;
       }
 
@@ -656,8 +673,7 @@ public class DatabaseSeeder implements ApplicationRunner {
               .lastName(lastName)
               .nickname(nickname)
               .phoneNumber(phoneNumber)
-              .avatarUrl(
-                  "https://api.dicebear.com/7.x/initials/svg?seed=" + firstName + "%20" + lastName)
+              .avatarUrl(generateDiverseAvatar(random, firstName, lastName))
               .biography(
                   "Works across "
                       + focus
