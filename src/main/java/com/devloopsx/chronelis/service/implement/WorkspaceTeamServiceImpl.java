@@ -66,6 +66,7 @@ public class WorkspaceTeamServiceImpl implements WorkspaceTeamService {
         WorkspaceTeam.builder()
             .workspace(workspace)
             .name(request.getName())
+            .imageUrl(request.getImageUrl())
             .description(request.getDescription())
             .createdBy(currentUser)
             .createdAt(now)
@@ -105,6 +106,7 @@ public class WorkspaceTeamServiceImpl implements WorkspaceTeamService {
     }
 
     if (request.getName() != null) team.setName(request.getName());
+    if (request.getImageUrl() != null) team.setImageUrl(request.getImageUrl());
     if (request.getDescription() != null) team.setDescription(request.getDescription());
     team.setUpdatedAt(LocalDateTime.now());
 

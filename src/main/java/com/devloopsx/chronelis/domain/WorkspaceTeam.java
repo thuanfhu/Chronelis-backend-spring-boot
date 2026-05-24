@@ -30,6 +30,9 @@ public class WorkspaceTeam {
   String name;
 
   @Column(columnDefinition = "TEXT")
+  String imageUrl;
+
+  @Column(columnDefinition = "TEXT")
   String description;
 
   @ManyToOne(fetch = FetchType.LAZY)

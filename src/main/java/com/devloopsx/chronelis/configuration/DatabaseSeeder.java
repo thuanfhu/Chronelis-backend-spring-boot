@@ -298,6 +298,50 @@ public class DatabaseSeeder implements ApplicationRunner {
     "Improve KPI reporting quality for weekly leadership review."
   };
 
+  static final String[] WORKSPACE_IMAGE_URLS = {
+    "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=640&q=80",
+    "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=640&q=80",
+    "https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=640&q=80",
+    "https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=640&q=80",
+    "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=640&q=80",
+    "https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=640&q=80"
+  };
+
+  static final String[] ENGINEERING_TEAM_IMAGE_URLS = {
+    "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=640&q=80",
+    "https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=640&q=80",
+    "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=640&q=80"
+  };
+
+  static final String[] PRODUCT_DESIGN_TEAM_IMAGE_URLS = {
+    "https://images.unsplash.com/photo-1556761175-4b46a572b786?auto=format&fit=crop&w=640&q=80",
+    "https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?auto=format&fit=crop&w=640&q=80",
+    "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=640&q=80"
+  };
+
+  static final String[] OPERATIONS_TEAM_IMAGE_URLS = {
+    "https://images.unsplash.com/photo-1552664688-cf412ec27db2?auto=format&fit=crop&w=640&q=80",
+    "https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=640&q=80",
+    "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=640&q=80"
+  };
+
+  static final String[] DATA_TEAM_IMAGE_URLS = {
+    "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=640&q=80",
+    "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=640&q=80",
+    "https://images.unsplash.com/photo-1556155092-490a1ba16284?auto=format&fit=crop&w=640&q=80"
+  };
+
+  static final String[] PROJECT_IMAGE_URLS = {
+    "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=640&q=80",
+    "https://images.unsplash.com/photo-1551650975-87deedd944c3?auto=format&fit=crop&w=640&q=80",
+    "https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=640&q=80",
+    "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=640&q=80",
+    "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=640&q=80",
+    "https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&w=640&q=80",
+    "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=640&q=80",
+    "https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&w=640&q=80"
+  };
+
   static final List<TaskTypeTemplate> TASK_TYPE_TEMPLATES =
       List.of(
           new TaskTypeTemplate("Feature", "Feature delivery item", "#2563EB", "sparkles"),
@@ -360,21 +404,64 @@ public class DatabaseSeeder implements ApplicationRunner {
   };
 
   private String generateDiverseAvatar(Random random, String firstName, String lastName) {
-    double rand = random.nextDouble();
-    if (rand < 0.4) {
-      // 40% real person face
-      String gender = random.nextBoolean() ? "men" : "women";
-      int id = random.nextInt(99) + 1;
-      return "https://randomuser.me/api/portraits/" + gender + "/" + id + ".jpg";
-    } else if (rand < 0.8) {
-      // 40% dicebear avatars
-      String[] styles = {"adventurer", "avataaars", "bottts", "fun-emoji", "lorelei", "micah", "notionists", "open-peeps", "personas", "pixel-art"};
-      String style = styles[random.nextInt(styles.length)];
-      return "https://api.dicebear.com/7.x/" + style + "/svg?seed=" + firstName + "%20" + lastName;
-    } else {
-      // 20% initials (fallback)
-      return "https://api.dicebear.com/7.x/initials/svg?seed=" + firstName + "%20" + lastName;
+    String seed = (firstName + lastName).replaceAll("\\s+", "");
+    return "https://i.pravatar.cc/150?u=" + seed;
+  }
+
+  private String resolveWorkspaceImageUrl(int workspaceIndex) {
+    return WORKSPACE_IMAGE_URLS[Math.floorMod(workspaceIndex, WORKSPACE_IMAGE_URLS.length)];
+  }
+
+  private String resolveTeamImageUrl(String teamName, int workspaceIndex, int teamIndex) {
+    String normalized = nullableLower(teamName);
+    int selector = workspaceIndex + teamIndex;
+
+    if (normalized.contains("backend")
+        || normalized.contains("frontend")
+        || normalized.contains("mobile")
+        || normalized.contains("devops")
+        || normalized.contains("security")
+        || normalized.contains("qa")) {
+      return ENGINEERING_TEAM_IMAGE_URLS[Math.floorMod(selector, ENGINEERING_TEAM_IMAGE_URLS.length)];
     }
+
+    if (normalized.contains("product")
+        || normalized.contains("design")
+        || normalized.contains("content")
+        || normalized.contains("growth")
+        || normalized.contains("partnership")) {
+      return PRODUCT_DESIGN_TEAM_IMAGE_URLS[
+          Math.floorMod(selector, PRODUCT_DESIGN_TEAM_IMAGE_URLS.length)];
+    }
+
+    if (normalized.contains("data") || normalized.contains("analytics")) {
+      return DATA_TEAM_IMAGE_URLS[Math.floorMod(selector, DATA_TEAM_IMAGE_URLS.length)];
+    }
+
+    return OPERATIONS_TEAM_IMAGE_URLS[Math.floorMod(selector, OPERATIONS_TEAM_IMAGE_URLS.length)];
+  }
+
+  private String resolveProjectImageUrl(String projectName, int workspaceIndex, int projectIndex) {
+    String normalized = nullableLower(projectName);
+    int selector = (workspaceIndex * 3) + projectIndex;
+
+    if (normalized.contains("mobile") || normalized.contains("ui") || normalized.contains("design")) {
+      return "https://images.unsplash.com/photo-1551650975-87deedd944c3?auto=format&fit=crop&w=640&q=80";
+    }
+    if (normalized.contains("analytics") || normalized.contains("dashboard") || normalized.contains("insights")) {
+      return "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=640&q=80";
+    }
+    if (normalized.contains("security") || normalized.contains("permission") || normalized.contains("audit")) {
+      return "https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&w=640&q=80";
+    }
+    if (normalized.contains("integration") || normalized.contains("gateway") || normalized.contains("sync")) {
+      return "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=640&q=80";
+    }
+    if (normalized.contains("onboarding") || normalized.contains("customer") || normalized.contains("success")) {
+      return "https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=640&q=80";
+    }
+
+    return PROJECT_IMAGE_URLS[Math.floorMod(selector, PROJECT_IMAGE_URLS.length)];
   }
 
   @Override
@@ -717,9 +804,11 @@ public class DatabaseSeeder implements ApplicationRunner {
       LocalDateTime updatedAt =
           randomDateTimeBetween(random, createdAt.plusDays(20), now.minusDays(1));
 
+      String workspaceName = WORKSPACE_NAMES[index];
       workspaces.add(
           Workspace.builder()
-              .name(WORKSPACE_NAMES[index])
+              .name(workspaceName)
+              .imageUrl(resolveWorkspaceImageUrl(index))
               .owner(owner)
               .createdAt(createdAt)
               .updatedAt(updatedAt)
@@ -924,6 +1013,7 @@ public class DatabaseSeeder implements ApplicationRunner {
             WorkspaceTeam.builder()
                 .workspace(workspace)
                 .name(teamNames.get(teamIndex))
+                .imageUrl(resolveTeamImageUrl(teamNames.get(teamIndex), workspaceIndex, teamIndex))
                 .description(
                     limitLength(
                         "Team "
@@ -1038,6 +1128,7 @@ public class DatabaseSeeder implements ApplicationRunner {
             Project.builder()
                 .workspace(workspace)
                 .name(limitLength(name, 150))
+                .imageUrl(resolveProjectImageUrl(name, workspaceIndex, projectIndex))
                 .description(limitLength(description, 2000))
                 .status(status)
                 .visibility(visibility)

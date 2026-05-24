@@ -13,6 +13,7 @@ import lombok.experimental.FieldDefaults;
 public class WorkspaceResponse {
   Long id;
   String name;
+  String imageUrl;
   UserSummaryResponse owner;
   LocalDateTime createdAt;
   LocalDateTime updatedAt;

@@ -30,6 +30,9 @@ public class Project {
   String name;
 
   @Column(columnDefinition = "TEXT")
+  String imageUrl;
+
+  @Column(columnDefinition = "TEXT")
   String description;
 
   @Enumerated(EnumType.STRING)
