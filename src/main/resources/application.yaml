@@ -22,6 +22,10 @@ spring:
         dialect: org.hibernate.dialect.MySQLDialect
         type:
           preferred_boolean_jdbc_type: TINYINT
+        order_inserts: true
+        order_updates: true
+        jdbc:
+          batch_size: 100
     show-sql: false
 
   datasource:

@@ -3498,6 +3498,7 @@ public class DatabaseSeeder implements ApplicationRunner {
               TaskDependency.builder()
                   .task(dependent)
                   .dependsOnTask(dependee)
+                  .createdBy(dependent.getCreatedBy())
                   .createdAt(now)
                   .updatedAt(now)
                   .build();
