@@ -93,7 +93,11 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     Workspace workspace = collaborationAccessService.requireWorkspace(workspaceId);
     collaborationAccessService.ensureCurrentUserIsWorkspaceManager(workspaceId);
 
-    if (request.getName() == null || request.getName().isBlank()) {
+    if (request.getName() != null && request.getName().isBlank()) {
+      throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA);
+    }
+
+    if (request.getName() == null && request.getImageUrl() == null) {
       throw new ApplicationException(ErrorCode.NO_UPDATE_PROVIDED);
     }
 

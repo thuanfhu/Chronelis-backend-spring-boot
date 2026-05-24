@@ -121,7 +121,12 @@ public class ProjectServiceImpl implements ProjectService {
       collaborationAccessService.ensureCurrentUserIsWorkspaceOwner(project.getWorkspace().getId());
     }
 
-    if ((request.getName() == null || request.getName().isBlank())
+    if (request.getName() != null && request.getName().isBlank()) {
+      throw new ApplicationException(ErrorCode.INVALID_REQUEST_DATA);
+    }
+
+    if (request.getName() == null
+        && request.getImageUrl() == null
         && request.getDescription() == null
         && request.getStatus() == null
         && request.getVisibility() == null

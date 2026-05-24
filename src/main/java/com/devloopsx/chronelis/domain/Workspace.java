@@ -23,6 +23,9 @@ public class Workspace {
   @Column(nullable = false, length = 150)
   String name;
 
+  @Column(length = 1000)
+  String imageUrl;
+
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "owner_id", nullable = false)
   User owner;

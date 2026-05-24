@@ -16,6 +16,7 @@ public class ProjectResponse {
   Long id;
   Long workspaceId;
   String name;
+  String imageUrl;
   String description;
   ProjectStatusType status;
   ProjectVisibilityType visibility;

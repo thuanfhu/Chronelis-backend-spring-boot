@@ -14,6 +14,7 @@ public class WorkspaceTeamResponse {
   Long id;
   Long workspaceId;
   String name;
+  String imageUrl;
   String description;
   UserSummaryResponse createdBy;
   int memberCount;

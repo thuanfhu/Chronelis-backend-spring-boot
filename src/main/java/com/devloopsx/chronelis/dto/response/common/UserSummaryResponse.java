@@ -13,4 +13,5 @@ public class UserSummaryResponse {
   String email;
   String firstName;
   String lastName;
+  String avatarUrl;
 }
