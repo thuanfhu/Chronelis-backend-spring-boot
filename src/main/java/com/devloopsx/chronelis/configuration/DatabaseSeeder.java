@@ -8,7 +8,6 @@ import java.math.RoundingMode;
 import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -944,14 +943,12 @@ public class DatabaseSeeder implements ApplicationRunner {
         promotedAdminUserIds.add(nonOwnerMembers.get(index).getUserId());
       }
 
-      int adminAssigned = 0;
       for (User memberUser : orderedMembers) {
         WorkspaceMemberRoleType role;
         if (memberUser.getUserId().equals(workspace.getOwner().getUserId())) {
           role = WorkspaceMemberRoleType.OWNER;
         } else if (promotedAdminUserIds.contains(memberUser.getUserId())) {
           role = WorkspaceMemberRoleType.MEMBER;
-          adminAssigned++;
           admins.add(memberUser);
         } else {
           role = WorkspaceMemberRoleType.MEMBER;
@@ -1846,11 +1843,32 @@ public class DatabaseSeeder implements ApplicationRunner {
             .thenComparing(task -> task.getId() == null ? Long.MAX_VALUE : task.getId()));
 
     List<TaskSchedule> schedules = new ArrayList<>(schedulableTasks.size());
+    LocalDate scheduleAnchorDate = now.toLocalDate();
+    Map<Long, LocalDate> scheduleDayByWorkspaceId = new HashMap<>();
+    Map<Long, Integer> tasksTodayByWorkspaceId = new HashMap<>();
+    Map<Long, Integer> dailyLimitByWorkspaceId = new HashMap<>();
+    Map<Long, LocalDateTime> nextStartByWorkspaceId = new HashMap<>();
 
     for (int index = 0; index < schedulableTasks.size(); index++) {
       Task task = schedulableTasks.get(index);
-      ReservedSlot slot = resolveSeedScheduleWindow(random, now, task, index);
-      LocalDateTime dueDate = slot.start().plusDays(3L + random.nextInt(5));
+      Long workspaceId = task.getProject().getWorkspace().getId();
+      ReservedSlot slot =
+          resolveSeedScheduleWindow(
+              random,
+              scheduleAnchorDate,
+              task,
+              workspaceId,
+              scheduleDayByWorkspaceId,
+              tasksTodayByWorkspaceId,
+              dailyLimitByWorkspaceId,
+              nextStartByWorkspaceId);
+      LocalDateTime dueDate =
+          slot.start()
+              .plusDays(3L + random.nextInt(5))
+              .withHour(17)
+              .withMinute(0)
+              .withSecond(0)
+              .withNano(0);
       LocalDateTime createdAt = resolveSeedScheduleCreatedAt(random, now, task, slot.start());
       LocalDateTime updatedAt = createdAt.plusMinutes(20 + (long) random.nextInt(24) * 15L);
       LocalDateTime latestPast = now.minusMinutes(1);
@@ -1898,47 +1916,60 @@ public class DatabaseSeeder implements ApplicationRunner {
   }
 
   private ReservedSlot resolveSeedScheduleWindow(
-      Random random, LocalDateTime now, Task task, int sequence) {
+      Random random,
+      LocalDate scheduleAnchorDate,
+      Task task,
+      Long workspaceId,
+      Map<Long, LocalDate> scheduleDayByWorkspaceId,
+      Map<Long, Integer> tasksTodayByWorkspaceId,
+      Map<Long, Integer> dailyLimitByWorkspaceId,
+      Map<Long, LocalDateTime> nextStartByWorkspaceId) {
     long durationMinutes = resolveScheduleDurationMinutes(random, task.getPriority());
-    LocalDate day = resolveSeedScheduleDate(now, task, sequence);
+    LocalDate day = scheduleDayByWorkspaceId.computeIfAbsent(workspaceId, ignored -> scheduleAnchorDate);
+    int tasksToday = tasksTodayByWorkspaceId.getOrDefault(workspaceId, 0);
+    int dailyLimit =
+        dailyLimitByWorkspaceId.computeIfAbsent(workspaceId, ignored -> resolveDailyScheduleLimit(random));
+    LocalDateTime nextStart = nextStartByWorkspaceId.get(workspaceId);
+    if (nextStart == null) {
+      nextStart = day.atTime(8, 0);
+      nextStartByWorkspaceId.put(workspaceId, nextStart);
+    }
 
-    for (int attempt = 0; attempt < 12; attempt++) {
-      LocalDateTime dayStart = day.atTime(7, 30);
-      LocalDateTime dayEnd = day.atTime(18, 30);
-      LocalDateTime earliestStart =
-          maxDateTime(dayStart, ceilToQuarterHour(task.getCreatedAt().plusHours(1)));
-      LocalDateTime latestStart = dayEnd.minusMinutes(durationMinutes);
-
-      if (Boolean.TRUE.equals(task.getIsCompleted()) && day.equals(now.toLocalDate())) {
-        latestStart = minDateTime(latestStart, now.minusMinutes(durationMinutes + 60));
+    while (true) {
+      LocalDateTime dayStart = day.atTime(8, 0);
+      LocalDateTime dayEnd = day.atTime(17, 0);
+      if (!nextStart.toLocalDate().equals(day) || nextStart.isBefore(dayStart)) {
+        nextStart = dayStart;
       }
 
-      if (earliestStart != null && latestStart != null && !earliestStart.isAfter(latestStart)) {
-        long slotCount = ChronoUnit.MINUTES.between(earliestStart, latestStart) / 15L;
-        LocalDateTime start = earliestStart.plusMinutes((long) random.nextInt((int) slotCount + 1) * 15L);
-        LocalDateTime end = start.plusMinutes(durationMinutes);
+      LocalDateTime start = ceilToQuarterHour(nextStart);
+      LocalDateTime end = start.plusMinutes(durationMinutes);
+      if (tasksToday < dailyLimit && !end.isAfter(dayEnd)) {
+        int gapMinutes = random.nextBoolean() ? 15 : 30;
+        int nextTasksToday = tasksToday + 1;
+        if (nextTasksToday >= dailyLimit) {
+          LocalDate nextDay = day.plusDays(1);
+          scheduleDayByWorkspaceId.put(workspaceId, nextDay);
+          tasksTodayByWorkspaceId.put(workspaceId, 0);
+          dailyLimitByWorkspaceId.put(workspaceId, resolveDailyScheduleLimit(random));
+          nextStartByWorkspaceId.put(workspaceId, nextDay.atTime(8, 0));
+        } else {
+          scheduleDayByWorkspaceId.put(workspaceId, day);
+          tasksTodayByWorkspaceId.put(workspaceId, nextTasksToday);
+          nextStartByWorkspaceId.put(workspaceId, end.plusMinutes(gapMinutes));
+        }
         return new ReservedSlot(start, end);
       }
 
       day = day.plusDays(1);
+      tasksToday = 0;
+      dailyLimit = resolveDailyScheduleLimit(random);
+      nextStart = day.atTime(8, 0);
+      scheduleDayByWorkspaceId.put(workspaceId, day);
+      tasksTodayByWorkspaceId.put(workspaceId, tasksToday);
+      dailyLimitByWorkspaceId.put(workspaceId, dailyLimit);
+      nextStartByWorkspaceId.put(workspaceId, nextStart);
     }
-
-    LocalDate fallbackDay = task.getCreatedAt().toLocalDate().plusDays(1);
-    if (fallbackDay.isBefore(now.toLocalDate())) {
-      fallbackDay = now.toLocalDate();
-    }
-    LocalDateTime start = fallbackDay.atTime(7, 30);
-    return new ReservedSlot(start, start.plusMinutes(durationMinutes));
-  }
-
-  private LocalDate resolveSeedScheduleDate(LocalDateTime now, Task task, int sequence) {
-    LocalDate anchor = now.toLocalDate();
-    LocalDate preferredDay =
-        Boolean.TRUE.equals(task.getIsCompleted())
-            ? anchor.minusDays(10L + Math.floorMod(sequence, 28))
-            : anchor.plusDays(Math.floorMod(sequence, 42));
-    LocalDate earliestTaskDay = task.getCreatedAt().toLocalDate();
-    return preferredDay.isBefore(earliestTaskDay) ? earliestTaskDay : preferredDay;
   }
 
   private LocalDateTime resolveSeedScheduleCreatedAt(
@@ -1985,52 +2016,13 @@ public class DatabaseSeeder implements ApplicationRunner {
     return fallback != null ? fallback : now.minusMinutes(30);
   }
 
-  private ReservedSlot reserveNearTermSlot(
-      Random random,
-      Map<Integer, List<LocalDateTime>> laneCursorsByDayOffset,
-      int preferredDayOffset,
-      LocalDateTime nowAnchor,
-      TaskPriorityType priority) {
-    long durationMinutes = resolveScheduleDurationMinutes(random, priority);
-
-    for (int attempt = 0; attempt < 10; attempt++) {
-      int dayOffset = Math.min(7, preferredDayOffset + Math.max(0, attempt - 1));
-      List<LocalDateTime> laneCursors = laneCursorsByDayOffset.get(dayOffset);
-      if (laneCursors == null || laneCursors.isEmpty()) {
-        continue;
-      }
-
-      int laneIndex = random.nextInt(laneCursors.size());
-      LocalDateTime laneStart = laneCursors.get(laneIndex);
-
-      LocalDateTime start = ceilToQuarterHour(laneStart);
-      if (dayOffset == 0) {
-        start = maxDateTime(start, nowAnchor);
-      }
-
-      LocalDateTime dayEnd = laneStart.toLocalDate().atTime(18, 30);
-      LocalDateTime end = start.plusMinutes(durationMinutes);
-
-      if (end.isAfter(dayEnd)) {
-        laneCursors.set(laneIndex, dayEnd.plusMinutes(15));
-        continue;
-      }
-
-      laneCursors.set(laneIndex, end.plusMinutes(15));
-      return new ReservedSlot(start, end);
-    }
-
-    return null;
-  }
-
-  private int pickNearTermDayOffset(Random random) {
-    int[] weightedOffsets = {0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 4, 5, 6, 7};
-    return weightedOffsets[random.nextInt(weightedOffsets.length)];
-  }
-
   private long resolveScheduleDurationMinutes(Random random, TaskPriorityType priority) {
-    int[] durationOptions = {90, 105, 120, 135, 150, 165, 180, 195, 210, 225, 240};
+    int[] durationOptions = {60, 75, 90, 105, 120, 135, 150, 165, 180};
     return durationOptions[random.nextInt(durationOptions.length)];
+  }
+
+  private int resolveDailyScheduleLimit(Random random) {
+    return 2 + random.nextInt(2);
   }
 
   private LocalDateTime ceilToQuarterHour(LocalDateTime value) {
@@ -3022,23 +3014,6 @@ public class DatabaseSeeder implements ApplicationRunner {
     return progress.setScale(2, RoundingMode.HALF_UP);
   }
 
-  private int resolveTaskCount(Project project, Random random) {
-    int base =
-        switch (project.getStatus()) {
-          case ACTIVE -> 32 + random.nextInt(24);
-          case COMPLETED -> 22 + random.nextInt(18);
-          case ARCHIVED -> 12 + random.nextInt(12);
-        };
-
-    double[] factors = {0.75, 0.95, 1.1, 1.35};
-    double factor = factors[random.nextInt(factors.length)];
-    if (project.getWorkspace().getName().contains("Product")) {
-      factor += 0.15;
-    }
-
-    return Math.max(10, (int) Math.round(base * factor));
-  }
-
   private TaskStatus chooseTaskStatus(
       Random random, ProjectStatusType projectStatus, List<TaskStatus> statuses) {
     int roll = random.nextInt(100);
@@ -3059,13 +3034,6 @@ public class DatabaseSeeder implements ApplicationRunner {
         yield statuses.get(0); // Backlog (Cancelled)
       }
     };
-  }
-
-  private Goal chooseGoalForTask(Random random, List<Goal> goals) {
-    if (goals.isEmpty() || random.nextDouble() < 0.28) {
-      return null;
-    }
-    return goals.get(random.nextInt(goals.size()));
   }
 
   private TaskType chooseTaskTypeForTask(Random random, List<TaskType> taskTypes, Goal goal) {
@@ -3417,13 +3385,6 @@ public class DatabaseSeeder implements ApplicationRunner {
     return candidate;
   }
 
-  private boolean isReservedInitAccountEmail(String email) {
-    if (email == null) {
-      return false;
-    }
-    return RESERVED_INIT_EMAILS.contains(email.toLowerCase(Locale.ROOT));
-  }
-
   private boolean isAllowedSeedEmail(String email) {
     if (email == null || email.isBlank()) {
       return false;
@@ -3599,14 +3560,6 @@ public class DatabaseSeeder implements ApplicationRunner {
       }
     }
   }
-
-  private record ProjectPlan(
-      int workspaceIndex,
-      String name,
-      ProjectStatusType status,
-      String description,
-      int offsetDays,
-      int managerTeamIndex) {}
 
   private record TaskTypeTemplate(String name, String description, String color, String icon) {}
 
