@@ -901,6 +901,7 @@ public class TaskServiceImpl implements TaskService {
 
   private TaskResponse toTaskResponse(Task task) {
     TaskResponse response = taskMapper.toResponse(task);
+    applyPrimarySchedule(response, task.getId());
     applyDependencySummary(
         response,
         taskDependencyService
@@ -919,12 +920,51 @@ public class TaskServiceImpl implements TaskService {
     Map<Long, TaskDependencyService.TaskDependencySummary> summaryByTaskId =
         taskDependencyService.summarizeTasks(
             tasks.stream().map(Task::getId).toList(), blockerNotesByTaskId(tasks));
+    Map<Long, TaskSchedule> primaryScheduleByTaskId = primarySchedulesByTaskId(tasks);
 
     for (TaskResponse response : responses) {
+      applyPrimarySchedule(response, primaryScheduleByTaskId.get(response.getId()));
       applyDependencySummary(response, summaryByTaskId.get(response.getId()));
     }
 
     return responses;
+  }
+
+  private void applyPrimarySchedule(TaskResponse response, Long taskId) {
+    if (response == null || taskId == null) {
+      return;
+    }
+
+    taskScheduleRepository.findByTaskIdOrderByScheduledStartAsc(taskId).stream()
+        .findFirst()
+        .ifPresent(schedule -> applyPrimarySchedule(response, schedule));
+  }
+
+  private void applyPrimarySchedule(TaskResponse response, TaskSchedule schedule) {
+    if (response == null || schedule == null) {
+      return;
+    }
+
+    response.setScheduledStart(schedule.getScheduledStart());
+    response.setScheduledEnd(schedule.getScheduledEnd());
+  }
+
+  private Map<Long, TaskSchedule> primarySchedulesByTaskId(List<Task> tasks) {
+    if (tasks == null || tasks.isEmpty()) {
+      return Map.of();
+    }
+
+    List<Long> taskIds = tasks.stream().map(Task::getId).filter(Objects::nonNull).toList();
+    if (taskIds.isEmpty()) {
+      return Map.of();
+    }
+
+    Map<Long, TaskSchedule> primaryScheduleByTaskId = new LinkedHashMap<>();
+    for (TaskSchedule schedule :
+        taskScheduleRepository.findByTaskIdInOrderByTaskIdAscScheduledStartAsc(taskIds)) {
+      primaryScheduleByTaskId.putIfAbsent(schedule.getTask().getId(), schedule);
+    }
+    return primaryScheduleByTaskId;
   }
 
   private Map<Long, String> blockerNotesByTaskId(List<Task> tasks) {

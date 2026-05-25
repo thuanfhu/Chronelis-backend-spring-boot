@@ -2,6 +2,7 @@ package com.devloopsx.chronelis.repository;
 
 import com.devloopsx.chronelis.domain.TaskSchedule;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -14,6 +15,15 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface TaskScheduleRepository extends JpaRepository<TaskSchedule, Long> {
   List<TaskSchedule> findByTaskIdOrderByScheduledStartAsc(Long taskId);
+
+  @Query(
+      """
+                        SELECT ts FROM TaskSchedule ts
+                        WHERE ts.task.id IN :taskIds
+                        ORDER BY ts.task.id ASC, ts.scheduledStart ASC
+                        """)
+  List<TaskSchedule> findByTaskIdInOrderByTaskIdAscScheduledStartAsc(
+      @Param("taskIds") Collection<Long> taskIds);
 
   void deleteByTaskId(Long taskId);
 

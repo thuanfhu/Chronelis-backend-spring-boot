@@ -507,74 +507,6 @@ public class DataInitializer implements ApplicationRunner {
         permissionRepository
             .findByModule("AUTH")
             .orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-    List<Permission> moduleUserAllPermissions =
-        permissionRepository
-            .findByModule("USER")
-            .orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-    List<Permission> moduleRoleAllPermissions =
-        permissionRepository
-            .findByModule("ROLE")
-            .orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-    List<Permission> modulePermissionAllPermissions =
-        permissionRepository
-            .findByModule("PERMISSION")
-            .orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-    List<Permission> moduleFileAllPermissions =
-        permissionRepository
-            .findByModule("STORAGE")
-            .orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-    List<Permission> moduleWorkspaceAllPermissions =
-        permissionRepository
-            .findByModule("WORKSPACE")
-            .orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-    List<Permission> moduleProjectAllPermissions =
-        permissionRepository
-            .findByModule("PROJECT")
-            .orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-    List<Permission> moduleProjectAccessAllPermissions =
-        permissionRepository
-            .findByModule("PROJECT_ACCESS")
-            .orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-    List<Permission> moduleGoalAllPermissions =
-        permissionRepository
-            .findByModule("GOAL")
-            .orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-    List<Permission> moduleTaskAllPermissions =
-        permissionRepository
-            .findByModule("TASK")
-            .orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-    List<Permission> moduleTaskStatusAllPermissions =
-        permissionRepository
-            .findByModule("TASK_STATUS")
-            .orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-    List<Permission> moduleTaskScheduleAllPermissions =
-        permissionRepository
-            .findByModule("TASK_SCHEDULE")
-            .orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-    List<Permission> moduleTaskCommentAllPermissions =
-        permissionRepository
-            .findByModule("TASK_COMMENT")
-            .orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-    List<Permission> moduleNotificationAllPermissions =
-        permissionRepository
-            .findByModule("NOTIFICATION")
-            .orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-    List<Permission> moduleActivityLogAllPermissions =
-        permissionRepository
-            .findByModule("ACTIVITY_LOG")
-            .orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-    List<Permission> moduleTaskTypeAllPermissions =
-        permissionRepository
-            .findByModule("TASK_TYPE")
-            .orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-    List<Permission> moduleWorkspaceTeamAllPermissions =
-        permissionRepository
-            .findByModule("WORKSPACE_TEAM")
-            .orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
-    List<Permission> moduleWorkspaceInviteAllPermissions =
-        permissionRepository
-            .findByModule("WORKSPACE_INVITE")
-            .orElseThrow(() -> new ApplicationException(ErrorCode.PERMISSION_MODULE_NOT_FOUND));
 
     // Common permissions for all authenticated users (CUSTOMER, STAFF, ADMIN)
     List<Permission> commonAuthenticatedPermissions =
@@ -641,10 +573,6 @@ public class DataInitializer implements ApplicationRunner {
             findPermissionOrThrow("/api/v1/ai/generate", "POST"),
             findPermissionOrThrow("/api/v1/pomodoro/tasks/{taskId}", "POST"),
             findPermissionOrThrow("/api/v1/pomodoro/tasks/{taskId}", "GET"));
-
-    // CUSTOMER permissions - Read + personal collaboration capabilities
-    List<Permission> customerRolePermissions =
-        combinePermissions(List.of(moduleAuthAllPermissions, commonAuthenticatedPermissions));
 
     // STAFF permissions - Can create/update collaboration resources
     List<Permission> staffRolePermissions =

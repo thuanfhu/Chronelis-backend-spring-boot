@@ -29,6 +29,8 @@ public class TaskResponse {
   UserSummaryResponse assignee;
   UserSummaryResponse createdBy;
   LocalDateTime dueDate;
+  LocalDateTime scheduledStart;
+  LocalDateTime scheduledEnd;
   Integer estimatedMinutes;
   Integer boardPosition;
   String blockerNote;

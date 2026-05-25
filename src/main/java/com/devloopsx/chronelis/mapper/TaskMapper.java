@@ -37,6 +37,8 @@ public interface TaskMapper {
   @Mapping(target = "blockedReason", ignore = true)
   @Mapping(target = "blockedByOpenCount", ignore = true)
   @Mapping(target = "blockingTaskCount", ignore = true)
+  @Mapping(target = "scheduledStart", ignore = true)
+  @Mapping(target = "scheduledEnd", ignore = true)
   TaskResponse toResponse(Task task);
 
   @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
