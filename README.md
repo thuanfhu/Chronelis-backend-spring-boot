@@ -11,7 +11,7 @@ Backend chính cho nền tảng cộng tác Chronelis: xác thực JWT + refresh
 - Liquibase
 - Redis (token blacklist)
 - WebSocket STOMP
-- Azure Blob Storage SDK
+- Azure Blob Storage
 - Thymeleaf Mail Templates
 - MapStruct + Lombok
 
