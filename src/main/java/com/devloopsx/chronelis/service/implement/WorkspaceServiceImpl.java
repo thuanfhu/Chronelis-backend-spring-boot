@@ -23,6 +23,7 @@ import com.devloopsx.chronelis.repository.WorkspaceMemberRepository;
 import com.devloopsx.chronelis.repository.WorkspaceRepository;
 import com.devloopsx.chronelis.service.*;
 import com.devloopsx.chronelis.service.cache.AfterCommitExecutor;
+import com.devloopsx.chronelis.service.cache.DashboardCacheService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -51,6 +52,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
   RealtimeEventPublisherService realtimeEventPublisherService;
   NotificationService notificationService;
   AfterCommitExecutor afterCommitExecutor;
+  DashboardCacheService dashboardCacheService;
 
   @Override
   @Transactional
@@ -182,6 +184,8 @@ public class WorkspaceServiceImpl implements WorkspaceService {
 
     WorkspaceMemberResponse response = workspaceMemberMapper.toResponse(savedMember);
     publishWorkspaceEventAfterCommit(workspaceId, "workspace.member.added", response);
+    afterCommitExecutor.runAfterCommit(
+        () -> dashboardCacheService.evictUserTaskCaches(targetUser.getUserId()));
 
     notificationService.createAndPublish(
         targetUser.getUserId(),
@@ -286,6 +290,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
 
     publishWorkspaceEventAfterCommit(
         workspaceId, "workspace.member.removed", workspaceMemberMapper.toResponse(member));
+    afterCommitExecutor.runAfterCommit(() -> dashboardCacheService.evictUserTaskCaches(userId));
 
     notificationService.createAndPublish(
         userId,
@@ -329,6 +334,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     workspaceRepository.delete(workspace);
 
     publishWorkspaceEventAfterCommit(workspaceId, "workspace.deleted", workspaceName);
+    afterCommitExecutor.runAfterCommit(dashboardCacheService::evictAll);
   }
 
   private void publishWorkspaceEventAfterCommit(Long workspaceId, String eventType, Object data) {

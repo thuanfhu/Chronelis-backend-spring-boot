@@ -22,6 +22,7 @@ import com.devloopsx.chronelis.repository.UserRepository;
 import com.devloopsx.chronelis.repository.WorkspaceMemberRepository;
 import com.devloopsx.chronelis.service.*;
 import com.devloopsx.chronelis.service.cache.AfterCommitExecutor;
+import com.devloopsx.chronelis.service.cache.DashboardCacheService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -34,6 +35,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -57,6 +59,7 @@ public class TaskServiceImpl implements TaskService {
   GoalService goalService;
   ProjectPermissionService projectPermissionService;
   AfterCommitExecutor afterCommitExecutor;
+  DashboardCacheService dashboardCacheService;
 
   @Override
   @Transactional
@@ -172,7 +175,8 @@ public class TaskServiceImpl implements TaskService {
         project.getId(),
         savedTask.getId(),
         "task.created",
-        response);
+        response,
+        assigneeId(savedTask));
 
     if (savedTask.getGoal() != null) {
       goalService.recalculateGoalProgress(savedTask.getGoal().getId());
@@ -269,7 +273,8 @@ public class TaskServiceImpl implements TaskService {
         task.getProject().getId(),
         task.getId(),
         "task.updated",
-        response);
+        response,
+        assigneeId(updatedTask));
     return response;
   }
 
@@ -388,7 +393,8 @@ public class TaskServiceImpl implements TaskService {
           task.getProject().getId(),
           task.getId(),
           "task.moved",
-          response);
+          response,
+          assigneeIdsForTaskAndDependents(updatedTask));
 
       if (task.getGoal() != null) {
         goalService.recalculateGoalProgress(task.getGoal().getId());
@@ -447,7 +453,8 @@ public class TaskServiceImpl implements TaskService {
         task.getProject().getId(),
         task.getId(),
         "task.reordered",
-        response);
+        response,
+        assigneeId(updatedTask));
     return response;
   }
 
@@ -482,7 +489,8 @@ public class TaskServiceImpl implements TaskService {
           task.getProject().getId(),
           task.getId(),
           "task.unassigned",
-          response);
+          response,
+          oldAssigneeId);
       return response;
     }
 
@@ -526,7 +534,9 @@ public class TaskServiceImpl implements TaskService {
         task.getProject().getId(),
         task.getId(),
         "task.assigned",
-        response);
+        response,
+        oldAssigneeId,
+        assigneeId(updatedTask));
     return response;
   }
 
@@ -596,7 +606,8 @@ public class TaskServiceImpl implements TaskService {
         task.getProject().getId(),
         task.getId(),
         "task.completion-updated",
-        response);
+        response,
+        assigneeIdsForTaskAndDependents(updatedTask));
 
     if (task.getGoal() != null) {
       goalService.recalculateGoalProgress(task.getGoal().getId());
@@ -609,7 +620,7 @@ public class TaskServiceImpl implements TaskService {
   @Transactional(readOnly = true)
   public MyWorkResponse getMyWork() {
     User currentUser = securityUtils.getAuthenticatedUser();
-    return buildMyWork(currentUser);
+    return dashboardCacheService.getMyWork(currentUser.getUserId(), () -> buildMyWork(currentUser));
   }
 
   private MyWorkResponse buildMyWork(User currentUser) {
@@ -709,7 +720,8 @@ public class TaskServiceImpl implements TaskService {
   @Transactional(readOnly = true)
   public TaskAnalyticsResponse getTaskAnalytics() {
     User currentUser = securityUtils.getAuthenticatedUser();
-    return buildTaskAnalytics(currentUser);
+    return dashboardCacheService.getTaskAnalytics(
+        currentUser.getUserId(), () -> buildTaskAnalytics(currentUser));
   }
 
   private TaskAnalyticsResponse buildTaskAnalytics(User currentUser) {
@@ -798,6 +810,7 @@ public class TaskServiceImpl implements TaskService {
     int boardPosition = task.getBoardPosition();
     String title = task.getTitle();
     Long goalId = task.getGoal() != null ? task.getGoal().getId() : null;
+    List<String> impactedUserIds = assigneeIdsForTaskAndDependents(task);
 
     // Defensive cleanup in case DB foreign keys are not configured with CASCADE.
     taskCommentRepository.deleteByTaskId(taskId);
@@ -821,7 +834,8 @@ public class TaskServiceImpl implements TaskService {
         projectId,
         taskId,
         "task.deleted",
-        taskId);
+        taskId,
+        impactedUserIds);
 
     if (goalId != null) {
       goalService.recalculateGoalProgress(goalId);
@@ -992,13 +1006,48 @@ public class TaskServiceImpl implements TaskService {
       Long projectId,
       Long taskId,
       String eventType,
-      Object data) {
+      Object data,
+      String... impactedUserIds) {
+    afterTaskMutationCommit(
+        workspaceId, projectId, taskId, eventType, data, Arrays.asList(impactedUserIds));
+  }
+
+  private void afterTaskMutationCommit(
+      Long workspaceId,
+      Long projectId,
+      Long taskId,
+      String eventType,
+      Object data,
+      Collection<String> impactedUserIds) {
     afterCommitExecutor.runAfterCommit(
         () -> {
+          dashboardCacheService.evictProjectAnalytics(projectId);
+          dashboardCacheService.evictUserTaskCaches(
+              impactedUserIds.stream()
+                  .filter(StringUtils::hasText)
+                  .distinct()
+                  .toList());
           realtimeEventPublisherService.publishProjectEvent(workspaceId, projectId, eventType, data);
           realtimeEventPublisherService.publishTaskEvent(
               workspaceId, projectId, taskId, eventType, data);
         });
+  }
+
+  private String assigneeId(Task task) {
+    return task != null && task.getAssignee() != null ? task.getAssignee().getUserId() : null;
+  }
+
+  private List<String> assigneeIdsForTaskAndDependents(Task task) {
+    if (task == null || task.getId() == null) {
+      return List.of();
+    }
+
+    List<String> assigneeIds = new ArrayList<>();
+    assigneeIds.add(assigneeId(task));
+    for (TaskDependency dependency : taskDependencyRepository.findOutgoingByTaskId(task.getId())) {
+      assigneeIds.add(assigneeId(dependency.getTask()));
+    }
+    return assigneeIds;
   }
 
   private void ensureAssigneeCanAccessProject(Project project, String assigneeId) {

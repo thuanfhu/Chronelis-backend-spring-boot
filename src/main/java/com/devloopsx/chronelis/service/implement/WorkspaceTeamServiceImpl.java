@@ -23,6 +23,7 @@ import com.devloopsx.chronelis.service.CollaborationAccessService;
 import com.devloopsx.chronelis.service.RealtimeEventPublisherService;
 import com.devloopsx.chronelis.service.WorkspaceTeamService;
 import com.devloopsx.chronelis.service.cache.AfterCommitExecutor;
+import com.devloopsx.chronelis.service.cache.DashboardCacheService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -46,6 +47,7 @@ public class WorkspaceTeamServiceImpl implements WorkspaceTeamService {
   ActivityLogService activityLogService;
   RealtimeEventPublisherService realtimeEventPublisherService;
   AfterCommitExecutor afterCommitExecutor;
+  DashboardCacheService dashboardCacheService;
 
   @Override
   @Transactional
@@ -173,6 +175,7 @@ public class WorkspaceTeamServiceImpl implements WorkspaceTeamService {
         "Xóa team " + name);
 
     publishWorkspaceEventAfterCommit(workspaceId, "team.deleted", teamId);
+    afterCommitExecutor.runAfterCommit(dashboardCacheService::evictAll);
   }
 
   @Override
@@ -214,6 +217,8 @@ public class WorkspaceTeamServiceImpl implements WorkspaceTeamService {
 
     WorkspaceTeamMemberResponse response = workspaceTeamMemberMapper.toResponse(saved);
     publishWorkspaceEventAfterCommit(workspaceId, "team.memberAdded", response);
+    afterCommitExecutor.runAfterCommit(
+        () -> dashboardCacheService.evictUserTaskCaches(request.getUserId()));
     return response;
   }
 
@@ -245,6 +250,7 @@ public class WorkspaceTeamServiceImpl implements WorkspaceTeamService {
         "Xóa thành viên khỏi team " + team.getName());
 
     publishWorkspaceEventAfterCommit(workspaceId, "team.memberRemoved", teamId);
+    afterCommitExecutor.runAfterCommit(() -> dashboardCacheService.evictUserTaskCaches(userId));
   }
 
   @Override

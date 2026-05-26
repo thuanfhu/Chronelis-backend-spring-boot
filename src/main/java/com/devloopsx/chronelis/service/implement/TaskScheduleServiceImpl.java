@@ -15,6 +15,7 @@ import com.devloopsx.chronelis.mapper.TaskScheduleMapper;
 import com.devloopsx.chronelis.repository.TaskScheduleRepository;
 import com.devloopsx.chronelis.service.*;
 import com.devloopsx.chronelis.service.cache.AfterCommitExecutor;
+import com.devloopsx.chronelis.service.cache.DashboardCacheService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -43,6 +44,7 @@ public class TaskScheduleServiceImpl implements TaskScheduleService {
   ActivityLogService activityLogService;
   RealtimeEventPublisherService realtimeEventPublisherService;
   AfterCommitExecutor afterCommitExecutor;
+  DashboardCacheService dashboardCacheService;
 
   @Override
   @Transactional
@@ -245,6 +247,9 @@ public class TaskScheduleServiceImpl implements TaskScheduleService {
 
     afterCommitExecutor.runAfterCommit(
         () -> {
+          if (task.getAssignee() != null) {
+            dashboardCacheService.evictUserTaskCaches(task.getAssignee().getUserId());
+          }
           realtimeEventPublisherService.publishProjectEvent(workspaceId, projectId, eventType, data);
           realtimeEventPublisherService.publishTaskEvent(
               workspaceId, projectId, taskId, eventType, data);

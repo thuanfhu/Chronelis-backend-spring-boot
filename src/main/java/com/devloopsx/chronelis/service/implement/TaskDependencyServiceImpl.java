@@ -16,6 +16,8 @@ import com.devloopsx.chronelis.service.ActivityLogService;
 import com.devloopsx.chronelis.service.CollaborationAccessService;
 import com.devloopsx.chronelis.service.RealtimeEventPublisherService;
 import com.devloopsx.chronelis.service.TaskDependencyService;
+import com.devloopsx.chronelis.service.cache.AfterCommitExecutor;
+import com.devloopsx.chronelis.service.cache.DashboardCacheService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
 import java.time.LocalDateTime;
 import java.util.ArrayDeque;
@@ -47,6 +49,8 @@ public class TaskDependencyServiceImpl implements TaskDependencyService {
   SecurityUtils securityUtils;
   ActivityLogService activityLogService;
   RealtimeEventPublisherService realtimeEventPublisherService;
+  AfterCommitExecutor afterCommitExecutor;
+  DashboardCacheService dashboardCacheService;
 
   @Override
   @Transactional(readOnly = true)
@@ -164,20 +168,26 @@ public class TaskDependencyServiceImpl implements TaskDependencyService {
     eventPayload.put("taskId", taskId);
     eventPayload.put("impactedTaskIds", new ArrayList<>(impactedTaskIds));
 
-    for (Long impactedTaskId : impactedTaskIds) {
-      this.realtimeEventPublisherService.publishTaskEvent(
-          task.getProject().getWorkspace().getId(),
-          task.getProject().getId(),
-          impactedTaskId,
-          "task.dependencies-updated",
-          eventPayload);
-    }
+    Set<String> impactedUserIds =
+        collectAssigneeIds(task, existingDependencies, dependencyTasksById.values());
+    this.afterCommitExecutor.runAfterCommit(
+        () -> {
+          this.dashboardCacheService.evictUserTaskCaches(impactedUserIds);
+          for (Long impactedTaskId : impactedTaskIds) {
+            this.realtimeEventPublisherService.publishTaskEvent(
+                task.getProject().getWorkspace().getId(),
+                task.getProject().getId(),
+                impactedTaskId,
+                "task.dependencies-updated",
+                eventPayload);
+          }
 
-    this.realtimeEventPublisherService.publishProjectEvent(
-        task.getProject().getWorkspace().getId(),
-        task.getProject().getId(),
-        "task.dependencies-updated",
-        eventPayload);
+          this.realtimeEventPublisherService.publishProjectEvent(
+              task.getProject().getWorkspace().getId(),
+              task.getProject().getId(),
+              "task.dependencies-updated",
+              eventPayload);
+        });
 
     return getDependencies(taskId);
   }
@@ -354,6 +364,28 @@ public class TaskDependencyServiceImpl implements TaskDependencyService {
         .dueDate(task.getDueDate())
         .completed(task.getIsCompleted())
         .build();
+  }
+
+  private Set<String> collectAssigneeIds(
+      Task task, List<TaskDependency> existingDependencies, Collection<Task> nextDependencyTasks) {
+    Set<String> assigneeIds = new LinkedHashSet<>();
+    addAssigneeId(assigneeIds, task);
+
+    for (TaskDependency dependency : existingDependencies) {
+      addAssigneeId(assigneeIds, dependency.getDependsOnTask());
+    }
+
+    for (Task dependencyTask : nextDependencyTasks) {
+      addAssigneeId(assigneeIds, dependencyTask);
+    }
+
+    return assigneeIds;
+  }
+
+  private void addAssigneeId(Set<String> assigneeIds, Task task) {
+    if (task != null && task.getAssignee() != null) {
+      assigneeIds.add(task.getAssignee().getUserId());
+    }
   }
 
   private Comparator<Task> taskComparator() {

@@ -64,6 +64,8 @@ spring:
 chronelis:
   frontend:
     base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
+  dashboard-cache:
+    ttl-seconds: ${DASHBOARD_CACHE_TTL_SECONDS:300}
   ai:
     gemini:
       api-key: ${GEMINI_API_KEY:}

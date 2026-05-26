@@ -25,6 +25,7 @@ import com.devloopsx.chronelis.repository.UserRepository;
 import com.devloopsx.chronelis.repository.WorkspaceTeamRepository;
 import com.devloopsx.chronelis.service.*;
 import com.devloopsx.chronelis.service.cache.AfterCommitExecutor;
+import com.devloopsx.chronelis.service.cache.DashboardCacheService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -56,6 +57,7 @@ public class ProjectServiceImpl implements ProjectService {
   ActivityLogService activityLogService;
   RealtimeEventPublisherService realtimeEventPublisherService;
   AfterCommitExecutor afterCommitExecutor;
+  DashboardCacheService dashboardCacheService;
 
   @Override
   @Transactional
@@ -167,6 +169,9 @@ public class ProjectServiceImpl implements ProjectService {
     ProjectResponse response = projectMapper.toResponse(updatedProject);
     publishProjectEventAfterCommit(
         updatedProject.getWorkspace().getId(), updatedProject.getId(), "project.updated", response);
+    if (request.getVisibility() != null || managerUpdateRequested) {
+      afterCommitExecutor.runAfterCommit(dashboardCacheService::evictAll);
+    }
     return response;
   }
 
@@ -254,6 +259,7 @@ public class ProjectServiceImpl implements ProjectService {
         projectId,
         "Xóa project " + projectName);
     publishProjectEventAfterCommit(workspaceId, projectId, "project.deleted", projectId);
+    afterCommitExecutor.runAfterCommit(dashboardCacheService::evictAll);
   }
 
   private void applyProjectManagerAssignments(
@@ -404,7 +410,8 @@ public class ProjectServiceImpl implements ProjectService {
   @Transactional(readOnly = true)
   public ProjectAnalyticsResponse getProjectAnalytics(Long projectId) {
     collaborationAccessService.ensureCurrentUserCanAccessProject(projectId);
-    return buildProjectAnalytics(projectId);
+    return dashboardCacheService.getProjectAnalytics(
+        projectId, () -> buildProjectAnalytics(projectId));
   }
 
   private ProjectAnalyticsResponse buildProjectAnalytics(Long projectId) {
@@ -449,8 +456,9 @@ public class ProjectServiceImpl implements ProjectService {
   private void publishProjectEventAfterCommit(
       Long workspaceId, Long projectId, String eventType, Object data) {
     afterCommitExecutor.runAfterCommit(
-        () ->
-            realtimeEventPublisherService.publishProjectEvent(
-                workspaceId, projectId, eventType, data));
+        () -> {
+          dashboardCacheService.evictProjectAnalytics(projectId);
+          realtimeEventPublisherService.publishProjectEvent(workspaceId, projectId, eventType, data);
+        });
   }
 }

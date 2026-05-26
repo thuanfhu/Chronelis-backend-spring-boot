@@ -15,6 +15,8 @@ import com.devloopsx.chronelis.repository.UserRepository;
 import com.devloopsx.chronelis.service.CollaborationAccessService;
 import com.devloopsx.chronelis.service.ProjectAccessService;
 import com.devloopsx.chronelis.service.ProjectPermissionService;
+import com.devloopsx.chronelis.service.cache.AfterCommitExecutor;
+import com.devloopsx.chronelis.service.cache.DashboardCacheService;
 import com.devloopsx.chronelis.utils.SecurityUtils;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -34,6 +36,8 @@ public class ProjectAccessServiceImpl implements ProjectAccessService {
   CollaborationAccessService collaborationAccessService;
   ProjectPermissionService projectPermissionService;
   SecurityUtils securityUtils;
+  AfterCommitExecutor afterCommitExecutor;
+  DashboardCacheService dashboardCacheService;
 
   @Override
   public List<ProjectAccessResponse> listProjectAccess(Long projectId) {
@@ -74,6 +78,7 @@ public class ProjectAccessServiceImpl implements ProjectAccessService {
     applySubject(projectAccess, project, request);
     ProjectAccessResponse response =
         projectAccessMapper.toResponse(projectAccessGrantRepository.save(projectAccess));
+    afterCommitExecutor.runAfterCommit(dashboardCacheService::evictAll);
     return response;
   }
 
@@ -99,6 +104,7 @@ public class ProjectAccessServiceImpl implements ProjectAccessService {
     projectAccess.setUpdatedAt(LocalDateTime.now());
     ProjectAccessResponse response =
         projectAccessMapper.toResponse(projectAccessGrantRepository.save(projectAccess));
+    afterCommitExecutor.runAfterCommit(dashboardCacheService::evictAll);
     return response;
   }
 
@@ -122,6 +128,7 @@ public class ProjectAccessServiceImpl implements ProjectAccessService {
                         ErrorCode.RESOURCE_NOT_FOUND, "Quyền truy cập project không tồn tại"));
     ensureCanManageExistingGrant(actorAccess, projectAccess);
     projectAccessGrantRepository.delete(projectAccess);
+    afterCommitExecutor.runAfterCommit(dashboardCacheService::evictAll);
   }
 
   @Override
