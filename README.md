@@ -142,15 +142,3 @@ Tắt seed:
 ```env
 ALLOWED_INIT=false
 ```
-
-## 11) Testing
-
-```bash
-./mvnw test
-```
-
-Windows:
-
-```powershell
-.\mvnw.cmd test
-```
