@@ -50,8 +50,7 @@ public class RealtimeEventPublisherServiceImpl implements RealtimeEventPublisher
   }
 
   @Override
-  public void publishTaskEvent(
-      Long workspaceId, Long projectId, Long taskId, String eventType, Object data) {
+  public void publishTaskEvent(Long workspaceId, Long projectId, Long taskId, String eventType, Object data) {
     Project project = projectRepository.findById(projectId).orElse(null);
     if (project == null) {
       return;

@@ -21,7 +21,6 @@ public class CollaborationAccessServiceImpl implements CollaborationAccessServic
   WorkspaceRepository workspaceRepository;
   WorkspaceMemberRepository workspaceMemberRepository;
   WorkspaceTeamRepository workspaceTeamRepository;
-  WorkspaceTeamMemberRepository workspaceTeamMemberRepository;
   ProjectRepository projectRepository;
   GoalRepository goalRepository;
   TaskStatusRepository taskStatusRepository;

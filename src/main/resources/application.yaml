@@ -77,7 +77,7 @@ chronelis:
 jwt:
   access-signer-key: ${JWT_ACCESS_SIGNER_KEY}
   refresh-signer-key: ${JWT_REFRESH_SIGNER_KEY}
-  access-token-duration-in-seconds: ${JWT_ACCESS_TOKEN_DURATION:3600} # 1h
+  access-token-duration-in-seconds: ${JWT_ACCESS_TOKEN_DURATION:7200} # 2h
   refresh-token-duration-in-seconds: ${JWT_REFRESH_TOKEN_DURATION:604800} # 7 days
 
 azure:
